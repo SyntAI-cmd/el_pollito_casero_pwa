@@ -18,7 +18,6 @@ import { routeSheet, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
-import PushToggle from "../components/PushToggle.jsx";
 
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
@@ -93,19 +92,12 @@ export default function Operations() {
           <span className={"live-indicator " + (live ? "on" : "")}>
             <i /> {live ? "En vivo" : "Reconectando…"}
           </span>
-          <PushToggle compact />
           <Link
             to={printUrl({ tipo: "pedidos", fecha: today() })}
             className="secondary"
           >
             <Printer size={15} /> Hoja de pedidos
           </Link>
-          <Link to="/" className="secondary">
-            <Plus size={15} /> Cargar pedido
-          </Link>
-          <button className="link-button" onClick={logout}>
-            <LogOut size={14} /> Salir
-          </button>
         </div>
       </PageHead>
       <div className="stats">

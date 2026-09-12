@@ -1,147 +1,646 @@
+/**
+ * Persistencia en SQLite (node:sqlite) con esquema relacional, migraciones,
+ * transacciones, auditoría y copias de seguridad.
+ *
+ * La API trabaja con objetos "pedido" completos (items, historial, recorrido,
+ * devoluciones); este módulo los arma desde las tablas y los guarda de forma
+ * atómica. Las tablas de la versión 1 (JSON en `payload`) se migran solas.
+ */
 import { DatabaseSync } from "node:sqlite";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-export async function openStore(path) {
-  if (path !== ":memory:") await mkdir("data", { recursive: true });
+const SCHEMA_VERSION = 2;
+const SESSION_DAYS = 90;
+const now = () => new Date().toISOString();
+const j = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
+const p = (s, fallback = null) =>
+  s === null || s === undefined ? fallback : JSON.parse(s);
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS customers(
+  phone TEXT PRIMARY KEY, name TEXT NOT NULL, plan TEXT NOT NULL DEFAULT 'minorista',
+  credit INTEGER NOT NULL DEFAULT 0, driver TEXT, address TEXT, locality_id TEXT,
+  lat REAL, lng REAL, credit_balance REAL NOT NULL DEFAULT 0,
+  created TEXT NOT NULL, updated TEXT NOT NULL, data TEXT);
+CREATE TABLE IF NOT EXISTS payments(
+  id TEXT PRIMARY KEY, customer TEXT NOT NULL REFERENCES customers(phone),
+  amount REAL NOT NULL CHECK(amount > 0), method TEXT NOT NULL, note TEXT,
+  by_actor TEXT NOT NULL, at TEXT NOT NULL, applied TEXT NOT NULL DEFAULT '[]');
+CREATE INDEX IF NOT EXISTS payments_customer ON payments(customer, at);
+CREATE TABLE IF NOT EXISTS orders(
+  id TEXT PRIMARY KEY, idem_key TEXT UNIQUE, customer TEXT NOT NULL REFERENCES customers(phone),
+  name TEXT NOT NULL, phone TEXT NOT NULL, address TEXT NOT NULL, locality TEXT NOT NULL,
+  notes TEXT, plan TEXT NOT NULL, payment TEXT NOT NULL,
+  paid INTEGER NOT NULL DEFAULT 0, paid_at TEXT, paid_by TEXT, payment_id TEXT,
+  status TEXT NOT NULL, driver TEXT NOT NULL DEFAULT '',
+  subtotal REAL NOT NULL, shipping REAL NOT NULL DEFAULT 0, total REAL NOT NULL,
+  boxes INTEGER NOT NULL DEFAULT 0, returned INTEGER NOT NULL DEFAULT 0,
+  created TEXT NOT NULL, updated TEXT NOT NULL, created_by TEXT NOT NULL DEFAULT 'cliente',
+  departed_at TEXT, delivered_at TEXT, delivered_by TEXT,
+  weighed INTEGER NOT NULL DEFAULT 0, weighed_at TEXT, weighed_by TEXT,
+  cancelled INTEGER NOT NULL DEFAULT 0, demo INTEGER NOT NULL DEFAULT 0,
+  destination TEXT, location TEXT, eta TEXT, transfer TEXT, data TEXT);
+CREATE INDEX IF NOT EXISTS orders_customer ON orders(customer, created);
+CREATE INDEX IF NOT EXISTS orders_driver ON orders(driver, created);
+CREATE INDEX IF NOT EXISTS orders_status ON orders(status);
+CREATE TABLE IF NOT EXISTS order_items(
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, position INTEGER NOT NULL,
+  product_id TEXT NOT NULL, name TEXT NOT NULL, kg REAL NOT NULL, ordered REAL,
+  price REAL NOT NULL, line_total REAL NOT NULL, weighed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY(order_id, product_id));
+CREATE TABLE IF NOT EXISTS order_events(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  status TEXT NOT NULL, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS order_events_order ON order_events(order_id, id);
+CREATE TABLE IF NOT EXISTS order_track(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  lat REAL NOT NULL, lng REAL NOT NULL, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS order_track_order ON order_track(order_id, id);
+CREATE TABLE IF NOT EXISTS box_movements(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT REFERENCES orders(id) ON DELETE SET NULL,
+  customer TEXT NOT NULL, boxes INTEGER NOT NULL CHECK(boxes > 0), kind TEXT NOT NULL CHECK(kind IN ('left','returned')),
+  at TEXT NOT NULL, by_actor TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS box_movements_customer ON box_movements(customer, at);
+CREATE TABLE IF NOT EXISTS sessions(
+  id TEXT PRIMARY KEY, role TEXT NOT NULL, phone TEXT, name TEXT, driver TEXT, plan TEXT,
+  created TEXT NOT NULL, expires TEXT NOT NULL, last_seen TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires);
+CREATE TABLE IF NOT EXISTS push_subscriptions(
+  endpoint TEXT PRIMARY KEY, role TEXT NOT NULL, phone TEXT, driver TEXT, created TEXT NOT NULL, subscription TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS geocache(query TEXT PRIMARY KEY, payload TEXT NOT NULL, at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS messages(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, thread TEXT NOT NULL, from_role TEXT NOT NULL, from_name TEXT NOT NULL,
+  text TEXT NOT NULL, at TEXT NOT NULL, read_at TEXT);
+CREATE INDEX IF NOT EXISTS messages_thread ON messages(thread, id);
+CREATE TABLE IF NOT EXISTS audit_log(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor_role TEXT, actor TEXT,
+  action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, detail TEXT);
+CREATE INDEX IF NOT EXISTS audit_entity ON audit_log(entity, entity_id);
+`;
+
+export async function openStore(path, { log = console } = {}) {
+  const memory = path === ":memory:";
+  if (!memory) await mkdir("data", { recursive: true });
   const db = new DatabaseSync(path);
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS orders(
-      id TEXT PRIMARY KEY, customer TEXT, driver TEXT, status TEXT, created TEXT, payload TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS customers(phone TEXT PRIMARY KEY, payload TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, created TEXT, payload TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS geocache(query TEXT PRIMARY KEY, payload TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS push(endpoint TEXT PRIMARY KEY, role TEXT, phone TEXT, driver TEXT, created TEXT, payload TEXT NOT NULL);
-  `);
-  // Migración de la demo anterior (tabla con solo id/payload).
-  const cols = db
-    .prepare("PRAGMA table_info(orders)")
-    .all()
-    .map((c) => c.name);
-  if (!cols.includes("customer")) {
-    for (const c of ["customer", "driver", "status", "created"])
-      db.exec(`ALTER TABLE orders ADD COLUMN ${c} TEXT`);
+  db.exec("PRAGMA foreign_keys = ON");
+  if (!memory) {
+    db.exec("PRAGMA journal_mode = WAL");
+    db.exec("PRAGMA synchronous = NORMAL");
   }
-  db.exec("CREATE INDEX IF NOT EXISTS orders_customer ON orders(customer)");
-  const parse = (rows) => rows.map((r) => JSON.parse(r.payload));
+  db.exec("PRAGMA busy_timeout = 5000");
+
+  // Esquema v1 (tablas con payload JSON): se aparta y se importa.
+  const tables = new Set(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+      .all()
+      .map((r) => r.name),
+  );
+  const legacy =
+    tables.has("orders") &&
+    db
+      .prepare("PRAGMA table_info(orders)")
+      .all()
+      .some((c) => c.name === "payload");
+  if (legacy) {
+    log.info?.("Migrando base de datos v1 → v2");
+    for (const t of ["orders", "customers", "sessions", "push", "geocache"])
+      if (tables.has(t)) db.exec(`ALTER TABLE ${t} RENAME TO ${t}_v1`);
+  }
+  db.exec(SCHEMA);
+  const applied = new Set(
+    db
+      .prepare("SELECT version FROM schema_migrations")
+      .all()
+      .map((r) => r.version),
+  );
+  if (!applied.has(SCHEMA_VERSION))
+    db.prepare(
+      "INSERT INTO schema_migrations(version, applied_at) VALUES(?, ?)",
+    ).run(SCHEMA_VERSION, now());
+
   const q = {
-    allOrders: db.prepare(
-      "SELECT payload FROM orders ORDER BY created DESC, rowid DESC",
+    order: db.prepare("SELECT * FROM orders WHERE id = ?"),
+    orderByKey: db.prepare("SELECT * FROM orders WHERE idem_key = ?"),
+    ordersAll: db.prepare(
+      "SELECT * FROM orders ORDER BY created DESC, rowid DESC",
     ),
-    customerOrders: db.prepare(
-      "SELECT payload FROM orders WHERE customer = ? ORDER BY created DESC, rowid DESC",
+    ordersCustomer: db.prepare(
+      "SELECT * FROM orders WHERE customer = ? ORDER BY created DESC, rowid DESC",
     ),
-    driverOrders: db.prepare(
-      "SELECT payload FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
+    ordersDriver: db.prepare(
+      "SELECT * FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
     ),
-    order: db.prepare("SELECT payload FROM orders WHERE id = ?"),
-    orderByKey: db.prepare(
-      "SELECT payload FROM orders WHERE json_extract(payload, '$.key') = ?",
+    ordersCount: db.prepare("SELECT COUNT(*) AS n FROM orders"),
+    items: db.prepare(
+      "SELECT * FROM order_items WHERE order_id = ? ORDER BY position",
     ),
-    saveOrder: db.prepare(
-      `INSERT INTO orders(id, customer, driver, status, created, payload) VALUES(?,?,?,?,?,?)
-       ON CONFLICT(id) DO UPDATE SET customer=excluded.customer, driver=excluded.driver,
-       status=excluded.status, created=excluded.created, payload=excluded.payload`,
+    events: db.prepare(
+      "SELECT status, at FROM order_events WHERE order_id = ? ORDER BY id",
     ),
-    customer: db.prepare("SELECT payload FROM customers WHERE phone = ?"),
-    customers: db.prepare("SELECT payload FROM customers"),
-    saveCustomer: db.prepare(
-      "INSERT INTO customers(phone, payload) VALUES(?,?) ON CONFLICT(phone) DO UPDATE SET payload=excluded.payload",
+    track: db.prepare(
+      "SELECT lat, lng FROM order_track WHERE order_id = ? ORDER BY id",
     ),
-    session: db.prepare("SELECT payload FROM sessions WHERE id = ?"),
-    saveSession: db.prepare(
-      "INSERT INTO sessions(id, created, payload) VALUES(?,?,?)",
+    returns: db.prepare(
+      "SELECT boxes, at, by_actor AS by FROM box_movements WHERE order_id = ? AND kind = 'returned' ORDER BY id",
     ),
+    upsertOrder:
+      db.prepare(`INSERT INTO orders(id, idem_key, customer, name, phone, address, locality, notes, plan, payment, paid, paid_at, paid_by, payment_id,
+        status, driver, subtotal, shipping, total, boxes, returned, created, updated, created_by, departed_at, delivered_at, delivered_by,
+        weighed, weighed_at, weighed_by, cancelled, demo, destination, location, eta, transfer, data)
+      VALUES(@id, @idem_key, @customer, @name, @phone, @address, @locality, @notes, @plan, @payment, @paid, @paid_at, @paid_by, @payment_id,
+        @status, @driver, @subtotal, @shipping, @total, @boxes, @returned, @created, @updated, @created_by, @departed_at, @delivered_at, @delivered_by,
+        @weighed, @weighed_at, @weighed_by, @cancelled, @demo, @destination, @location, @eta, @transfer, @data)
+      ON CONFLICT(id) DO UPDATE SET idem_key=excluded.idem_key, customer=excluded.customer, name=excluded.name, phone=excluded.phone,
+        address=excluded.address, locality=excluded.locality, notes=excluded.notes, plan=excluded.plan, payment=excluded.payment,
+        paid=excluded.paid, paid_at=excluded.paid_at, paid_by=excluded.paid_by, payment_id=excluded.payment_id, status=excluded.status,
+        driver=excluded.driver, subtotal=excluded.subtotal, shipping=excluded.shipping, total=excluded.total, boxes=excluded.boxes,
+        returned=excluded.returned, updated=excluded.updated, departed_at=excluded.departed_at, delivered_at=excluded.delivered_at,
+        delivered_by=excluded.delivered_by, weighed=excluded.weighed, weighed_at=excluded.weighed_at, weighed_by=excluded.weighed_by,
+        cancelled=excluded.cancelled, demo=excluded.demo, destination=excluded.destination, location=excluded.location, eta=excluded.eta,
+        transfer=excluded.transfer, data=excluded.data`),
+    deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
+    insertItem: db.prepare(
+      "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed) VALUES(?,?,?,?,?,?,?,?,?)",
+    ),
+    countEvents: db.prepare(
+      "SELECT COUNT(*) AS n FROM order_events WHERE order_id = ?",
+    ),
+    insertEvent: db.prepare(
+      "INSERT INTO order_events(order_id, status, at) VALUES(?,?,?)",
+    ),
+    countTrack: db.prepare(
+      "SELECT COUNT(*) AS n FROM order_track WHERE order_id = ?",
+    ),
+    insertTrack: db.prepare(
+      "INSERT INTO order_track(order_id, lat, lng, at) VALUES(?,?,?,?)",
+    ),
+    trimTrack: db.prepare(
+      "DELETE FROM order_track WHERE order_id = ? AND id NOT IN (SELECT id FROM order_track WHERE order_id = ? ORDER BY id DESC LIMIT 200)",
+    ),
+    countReturns: db.prepare(
+      "SELECT COUNT(*) AS n FROM box_movements WHERE order_id = ? AND kind = 'returned'",
+    ),
+    insertBox: db.prepare(
+      "INSERT INTO box_movements(order_id, customer, boxes, kind, at, by_actor) VALUES(?,?,?,?,?,?)",
+    ),
+    boxesLeftFor: db.prepare(
+      "SELECT COUNT(*) AS n FROM box_movements WHERE order_id = ? AND kind = 'left'",
+    ),
+    customer: db.prepare("SELECT * FROM customers WHERE phone = ?"),
+    customersAll: db.prepare("SELECT * FROM customers ORDER BY updated DESC"),
+    upsertCustomer:
+      db.prepare(`INSERT INTO customers(phone, name, plan, credit, driver, address, locality_id, lat, lng, credit_balance, created, updated, data)
+      VALUES(@phone, @name, @plan, @credit, @driver, @address, @locality_id, @lat, @lng, @credit_balance, @created, @updated, @data)
+      ON CONFLICT(phone) DO UPDATE SET name=excluded.name, plan=excluded.plan, credit=excluded.credit, driver=excluded.driver,
+        address=excluded.address, locality_id=excluded.locality_id, lat=excluded.lat, lng=excluded.lng, credit_balance=excluded.credit_balance,
+        updated=excluded.updated, data=excluded.data`),
+    payments: db.prepare(
+      "SELECT * FROM payments WHERE customer = ? ORDER BY at",
+    ),
+    paymentsAll: db.prepare("SELECT * FROM payments ORDER BY at"),
+    insertPayment: db.prepare(
+      "INSERT INTO payments(id, customer, amount, method, note, by_actor, at, applied) VALUES(?,?,?,?,?,?,?,?)",
+    ),
+    boxMovements: db.prepare(
+      "SELECT * FROM box_movements WHERE customer = ? ORDER BY id",
+    ),
+    session: db.prepare("SELECT * FROM sessions WHERE id = ? AND expires > ?"),
+    insertSession: db.prepare(
+      "INSERT INTO sessions(id, role, phone, name, driver, plan, created, expires, last_seen) VALUES(?,?,?,?,?,?,?,?,?)",
+    ),
+    touchSession: db.prepare("UPDATE sessions SET last_seen = ? WHERE id = ?"),
     deleteSession: db.prepare("DELETE FROM sessions WHERE id = ?"),
-    pushAll: db.prepare("SELECT endpoint, payload FROM push WHERE role = ?"),
+    purgeSessions: db.prepare("DELETE FROM sessions WHERE expires <= ?"),
+    pushRole: db.prepare(
+      "SELECT endpoint, subscription FROM push_subscriptions WHERE role = ?",
+    ),
     pushCustomer: db.prepare(
-      "SELECT endpoint, payload FROM push WHERE phone = ? AND role = 'cliente'",
+      "SELECT endpoint, subscription FROM push_subscriptions WHERE phone = ? AND role = 'cliente'",
     ),
     pushDriver: db.prepare(
-      "SELECT endpoint, payload FROM push WHERE driver = ? AND role = 'repartidor'",
+      "SELECT endpoint, subscription FROM push_subscriptions WHERE driver = ? AND role = 'repartidor'",
     ),
-    pushSave: db.prepare(
-      "INSERT INTO push(endpoint, role, phone, driver, created, payload) VALUES(?,?,?,?,?,?) ON CONFLICT(endpoint) DO UPDATE SET role=excluded.role, phone=excluded.phone, driver=excluded.driver, payload=excluded.payload",
-    ),
-    pushDelete: db.prepare("DELETE FROM push WHERE endpoint = ?"),
+    pushSave:
+      db.prepare(`INSERT INTO push_subscriptions(endpoint, role, phone, driver, created, subscription) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(endpoint) DO UPDATE SET role=excluded.role, phone=excluded.phone, driver=excluded.driver, subscription=excluded.subscription`),
+    pushDelete: db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?"),
     geo: db.prepare("SELECT payload FROM geocache WHERE query = ?"),
-    saveGeo: db.prepare(
-      "INSERT OR REPLACE INTO geocache(query, payload) VALUES(?,?)",
+    geoSave: db.prepare(
+      "INSERT OR REPLACE INTO geocache(query, payload, at) VALUES(?,?,?)",
+    ),
+    messages: db.prepare(
+      "SELECT id, thread, from_role AS fromRole, from_name AS fromName, text, at, read_at AS readAt FROM messages WHERE thread = ? ORDER BY id DESC LIMIT ?",
+    ),
+    insertMessage: db.prepare(
+      "INSERT INTO messages(thread, from_role, from_name, text, at) VALUES(?,?,?,?,?)",
+    ),
+    markRead: db.prepare(
+      "UPDATE messages SET read_at = ? WHERE thread = ? AND from_role != ? AND read_at IS NULL",
+    ),
+    unread: db.prepare(
+      "SELECT thread, COUNT(*) AS n FROM messages WHERE from_role != ? AND read_at IS NULL GROUP BY thread",
+    ),
+    threads: db.prepare(
+      "SELECT thread, MAX(id) AS last FROM messages GROUP BY thread ORDER BY last DESC",
+    ),
+    audit: db.prepare(
+      "INSERT INTO audit_log(at, actor_role, actor, action, entity, entity_id, detail) VALUES(?,?,?,?,?,?,?)",
+    ),
+    auditFor: db.prepare(
+      "SELECT * FROM audit_log WHERE entity = ? AND entity_id = ? ORDER BY id DESC LIMIT 100",
     ),
   };
-  return {
-    orders: {
-      all: () => parse(q.allOrders.all()),
-      forCustomer: (phone) => parse(q.customerOrders.all(phone)),
-      forDriver: (name) => parse(q.driverOrders.all(name)),
-      get: (id) => {
-        const r = q.order.get(id);
-        return r ? JSON.parse(r.payload) : null;
-      },
-      byKey: (key) => {
-        const r = q.orderByKey.get(key);
-        return r ? JSON.parse(r.payload) : null;
-      },
-      save: (o) => {
-        q.saveOrder.run(
+
+  const rowToOrder = (r) => {
+    if (!r) return null;
+    const extra = p(r.data, {});
+    const o = {
+      ...extra,
+      id: r.id,
+      key: r.idem_key,
+      customer: r.customer,
+      name: r.name,
+      phone: r.phone,
+      address: r.address,
+      locality: p(r.locality),
+      notes: r.notes || "",
+      plan: r.plan,
+      payment: r.payment,
+      paid: !!r.paid,
+      status: r.status,
+      driver: r.driver || "",
+      subtotal: r.subtotal,
+      shipping: r.shipping,
+      total: r.total,
+      boxes: r.boxes,
+      returned: r.returned,
+      created: r.created,
+      updated: r.updated,
+      createdBy: r.created_by,
+      items: q.items.all(r.id).map((i) => ({
+        id: i.product_id,
+        name: i.name,
+        kg: i.kg,
+        price: i.price,
+        lineTotal: i.line_total,
+        ...(i.ordered !== null ? { ordered: i.ordered } : {}),
+        ...(i.weighed ? { weighed: true } : {}),
+      })),
+      history: q.events.all(r.id),
+    };
+    if (r.paid_at) o.paidAt = r.paid_at;
+    if (r.paid_by) o.paidBy = r.paid_by;
+    if (r.payment_id) o.paymentId = r.payment_id;
+    if (r.departed_at) o.departedAt = r.departed_at;
+    if (r.delivered_at) o.deliveredAt = r.delivered_at;
+    if (r.delivered_by) o.deliveredBy = r.delivered_by;
+    if (r.weighed)
+      Object.assign(o, {
+        weighed: true,
+        weighedAt: r.weighed_at,
+        weighedBy: r.weighed_by,
+      });
+    if (r.cancelled) o.cancelled = true;
+    if (r.demo) o.demo = true;
+    if (r.destination !== null) o.destination = p(r.destination);
+    if (r.location) o.location = p(r.location);
+    if (r.eta) o.eta = p(r.eta);
+    if (r.transfer) o.transfer = p(r.transfer);
+    const track = q.track.all(r.id).map((t) => [t.lat, t.lng]);
+    if (track.length) o.track = track;
+    const returns = q.returns.all(r.id);
+    if (returns.length) o.returns = returns;
+    return o;
+  };
+  const knownOrderKeys = new Set([
+    "id",
+    "key",
+    "customer",
+    "name",
+    "phone",
+    "address",
+    "locality",
+    "notes",
+    "plan",
+    "payment",
+    "paid",
+    "paidAt",
+    "paidBy",
+    "paymentId",
+    "status",
+    "driver",
+    "subtotal",
+    "shipping",
+    "total",
+    "boxes",
+    "returned",
+    "created",
+    "updated",
+    "createdBy",
+    "departedAt",
+    "deliveredAt",
+    "deliveredBy",
+    "weighed",
+    "weighedAt",
+    "weighedBy",
+    "cancelled",
+    "demo",
+    "destination",
+    "location",
+    "eta",
+    "transfer",
+    "items",
+    "history",
+    "track",
+    "returns",
+    "driverContact",
+  ]);
+
+  function saveOrder(o) {
+    return transaction(() => {
+      const extra = Object.fromEntries(
+        Object.entries(o).filter(([k]) => !knownOrderKeys.has(k)),
+      );
+      q.upsertOrder.run({
+        id: o.id,
+        idem_key: o.key || null,
+        customer: o.customer,
+        name: o.name,
+        phone: o.phone,
+        address: o.address,
+        locality: j(o.locality),
+        notes: o.notes || null,
+        plan: o.plan,
+        payment: o.payment,
+        paid: o.paid ? 1 : 0,
+        paid_at: o.paidAt || null,
+        paid_by: o.paidBy || null,
+        payment_id: o.paymentId || null,
+        status: o.status,
+        driver: o.driver || "",
+        subtotal: o.subtotal,
+        shipping: o.shipping || 0,
+        total: o.total,
+        boxes: o.boxes || 0,
+        returned: o.returned || 0,
+        created: o.created,
+        updated: now(),
+        created_by: o.createdBy || "cliente",
+        departed_at: o.departedAt || null,
+        delivered_at: o.deliveredAt || null,
+        delivered_by: o.deliveredBy || null,
+        weighed: o.weighed ? 1 : 0,
+        weighed_at: o.weighedAt || null,
+        weighed_by: o.weighedBy || null,
+        cancelled: o.cancelled ? 1 : 0,
+        demo: o.demo ? 1 : 0,
+        destination:
+          o.destination === undefined ? null : JSON.stringify(o.destination),
+        location: j(o.location),
+        eta: j(o.eta),
+        transfer: j(o.transfer),
+        data: Object.keys(extra).length ? JSON.stringify(extra) : null,
+      });
+      // `destination: null` (no ubicable) se distingue de "sin geocodificar" (undefined) guardando la cadena "null".
+      q.deleteItems.run(o.id);
+      o.items.forEach((i, idx) =>
+        q.insertItem.run(
           o.id,
-          o.customer || null,
-          o.driver || null,
-          o.status,
-          o.created,
-          JSON.stringify(o),
+          idx,
+          i.id,
+          i.name,
+          i.kg,
+          i.ordered ?? null,
+          i.price,
+          i.lineTotal ?? Math.round(i.price * i.kg * 100) / 100,
+          i.weighed ? 1 : 0,
+        ),
+      );
+      // Historial, recorrido y devoluciones son "solo agregar": se insertan las entradas nuevas.
+      const have = q.countEvents.get(o.id).n;
+      for (const e of (o.history || []).slice(have))
+        q.insertEvent.run(o.id, e.status, e.at);
+      const haveTrack = q.countTrack.get(o.id).n;
+      const track = o.track || [];
+      if (track.length >= haveTrack) {
+        for (const [lat, lng] of track.slice(haveTrack))
+          q.insertTrack.run(o.id, lat, lng, o.location?.at || now());
+        q.trimTrack.run(o.id, o.id);
+      }
+      const haveReturns = q.countReturns.get(o.id).n;
+      for (const r of (o.returns || []).slice(haveReturns))
+        q.insertBox.run(
+          o.id,
+          o.customer,
+          r.boxes,
+          "returned",
+          r.at,
+          r.by || "admin",
         );
-        return o;
-      },
-      count: () => q.allOrders.all().length,
+      if (o.boxes > 0 && q.boxesLeftFor.get(o.id).n === 0)
+        q.insertBox.run(
+          o.id,
+          o.customer,
+          o.boxes,
+          "left",
+          o.deliveredAt || now(),
+          o.deliveredBy || "admin",
+        );
+      return o;
+    });
+  }
+
+  const rowToCustomer = (r) => {
+    if (!r) return null;
+    const c = {
+      ...p(r.data, {}),
+      phone: r.phone,
+      name: r.name,
+      plan: r.plan,
+      credit: !!r.credit,
+      driver: r.driver || "",
+      creditBalance: r.credit_balance,
+      created: r.created,
+      updated: r.updated,
+    };
+    if (r.address) c.address = r.address;
+    if (r.locality_id) c.localityId = r.locality_id;
+    if (r.lat !== null && r.lng !== null)
+      c.location = { lat: r.lat, lng: r.lng };
+    c.payments = q.payments.all(r.phone).map(rowToPayment);
+    return c;
+  };
+  const rowToPayment = (r) => ({
+    id: r.id,
+    amount: r.amount,
+    method: r.method,
+    note: r.note || "",
+    by: r.by_actor,
+    at: r.at,
+    applied: p(r.applied, []),
+  });
+  const knownCustomerKeys = new Set([
+    "phone",
+    "name",
+    "plan",
+    "credit",
+    "driver",
+    "address",
+    "localityId",
+    "location",
+    "creditBalance",
+    "created",
+    "updated",
+    "payments",
+    "summary",
+  ]);
+  function saveCustomer(c) {
+    const extra = Object.fromEntries(
+      Object.entries(c).filter(([k]) => !knownCustomerKeys.has(k)),
+    );
+    q.upsertCustomer.run({
+      phone: c.phone,
+      name: c.name,
+      plan: c.plan || "minorista",
+      credit: c.credit ? 1 : 0,
+      driver: c.driver || null,
+      address: c.address || null,
+      locality_id: c.localityId || null,
+      lat: c.location?.lat ?? null,
+      lng: c.location?.lng ?? null,
+      credit_balance: c.creditBalance || 0,
+      created: c.created || now(),
+      updated: now(),
+      data: Object.keys(extra).length ? JSON.stringify(extra) : null,
+    });
+    return c;
+  }
+
+  let depth = 0;
+  function transaction(fn) {
+    if (depth > 0) return fn();
+    db.exec("BEGIN IMMEDIATE");
+    depth++;
+    try {
+      const result = fn();
+      db.exec("COMMIT");
+      return result;
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    } finally {
+      depth--;
+    }
+  }
+
+  const store = {
+    db,
+    transaction,
+    orders: {
+      all: () => q.ordersAll.all().map(rowToOrder),
+      forCustomer: (phone) => q.ordersCustomer.all(phone).map(rowToOrder),
+      forDriver: (name) => q.ordersDriver.all(name).map(rowToOrder),
+      get: (id) => rowToOrder(q.order.get(id)),
+      byKey: (key) => rowToOrder(q.orderByKey.get(key)),
+      save: saveOrder,
+      count: () => q.ordersCount.get().n,
     },
     customers: {
-      get: (phone) => {
-        const r = q.customer.get(phone);
-        return r ? JSON.parse(r.payload) : null;
+      get: (phone) => rowToCustomer(q.customer.get(phone)),
+      all: () => q.customersAll.all().map(rowToCustomer),
+      save: saveCustomer,
+      boxMovements: (phone) => q.boxMovements.all(phone),
+    },
+    payments: {
+      forCustomer: (phone) => q.payments.all(phone).map(rowToPayment),
+      all: () => q.paymentsAll.all().map(rowToPayment),
+      add: (customer, payment) => {
+        q.insertPayment.run(
+          payment.id,
+          customer,
+          payment.amount,
+          payment.method,
+          payment.note || null,
+          payment.by,
+          payment.at,
+          JSON.stringify(payment.applied || []),
+        );
+        return payment;
       },
-      all: () => parse(q.customers.all()),
-      save: (c) => {
-        q.saveCustomer.run(c.phone, JSON.stringify(c));
-        return c;
-      },
+    },
+    boxes: {
+      returned: (customer, boxes, by, orderId = null) =>
+        q.insertBox.run(orderId, customer, boxes, "returned", now(), by),
     },
     sessions: {
       get: (id) => {
         if (!id) return null;
-        const r = q.session.get(id);
-        return r ? { id, ...JSON.parse(r.payload) } : null;
+        const r = q.session.get(id, now());
+        if (!r) return null;
+        if (Date.now() - new Date(r.last_seen) > 3600000)
+          q.touchSession.run(now(), id);
+        return {
+          id: r.id,
+          role: r.role,
+          phone: r.phone,
+          name: r.name,
+          driver: r.driver,
+          plan: r.plan,
+        };
       },
       create: (data) => {
         const id = randomUUID();
-        q.saveSession.run(id, new Date().toISOString(), JSON.stringify(data));
+        const expires = new Date(
+          Date.now() + SESSION_DAYS * 86400000,
+        ).toISOString();
+        q.insertSession.run(
+          id,
+          data.role,
+          data.phone || null,
+          data.name || null,
+          data.driver || null,
+          data.plan || null,
+          now(),
+          expires,
+          now(),
+        );
         return { id, ...data };
       },
       delete: (id) => q.deleteSession.run(id),
+      purge: () => q.purgeSessions.run(now()).changes,
     },
     push: {
       forRole: (role) =>
-        q.pushAll.all(role).map((r) => ({
-          endpoint: r.endpoint,
-          subscription: JSON.parse(r.payload),
-        })),
+        q.pushRole
+          .all(role)
+          .map((r) => ({
+            endpoint: r.endpoint,
+            subscription: JSON.parse(r.subscription),
+          })),
       forCustomer: (phone) =>
-        q.pushCustomer.all(phone).map((r) => ({
-          endpoint: r.endpoint,
-          subscription: JSON.parse(r.payload),
-        })),
+        q.pushCustomer
+          .all(phone)
+          .map((r) => ({
+            endpoint: r.endpoint,
+            subscription: JSON.parse(r.subscription),
+          })),
       forDriver: (name) =>
-        q.pushDriver.all(name).map((r) => ({
-          endpoint: r.endpoint,
-          subscription: JSON.parse(r.payload),
-        })),
+        q.pushDriver
+          .all(name)
+          .map((r) => ({
+            endpoint: r.endpoint,
+            subscription: JSON.parse(r.subscription),
+          })),
       save: (session, subscription) =>
         q.pushSave.run(
           subscription.endpoint,
           session.role,
           session.phone || null,
           session.driver || null,
-          new Date().toISOString(),
+          now(),
           JSON.stringify(subscription),
         ),
       delete: (endpoint) => q.pushDelete.run(endpoint),
@@ -151,7 +650,145 @@ export async function openStore(path) {
         const r = q.geo.get(query);
         return r ? JSON.parse(r.payload) : undefined;
       },
-      save: (query, value) => q.saveGeo.run(query, JSON.stringify(value)),
+      save: (query, value) =>
+        q.geoSave.run(query, JSON.stringify(value), now()),
     },
+    messages: {
+      list: (thread, limit = 100) => q.messages.all(thread, limit).reverse(),
+      add: (thread, from, text) => {
+        const at = now();
+        const { lastInsertRowid } = q.insertMessage.run(
+          thread,
+          from.role,
+          from.name,
+          text,
+          at,
+        );
+        return {
+          id: Number(lastInsertRowid),
+          thread,
+          fromRole: from.role,
+          fromName: from.name,
+          text,
+          at,
+          readAt: null,
+        };
+      },
+      markRead: (thread, readerRole) =>
+        q.markRead.run(now(), thread, readerRole).changes,
+      unreadFor: (readerRole) =>
+        Object.fromEntries(
+          q.unread.all(readerRole).map((r) => [r.thread, r.n]),
+        ),
+      threads: () => q.threads.all().map((r) => r.thread),
+    },
+    audit: {
+      log: (session, action, entity, entityId, detail) =>
+        q.audit.run(
+          now(),
+          session?.role || "sistema",
+          session?.driver || session?.name || session?.phone || null,
+          action,
+          entity,
+          entityId || null,
+          detail ? JSON.stringify(detail) : null,
+        ),
+      for: (entity, entityId) => q.auditFor.all(entity, entityId),
+    },
+    /** Copia de seguridad consistente (VACUUM INTO); conserva las últimas `keep`. */
+    async backup(dir = "data/backups", keep = 14) {
+      if (memory) return null;
+      await mkdir(dir, { recursive: true });
+      const stamp = new Date().toISOString().slice(0, 10);
+      const file = `${dir}/pollito-${stamp}.sqlite`;
+      db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+      const files = (await readdir(dir))
+        .filter((f) => /^pollito-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f))
+        .sort();
+      for (const old of files.slice(0, Math.max(0, files.length - keep)))
+        await unlink(`${dir}/${old}`).catch(() => {});
+      return file;
+    },
+    health: () => ({
+      ok: db.prepare("SELECT 1 AS ok").get().ok === 1,
+      schema: SCHEMA_VERSION,
+      orders: q.ordersCount.get().n,
+    }),
+    close: () => db.close(),
   };
+
+  if (legacy) importLegacy(db, store, tables, log);
+  store.sessions.purge();
+  return store;
+}
+
+/** Importa las tablas v1 (JSON) al esquema v2 dentro de una transacción. */
+function importLegacy(db, store, tables, log) {
+  store.transaction(() => {
+    let customers = 0;
+    let orders = 0;
+    if (tables.has("customers"))
+      for (const r of db.prepare("SELECT payload FROM customers_v1").all()) {
+        const c = JSON.parse(r.payload);
+        store.customers.save(c);
+        for (const pm of c.payments || []) store.payments.add(c.phone, pm);
+        customers++;
+      }
+    for (const r of db.prepare("SELECT payload FROM orders_v1").all()) {
+      const o = JSON.parse(r.payload);
+      if (!o.customer) o.customer = "desconocido";
+      if (!store.customers.get(o.customer))
+        store.customers.save({
+          phone: o.customer,
+          name: o.name || "Cliente",
+          plan: o.plan || "minorista",
+          credit: false,
+          created: o.created,
+        });
+      store.orders.save(o);
+      orders++;
+    }
+    if (tables.has("sessions"))
+      for (const r of db
+        .prepare("SELECT id, created, payload FROM sessions_v1")
+        .all()) {
+        const s = JSON.parse(r.payload);
+        db.prepare(
+          "INSERT OR IGNORE INTO sessions(id, role, phone, name, driver, plan, created, expires, last_seen) VALUES(?,?,?,?,?,?,?,?,?)",
+        ).run(
+          r.id,
+          s.role,
+          s.phone || null,
+          s.name || null,
+          s.driver || null,
+          s.plan || null,
+          r.created,
+          new Date(Date.now() + SESSION_DAYS * 86400000).toISOString(),
+          r.created,
+        );
+      }
+    if (tables.has("push"))
+      for (const r of db
+        .prepare(
+          "SELECT endpoint, role, phone, driver, created, payload FROM push_v1",
+        )
+        .all())
+        db.prepare(
+          "INSERT OR IGNORE INTO push_subscriptions(endpoint, role, phone, driver, created, subscription) VALUES(?,?,?,?,?,?)",
+        ).run(r.endpoint, r.role, r.phone, r.driver, r.created, r.payload);
+    if (tables.has("geocache"))
+      for (const r of db
+        .prepare("SELECT query, payload FROM geocache_v1")
+        .all())
+        store.geocache.save(r.query, JSON.parse(r.payload));
+    log.info?.(`Migración completa: ${customers} clientes, ${orders} pedidos.`);
+  });
+  for (const t of [
+    "orders_v1",
+    "customers_v1",
+    "sessions_v1",
+    "push_v1",
+    "geocache_v1",
+  ])
+    db.exec(`DROP TABLE IF EXISTS ${t}`);
 }

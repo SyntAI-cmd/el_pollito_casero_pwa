@@ -56,6 +56,9 @@ export function subscribe(onEvent, onState) {
     source.addEventListener("customer", (e) =>
       onEvent("customer", JSON.parse(e.data)),
     );
+    source.addEventListener("message", (e) =>
+      onEvent("message", JSON.parse(e.data)),
+    );
     source.onerror = () => {
       onState?.(false);
       source.close();

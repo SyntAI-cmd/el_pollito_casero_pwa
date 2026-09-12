@@ -25,6 +25,11 @@ export const shippingByPlan = business.shipping || {
   minorista: 1500,
 };
 export const statuses = ["recibido", "preparando", "en_camino", "entregado"];
+/** Medios de pago por modalidad: efectivo al recibir, transferencia (alias/CVU), Mercado Pago online y cuenta corriente. */
+export const paymentMethods = (plan) =>
+  plan === "mayorista"
+    ? ["cuenta", "entrega", "transferencia", "mercadopago"]
+    : ["entrega", "transferencia", "mercadopago"];
 export const roles = ["cliente", "admin", "repartidor"];
 
 export const lineAmount = (price, kg) =>
@@ -79,10 +84,7 @@ export function priceOrder(input) {
       lineTotal: lineAmount(price, item.kg),
     };
   });
-  const allowed =
-    input.plan === "mayorista"
-      ? ["cuenta", "entrega", "transferencia"]
-      : ["entrega", "transferencia"];
+  const allowed = paymentMethods(input.plan);
   if (!allowed.includes(input.payment))
     throw Error("Medio de pago no disponible para esta modalidad.");
   if (

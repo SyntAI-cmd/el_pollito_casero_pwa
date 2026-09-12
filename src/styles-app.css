@@ -738,117 +738,54 @@ dialog.sheet {
   }
 }
 
-/* ===== Planes: realce animado al pasar el mouse ===== */
-.plans {
-  perspective: 1200px;
-}
+/* ===== Planes: realce al pasar el mouse (nítido, sin atenuar el resto) ===== */
 .plan-card {
   position: relative;
-  overflow: hidden;
-  isolation: isolate;
   transition:
-    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 0.35s ease,
-    border-color 0.35s ease,
-    opacity 0.35s ease;
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.28s ease,
+    border-color 0.28s ease;
   will-change: transform;
-}
-.plan-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    radial-gradient(120% 90% at 100% 0%, #fff0f0 0%, transparent 55%),
-    linear-gradient(180deg, #ffffff 0%, #fbf8f3 100%);
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-.plan-card::after {
-  content: "";
-  position: absolute;
-  top: -60%;
-  left: -70%;
-  width: 60%;
-  height: 220%;
-  z-index: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 0%,
-    #ffffffaa 45%,
-    #ffffffee 50%,
-    #ffffffaa 55%,
-    transparent 100%
-  );
-  transform: translateX(0) rotate(12deg);
-  opacity: 0;
-  pointer-events: none;
-}
-.plan-card > * {
-  position: relative;
-  z-index: 1;
-}
-.plans:hover .plan-card:not(:hover) {
-  opacity: 0.72;
-  transform: scale(0.985);
 }
 .plan-card:hover,
 .plan-card:focus-within {
-  transform: translateY(-8px) scale(1.02);
+  transform: translateY(-6px);
   border-color: var(--red);
   box-shadow:
-    0 24px 50px -20px #cc242a55,
-    0 10px 24px -14px #20201e33,
-    inset 0 1px 0 #ffffffcc;
-  opacity: 1;
+    0 22px 44px -22px #cc242a66,
+    0 8px 20px -12px #20201e2e;
 }
-.plan-card:hover::before,
-.plan-card:focus-within::before {
-  opacity: 1;
-}
-.plan-card:hover::after {
-  opacity: 1;
-  animation: sheen 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
-}
-@keyframes sheen {
-  from {
-    transform: translateX(0) rotate(12deg);
-    opacity: 0.9;
-  }
-  to {
-    transform: translateX(340%) rotate(12deg);
-    opacity: 0;
-  }
+.plan-card.chosen:hover {
+  transform: translateY(-6px);
 }
 .plan-card > svg {
-  transition:
-    transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
-    color 0.35s;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .plan-card:hover > svg {
-  transform: translateY(-2px) scale(1.12) rotate(-4deg);
+  transform: translateY(-2px) scale(1.1);
+}
+.plan-card h2 {
+  transition: color 0.25s;
 }
 .plan-card:hover h2 {
   color: var(--red);
-}
-.plan-card h2 {
-  transition: color 0.3s;
 }
 .plan-card:hover .secondary {
   background: var(--black);
   color: #fff;
   border-color: var(--black);
 }
-.plan-card.chosen:hover {
-  box-shadow:
-    0 28px 56px -20px #cc242a77,
-    0 10px 24px -14px #20201e33;
+.plan-card .secondary,
+.plan-card .primary {
+  transition:
+    background-color 0.25s,
+    color 0.25s,
+    border-color 0.25s;
 }
 
 /* Selector de modalidad en el catálogo: cápsula deslizante */
 .plan-switch {
   position: relative;
-  backdrop-filter: blur(6px);
 }
 .plan-switch > button {
   position: relative;

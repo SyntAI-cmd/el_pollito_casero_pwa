@@ -40,7 +40,13 @@ export default function OrderCard({ order: o, role }) {
     o.status !== "entregado" &&
     !(o.paid && o.payment !== "cuenta") &&
     (admin || o.status !== "recibido");
-  const accountBalance = customer?.summary?.balance || 0;
+  // Saldo anterior del cliente: lo que debía antes de este pedido.
+  const accountBalance =
+    Math.round(
+      ((customer?.summary?.balance || 0) -
+        (o.payment === "cuenta" && !o.paid ? o.total : 0)) *
+        100,
+    ) / 100;
   const unpaid = !o.paid && o.status !== "cancelado";
   const created = new Date(o.created);
   const today = created.toDateString() === new Date().toDateString();
@@ -134,10 +140,12 @@ export default function OrderCard({ order: o, role }) {
         <Wallet size={15} /> {paymentLabel(o)} ·{" "}
         <b className={o.paid ? "green" : o.payment === "cuenta" ? "" : "red"}>
           {o.paid
-            ? "Cobrado"
+            ? `Cobrado${o.paidMethod && o.paidMethod !== o.payment ? " (" + o.paidMethod + ")" : ""}`
             : o.payment === "cuenta"
               ? "A cuenta"
-              : "Pendiente de cobro"}
+              : o.payment === "transferencia" && o.transfer
+                ? `Transferencia informada ${timeText(o.transfer.reportedAt)}${o.transfer.reference ? " · ref. " + o.transfer.reference : ""} · verificar`
+                : "Pendiente de cobro"}
         </b>
         {o.plan === "mayorista" && o.status === "entregado" && (
           <>
@@ -193,16 +201,18 @@ export default function OrderCard({ order: o, role }) {
           )}
           {o.status === "en_camino" && (
             <>
-              <button
-                className={"secondary " + (sharing === o.id ? "sharing" : "")}
-                onClick={() => share(o)}
-                disabled={!!sharing && sharing !== o.id}
-              >
-                <Navigation size={16} />
-                {sharing === o.id
-                  ? "Compartiendo GPS · detener"
-                  : "Compartir mi GPS"}
-              </button>
+              {!admin && (
+                <button
+                  className={"secondary " + (sharing === o.id ? "sharing" : "")}
+                  onClick={() => share(o)}
+                  disabled={!!sharing && sharing !== o.id}
+                >
+                  <Navigation size={16} />
+                  {sharing === o.id
+                    ? "Compartiendo GPS · detener"
+                    : "Compartir mi GPS"}
+                </button>
+              )}
               <a
                 className="secondary"
                 href={mapsLink(o)}

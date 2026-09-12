@@ -28,3 +28,11 @@ No se enviaron mensajes de WhatsApp ni se realizaron pagos. No se verificó GPS 
 - E2E correcto con nuevas comprobaciones: el cliente no pesa; en "recibido" solo administración pesa; pesaje con dos decimales recalcula el total y notifica; pago de cuenta corriente desde administración cubre varios pedidos y deja saldo a favor; un pedido a cuenta chico se paga solo con el saldo a favor; el repartidor solo cobra a clientes de su reparto y ve solo sus clientes; en navegador, administración pesa desde la tarjeta y el cliente ve "pediste 2 kg"; el repartidor tiene el enlace "Ruta completa en Google Maps"; repetir un pedido usa los kilos pedidos, no los pesados.
 - Axe sin violaciones en 11 rutas.
 - Inspección visual de los modales de balanza y de cobro de cuenta corriente.
+
+## Etapa 5 · 12 de septiembre de 2026
+
+- Backend reescrito sobre esquema relacional v2 (migración automática desde v1), transacciones, auditoría, validación, límite de intentos (429 tras 6 PIN erróneos), backups diarios, `GET /api/health`.
+- Unit 10/10. E2E correcto con nuevas comprobaciones: separación por rol (admin en `/` o `/seguimiento` → Operación; repartidor en `/operacion` o `/` → Reparto; cliente en `/operacion` o `/reparto` → catálogo; anónimo en `/operacion` → ingreso del equipo y en `/pedidos` → `/ingresar?volver=`); la app del cliente no contiene enlaces a `/admin` ni `/acceso`; el cliente no recibe `staffAccess` ni `key` en los pedidos; chat interno en vivo (no leídos, respuesta por SSE); transferencia informada con referencia y confirmada por administración con medio; MP online rechazado sin token; envases recibidos por cliente (FIFO) y tope; repartidor sin acceso a clientes ajenos (404).
+- Axe sin violaciones en 12 rutas (incluidas `/ingresar`, `/admin`, `/operacion` y `/reparto` con sesión).
+- Mapa MapLibre verificado en Chromium headless (WebGL): marcadores de local, domicilio y camioneta, ruta OSRM, pin arrastrable en el checkout.
+- Inspección visual: ingreso del cliente (split tipo Rappi), ingreso del equipo (pantalla oscura aparte), barra de administración con chat, vista móvil del repartidor con clientes de su reparto, hover de planes simplificado.

@@ -7,6 +7,7 @@ import {
   statuses,
   plans,
   shippingByPlan,
+  paymentMethods,
   priceOrder,
   normalizePhone,
   accountSummary,
@@ -16,8 +17,17 @@ import {
 import business from "../business.json" with { type: "json" };
 import { geocode, reverse, enabled as geocodingEnabled } from "./geo.mjs";
 import { estimate, inMendoza } from "./route.mjs";
+import { ApiError, fail } from "./errors.mjs";
+import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
+import {
+  transferInfo,
+  checkoutEnabled,
+  createPreference,
+  fetchPayment,
+} from "./mercadopago.mjs";
 
-const staffPin = process.env.STAFF_PIN || (business.demo ? "1234" : "");
+export { ApiError };
+
 const now = () => new Date().toISOString();
 const hhmm = (iso) =>
   new Date(iso).toLocaleTimeString("es-AR", {
@@ -26,18 +36,42 @@ const hhmm = (iso) =>
     timeZone: "America/Argentina/Mendoza",
   });
 const kgOf = (o) => o.items.reduce((n, p) => n + p.kg, 0);
+const ars = (n) =>
+  new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(n);
+const isStaff = (s) => s && (s.role === "admin" || s.role === "repartidor");
+const actorOf = (s) =>
+  s?.role === "repartidor"
+    ? s.driver
+    : s?.role === "admin"
+      ? "admin"
+      : s?.name || "cliente";
 
-export class ApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
+/** PINs del equipo: STAFF_PINS={"admin":"…","Franco":"…"} o STAFF_PIN compartido (demo: 1234). */
+function staffPins() {
+  try {
+    if (process.env.STAFF_PINS) return JSON.parse(process.env.STAFF_PINS);
+  } catch {}
+  const shared = process.env.STAFF_PIN || (business.demo ? "1234" : "");
+  return shared
+    ? Object.fromEntries(
+        ["admin", ...drivers.map((d) => d.name)].map((k) => [k, shared]),
+      )
+    : {};
 }
-const fail = (status, message) => {
-  throw new ApiError(status, message);
-};
 
-export function createApi({ store, events, push }) {
+export function createApi({
+  store,
+  events,
+  push,
+  base = "http://localhost:5173",
+}) {
+  const pins = staffPins();
+  const loginLimit = rateLimiter({ limit: 10, windowMs: 60000 });
+  const staffLimit = rateLimiter({ limit: 6, windowMs: 60000 });
   const config = {
     products,
     localities,
@@ -47,11 +81,11 @@ export function createApi({ store, events, push }) {
     demo: !!business.demo,
     adminName: business.adminName,
     adminPhone: process.env.ADMIN_WHATSAPP || business.adminPhone,
-    transferAlias: process.env.TRANSFER_ALIAS || "",
-    staffAccess: !!staffPin,
+    transfer: transferInfo(),
+    mercadopago: checkoutEnabled(),
+    staffAccess: Object.keys(pins).length > 0,
     pushKey: push?.publicKey || null,
   };
-
   const publicSession = (s) =>
     s
       ? {
@@ -62,6 +96,12 @@ export function createApi({ store, events, push }) {
           plan: s.plan || null,
         }
       : null;
+  const publicConfig = (session) => ({
+    ...config,
+    // El cliente no necesita saber cómo entra el equipo.
+    staffAccess: isStaff(session) || undefined,
+    session: publicSession(session),
+  });
 
   function ensureCustomer(phone, data) {
     const existing = store.customers.get(phone);
@@ -70,9 +110,11 @@ export function createApi({ store, events, push }) {
       name: data.name.trim(),
       plan: plans.includes(data.plan) ? data.plan : "minorista",
       credit: !!business.demo,
+      creditBalance: 0,
       created: now(),
     };
-    customer.name = data.name?.trim() || customer.name;
+    if (data.name)
+      customer.name = String(data.name).trim().slice(0, 100) || customer.name;
     if (data.address)
       customer.address = String(data.address).trim().slice(0, 250);
     if (data.localityId && localities.some((l) => l.id === data.localityId))
@@ -80,9 +122,12 @@ export function createApi({ store, events, push }) {
     if (data.location && inMendoza(data.location))
       customer.location = { lat: data.location.lat, lng: data.location.lng };
     if (!existing && plans.includes(data.plan)) customer.plan = data.plan;
-    customer.updated = now();
     return store.customers.save(customer);
   }
+  const withSummary = (c) => ({
+    ...c,
+    summary: accountSummary(store.orders.forCustomer(c.phone), c),
+  });
 
   function visibleOrders(session) {
     if (!session) return [];
@@ -96,12 +141,32 @@ export function createApi({ store, events, push }) {
     (session.role === "admin" ||
       (session.role === "repartidor" && o.driver === session.driver) ||
       (session.role === "cliente" && o.customer === session.phone));
+  const driverCustomers = (session) => {
+    const mine = new Set(
+      store.orders.forDriver(session.driver).map((o) => o.customer),
+    );
+    return store.customers
+      .all()
+      .filter((c) => mine.has(c.phone) || c.driver === session.driver);
+  };
+  const driverServes = (session, phone) =>
+    session.role === "admin" ||
+    driverCustomers(session).some((c) => c.phone === phone);
 
-  function driverContact(o) {
+  const driverContact = (o) => {
     const d = drivers.find((d) => d.name === o.driver);
     return d ? { name: d.name, phone: d.phone } : null;
-  }
-  const decorate = (o) => ({ ...o, driverContact: driverContact(o) });
+  };
+  /** Lo que ve cada rol de un pedido: el cliente no recibe datos internos. */
+  const view = (o, session) => {
+    const out = { ...o, driverContact: driverContact(o) };
+    if (session?.role === "cliente") {
+      delete out.createdBy;
+      delete out.key;
+    }
+    if (session?.role === "repartidor") delete out.key;
+    return out;
+  };
 
   const notifyCustomer = (o, payload) =>
     push
@@ -113,13 +178,10 @@ export function createApi({ store, events, push }) {
       .catch(() => {});
   const notifyAdmins = (payload) =>
     push?.toAdmins({ url: "/operacion", ...payload }).catch(() => {});
-  const notifyDriver = (o, payload) =>
-    o.driver &&
-    push
-      ?.toDriver(o.driver, { url: "/reparto", tag: o.id, ...payload })
-      .catch(() => {});
+  const notifyDriver = (name, payload) =>
+    name &&
+    push?.toDriver(name, { url: "/reparto", ...payload }).catch(() => {});
 
-  /** Recalcula la hora estimada de llegada desde la posición del repartidor (o el local). */
   async function refreshEta(o) {
     if (!o.destination || o.status !== "en_camino") return null;
     const from = o.location
@@ -136,14 +198,15 @@ export function createApi({ store, events, push }) {
 
   function createOrder(b, session) {
     const priced = priceOrder(b);
-    if (b.payment === "transferencia" && !config.transferAlias)
+    if (b.payment === "transferencia" && !config.transfer)
       fail(
         400,
-        "La transferencia aún no está configurada. Elegí pagar al recibir.",
+        "La transferencia todavía no está habilitada. Elegí efectivo al recibir.",
       );
-    if (typeof b.key !== "string" || !b.key || b.key.length > 80)
-      fail(400, "Identificador de pedido inválido.");
-    const previous = store.orders.byKey(b.key);
+    if (b.payment === "mercadopago" && !config.mercadopago)
+      fail(400, "El pago online no está habilitado. Elegí otro medio.");
+    const key = str(b.key, { min: 1, max: 80, name: "identificador" });
+    const previous = store.orders.byKey(key);
     if (previous) return { order: previous, session, created: false };
     const phone =
       session?.role === "cliente" ? session.phone : normalizePhone(b.phone);
@@ -151,70 +214,87 @@ export function createApi({ store, events, push }) {
       b.location && inMendoza(b.location)
         ? { lat: Number(b.location.lat), lng: Number(b.location.lng) }
         : null;
-    const customer = ensureCustomer(phone, { ...b, plan: b.plan, location });
-    if (b.payment === "cuenta" && !customer.credit)
-      fail(
-        400,
-        "Tu cuenta corriente todavía no fue habilitada por administración. Elegí otro medio de pago.",
-      );
-    let nextSession = session;
-    if (!session)
-      nextSession = store.sessions.create({
-        role: "cliente",
-        phone,
-        name: customer.name,
-        plan: customer.plan,
-      });
-    const habitualDriver = drivers.some((d) => d.name === customer.driver)
-      ? customer.driver
-      : "";
-    const o = {
-      ...priced,
-      id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
-      key: b.key,
-      customer: phone,
-      name: b.name.trim(),
-      phone: b.phone.trim(),
-      address: b.address.trim(),
-      notes: String(b.notes || "").slice(0, 500),
-      plan: b.plan,
-      payment: b.payment,
-      paid: false,
-      status: "recibido",
-      driver: habitualDriver,
-      boxes: 0,
-      returned: 0,
-      created: now(),
-      createdBy: session?.role === "admin" ? "admin" : "cliente",
-      history: [{ status: "recibido", at: now() }],
-    };
-    if (o.payment === "cuenta" && customer.creditBalance > 0) {
-      const credit = Math.round(customer.creditBalance * 100);
-      const cents = Math.round(o.total * 100);
-      if (credit >= cents) {
-        o.paid = true;
-        o.paidAt = now();
-        o.paidBy = "saldo a favor";
-        customer.creditBalance = (credit - cents) / 100;
-        store.customers.save(customer);
-      }
-    }
-    if (location)
-      o.destination = {
-        ...location,
-        label: "Ubicación marcada por el cliente",
-        precise: true,
-        source: "cliente",
+    return store.transaction(() => {
+      const customer = ensureCustomer(phone, { ...b, plan: b.plan, location });
+      if (b.payment === "cuenta" && !customer.credit)
+        fail(
+          400,
+          "Tu cuenta corriente todavía no fue habilitada por administración. Elegí otro medio de pago.",
+        );
+      let nextSession = session;
+      if (!session)
+        nextSession = store.sessions.create({
+          role: "cliente",
+          phone,
+          name: customer.name,
+          plan: customer.plan,
+        });
+      const o = {
+        ...priced,
+        id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
+        key,
+        customer: phone,
+        name: b.name.trim(),
+        phone: b.phone.trim(),
+        address: b.address.trim(),
+        notes: String(b.notes || "").slice(0, 500),
+        plan: b.plan,
+        payment: b.payment,
+        paid: false,
+        status: "recibido",
+        driver: drivers.some((d) => d.name === customer.driver)
+          ? customer.driver
+          : "",
+        boxes: 0,
+        returned: 0,
+        created: now(),
+        createdBy: session?.role === "admin" ? "admin" : "cliente",
+        history: [{ status: "recibido", at: now() }],
       };
-    else if (!geocodingEnabled) o.destination = null;
-    store.orders.save(o);
+      if (o.payment === "cuenta" && customer.creditBalance > 0) {
+        const credit = Math.round(customer.creditBalance * 100);
+        const cents = Math.round(o.total * 100);
+        if (credit >= cents) {
+          Object.assign(o, {
+            paid: true,
+            paidAt: now(),
+            paidBy: "saldo a favor",
+          });
+          customer.creditBalance = (credit - cents) / 100;
+          store.customers.save(customer);
+        }
+      }
+      if (location)
+        o.destination = {
+          ...location,
+          label: "Ubicación marcada por el cliente",
+          precise: true,
+          source: "cliente",
+        };
+      else if (!geocodingEnabled) o.destination = null;
+      store.orders.save(o);
+      store.audit.log(nextSession, "order.create", "order", o.id, {
+        total: o.total,
+        plan: o.plan,
+        payment: o.payment,
+      });
+      return { order: o, session: nextSession, created: true };
+    });
+  }
+  function afterCreate(o) {
     events.orderChanged(o);
     if (o.createdBy === "cliente")
       notifyAdmins({
         title: `Pedido nuevo · ${o.name}`,
-        body: `${o.id} · ${kgOf(o)} kg · ${o.locality.name} · ${o.payment === "cuenta" ? "a cuenta" : "cobrar al entregar"}`,
+        body: `${o.id} · ${kgOf(o)} kg · ${o.locality.name} · ${o.payment === "cuenta" ? "a cuenta" : o.payment === "entrega" ? "efectivo al entregar" : o.payment}`,
       });
-    if (!o.destination && geocodingEnabled)
+    if (o.driver)
+      notifyDriver(o.driver, {
+        title: `Pedido asignado · ${o.name}`,
+        body: `${o.id} · ${kgOf(o)} kg · ${o.address}`,
+        tag: o.id,
+      });
+    if (o.destination === undefined && geocodingEnabled)
       geocode(store, o.address, o.locality)
         .catch(() => null)
         .then((destination) => {
@@ -224,40 +304,61 @@ export function createApi({ store, events, push }) {
           store.orders.save(current);
           events.orderChanged(current);
         });
-    return { order: o, session: nextSession, created: true };
   }
 
-  /** Aplica cambios al pedido y devuelve tareas diferidas (avisos, ETA) para ejecutar tras guardar. */
+  /** Aplica cambios a un pedido según el rol. Devuelve tareas diferidas (avisos, ETA). */
   async function updateOrder(o, b, session) {
     const role = session.role;
-    const staff = role === "admin" || role === "repartidor";
     const after = [];
     if (role === "cliente") {
-      // El cliente solo puede cancelar mientras el pedido no se preparó.
-      if (b.cancel !== true) fail(403, "No podés modificar este pedido.");
-      if (o.status !== "recibido")
-        fail(400, "El pedido ya está en preparación; escribinos por WhatsApp.");
-      o.cancelled = true;
-      o.status = "cancelado";
-      o.history.push({ status: "cancelado", at: now() });
-      after.push(() =>
-        notifyAdmins({
-          title: `Pedido cancelado · ${o.name}`,
-          body: `${o.id} fue cancelado por el cliente.`,
-        }),
-      );
-      return after;
+      if (b.cancel === true) {
+        if (o.status !== "recibido")
+          fail(
+            400,
+            "El pedido ya está en preparación; escribinos por WhatsApp.",
+          );
+        o.cancelled = true;
+        o.status = "cancelado";
+        o.history.push({ status: "cancelado", at: now() });
+        after.push(() =>
+          notifyAdmins({
+            title: `Pedido cancelado · ${o.name}`,
+            body: `${o.id} fue cancelado por el cliente.`,
+          }),
+        );
+        return after;
+      }
+      if (b.transfer) {
+        if (o.payment !== "transferencia")
+          fail(400, "Este pedido no se paga por transferencia.");
+        o.transfer = {
+          reportedAt: now(),
+          reference: str(b.transfer.reference, {
+            max: 60,
+            name: "referencia",
+            optional: true,
+          }),
+        };
+        after.push(() =>
+          notifyAdmins({
+            title: `Transferencia informada · ${o.name}`,
+            body: `${o.id} · ${ars(o.total)}. Verificá el ingreso y confirmá el cobro.`,
+          }),
+        );
+        return after;
+      }
+      fail(403, "No podés modificar este pedido.");
     }
-    if (!staff) fail(403, "Sin permiso.");
+    if (!isStaff(session)) fail(403, "Sin permiso.");
     if (o.status === "cancelado")
       fail(400, "El pedido fue cancelado por el cliente.");
     if (b.driver !== undefined) {
       if (role !== "admin")
         fail(403, "Solo administración asigna repartidores.");
-      if (!drivers.some((d) => d.name === b.driver) || o.status === "entregado")
-        fail(400, "Asignación inválida.");
-      if (o.driver !== b.driver) {
-        o.driver = b.driver;
+      const driver = oneOf(b.driver, config.drivers, "repartidor");
+      if (o.status === "entregado") fail(400, "El pedido ya fue entregado.");
+      if (o.driver !== driver) {
+        o.driver = driver;
         after.push(() =>
           notifyCustomer(o, {
             title: `${o.driver} lleva tu pedido`,
@@ -265,49 +366,68 @@ export function createApi({ store, events, push }) {
           }),
         );
         after.push(() =>
-          notifyDriver(o, {
+          notifyDriver(o.driver, {
             title: `Pedido asignado · ${o.name}`,
             body: `${o.id} · ${kgOf(o)} kg · ${o.address}, ${o.locality?.name || ""}`,
+            tag: o.id,
           }),
         );
       }
     }
-    if (b.paid === true) o.paid = true;
+    if (b.paid === true && !o.paid) {
+      Object.assign(o, { paid: true, paidAt: now(), paidBy: actorOf(session) });
+      if (b.paidMethod)
+        o.paidMethod = oneOf(
+          b.paidMethod,
+          ["efectivo", "transferencia", "mercadopago"],
+          "medio",
+        );
+    }
     if (b.status) {
-      if (statuses.indexOf(b.status) !== statuses.indexOf(o.status) + 1)
+      const next = oneOf(b.status, statuses, "estado");
+      if (statuses.indexOf(next) !== statuses.indexOf(o.status) + 1)
         fail(400, "El pedido debe avanzar un estado por vez.");
-      if (b.status === "preparando" && role !== "admin")
+      if (next === "preparando" && role !== "admin")
         fail(403, "Administración inicia la preparación.");
-      if (b.status === "en_camino" && !o.driver)
+      if (next === "en_camino" && !o.driver)
         fail(400, "Asigná un repartidor primero.");
-      if (b.status === "entregado") {
+      if (
+        next === "en_camino" &&
+        role === "repartidor" &&
+        o.driver !== session.driver
+      )
+        fail(403, "Ese pedido no es tuyo.");
+      if (next === "entregado") {
         if (o.payment !== "cuenta" && !o.paid)
           fail(400, "Registrá el cobro antes de completar la entrega.");
-        if (!Number.isInteger(b.boxes) || b.boxes < 0 || b.boxes > 100)
-          fail(400, "Ingresá entre 0 y 100 envases.");
-        o.boxes = o.plan === "mayorista" ? b.boxes : 0;
+        const boxes = num(b.boxes ?? 0, {
+          min: 0,
+          max: 100,
+          integer: true,
+          name: "envases",
+        });
+        o.boxes = o.plan === "mayorista" ? boxes : 0;
         o.deliveredAt = now();
         o.deliveredBy =
           role === "repartidor" ? session.driver : o.driver || "admin";
         delete o.eta;
       }
-      o.status = b.status;
-      o.history.push({ status: b.status, at: now() });
-      if (b.status === "preparando")
+      o.status = next;
+      o.history.push({ status: next, at: now() });
+      if (next === "preparando")
         after.push(() =>
           notifyCustomer(o, {
             title: "Estamos preparando tu pedido",
             body: `${o.id} · ${kgOf(o)} kg. Te avisamos cuando salga.`,
           }),
         );
-      if (b.status === "en_camino") {
+      if (next === "en_camino") {
         o.departedAt = now();
-        if (o.destination) {
-          const from = o.location
-            ? { lat: o.location.lat, lng: o.location.lng }
-            : origin;
-          o.eta = await estimate(from, o.destination);
-        }
+        if (o.destination)
+          o.eta = await estimate(
+            o.location ? { lat: o.location.lat, lng: o.location.lng } : origin,
+            o.destination,
+          );
         after.push(() =>
           notifyCustomer(o, {
             title: `${o.driver} salió con tu pedido`,
@@ -317,7 +437,7 @@ export function createApi({ store, events, push }) {
           }),
         );
       }
-      if (b.status === "entregado")
+      if (next === "entregado")
         after.push(() =>
           notifyCustomer(o, {
             title: "Pedido entregado",
@@ -326,19 +446,14 @@ export function createApi({ store, events, push }) {
         );
     }
     if (b.location) {
-      const { lat, lng } = b.location;
-      if (
-        o.status !== "en_camino" ||
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng) ||
-        Math.abs(lat) > 90 ||
-        Math.abs(lng) > 180
-      )
-        fail(400, "Ubicación no válida.");
+      const { lat, lng } = latLng(b.location);
+      if (o.status !== "en_camino") fail(400, "El pedido no está en camino.");
+      if (role === "repartidor" && o.driver !== session.driver)
+        fail(403, "Ese pedido no es tuyo.");
       o.location = { lat, lng, at: now() };
       o.track = [...(o.track || []), [lat, lng]].slice(-200);
-      const stale = !o.eta || Date.now() - new Date(o.eta.at) > 45000;
-      if (stale && o.destination) after.push(() => refreshEta(o));
+      if ((!o.eta || Date.now() - new Date(o.eta.at) > 45000) && o.destination)
+        after.push(() => refreshEta(o));
     }
     if (b.weights !== undefined) {
       if (o.status === "recibido" && role !== "admin")
@@ -350,58 +465,158 @@ export function createApi({ store, events, push }) {
           400,
           "El pedido ya fue cobrado; pedile a administración que corrija el importe.",
         );
-      Object.assign(o, applyWeights(o, b.weights));
-      o.weighed = true;
-      o.weighedAt = now();
-      o.weighedBy = role === "repartidor" ? session.driver : "admin";
+      Object.assign(o, applyWeights(o, b.weights), {
+        weighed: true,
+        weighedAt: now(),
+        weighedBy: actorOf(session),
+      });
       after.push(() =>
         notifyCustomer(o, {
           title: "Pesamos tu pedido",
-          body: `${o.id}: ${kgOf(o)} kg en balanza · total ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(o.total)}.`,
+          body: `${o.id}: ${kgOf(o)} kg en balanza · total ${ars(o.total)}.`,
         }),
       );
     }
     if (b.returnBoxes !== undefined) {
-      if (
-        !Number.isInteger(b.returnBoxes) ||
-        b.returnBoxes < 1 ||
-        b.returnBoxes > o.boxes - o.returned ||
-        o.status !== "entregado"
-      )
+      const n = num(b.returnBoxes, {
+        min: 1,
+        max: 1000,
+        integer: true,
+        name: "envases",
+      });
+      if (n > o.boxes - o.returned || o.status !== "entregado")
         fail(400, "La devolución supera los envases pendientes.");
-      o.returned += b.returnBoxes;
+      o.returned += n;
       o.returns = [
         ...(o.returns || []),
-        { boxes: b.returnBoxes, at: now(), by: session.driver || "admin" },
+        { boxes: n, at: now(), by: actorOf(session) },
       ];
     }
     return after;
   }
 
-  /** Enrutador de la API. Devuelve { status, body, session? } o null si la ruta no existe. */
-  return async function handle({ method, path, body, query, session }) {
-    const json = (status, body, extra = {}) => ({ status, body, ...extra });
-    if (path === "/api/config" && method === "GET")
-      return json(200, { ...config, session: publicSession(session) });
+  /** Devolución de envases por cliente: se descuenta de los pedidos con envases pendientes, del más viejo al más nuevo. */
+  function returnCustomerBoxes(customer, count, session) {
+    return store.transaction(() => {
+      let remaining = count;
+      const touched = [];
+      const pending = store.orders
+        .forCustomer(customer.phone)
+        .filter((o) => o.status === "entregado" && o.boxes > o.returned)
+        .sort((a, b) => a.created.localeCompare(b.created));
+      for (const o of pending) {
+        if (!remaining) break;
+        const take = Math.min(remaining, o.boxes - o.returned);
+        o.returned += take;
+        o.returns = [
+          ...(o.returns || []),
+          { boxes: take, at: now(), by: actorOf(session) },
+        ];
+        store.orders.save(o);
+        touched.push(o);
+        remaining -= take;
+      }
+      if (remaining > 0)
+        fail(
+          400,
+          `El cliente tiene ${count - remaining} envases pendientes, no ${count}.`,
+        );
+      store.audit.log(session, "boxes.return", "customer", customer.phone, {
+        boxes: count,
+        orders: touched.map((o) => o.id),
+      });
+      return touched;
+    });
+  }
 
+  function registerPayment(customer, body, session) {
+    const amount = num(body.amount, {
+      min: 1,
+      max: 100000000,
+      name: "importe",
+    });
+    const method = oneOf(
+      body.method || "efectivo",
+      ["efectivo", "transferencia", "mercadopago"],
+      "medio",
+    );
+    const note = str(body.note, { max: 200, name: "nota", optional: true });
+    return store.transaction(() => {
+      const customerOrders = store.orders.forCustomer(customer.phone);
+      const { covered, leftover } = applyPayment(
+        customerOrders,
+        amount,
+        customer.creditBalance || 0,
+      );
+      const payment = {
+        id: "PG-" + randomUUID().slice(0, 6).toUpperCase(),
+        amount,
+        method,
+        note,
+        at: now(),
+        by: actorOf(session),
+        applied: covered.map((o) => o.id),
+      };
+      for (const o of covered) {
+        Object.assign(o, {
+          paid: true,
+          paidAt: payment.at,
+          paidBy: payment.by,
+          paymentId: payment.id,
+        });
+        store.orders.save(o);
+      }
+      customer.creditBalance = leftover;
+      store.customers.save(customer);
+      store.payments.add(customer.phone, payment);
+      store.audit.log(
+        session,
+        "payment.register",
+        "customer",
+        customer.phone,
+        payment,
+      );
+      return { payment, covered };
+    });
+  }
+
+  const threadFor = (session, requested) => {
+    if (session.role === "repartidor") return `repartidor:${session.driver}`;
+    if (session.role === "admin") {
+      const t = str(requested, { min: 1, max: 80, name: "conversación" });
+      if (!t.startsWith("repartidor:") || !config.drivers.includes(t.slice(11)))
+        fail(400, "Conversación inválida.");
+      return t;
+    }
+    fail(403, "El chat interno es del equipo.");
+  };
+
+  /** Enrutador. Devuelve { status, body, session? } o null si la ruta no existe. */
+  return async function handle({ method, path, body, query, session, ip }) {
+    const json = (status, body, extra = {}) => ({ status, body, ...extra });
+
+    if (path === "/api/health" && method === "GET")
+      return json(200, { ...store.health(), at: now() });
+    if (path === "/api/config" && method === "GET")
+      return json(200, publicConfig(session));
+
+    // ---- Sesiones ----
     if (path === "/api/session") {
       if (method === "GET") return json(200, publicSession(session));
       if (method === "DELETE") {
-        if (session) store.sessions.delete(session.id);
+        if (session) {
+          store.sessions.delete(session.id);
+          store.audit.log(session, "session.logout", "session", session.id);
+        }
         return json(200, null, { session: null });
       }
       if (method === "POST") {
-        const b = body;
-        const phone = normalizePhone(b.phone);
-        if (
-          typeof b.name !== "string" ||
-          b.name.trim().length < 2 ||
-          b.name.length > 100
-        )
-          fail(400, "Ingresá tu nombre.");
+        loginLimit(ip);
+        const name = str(body.name, { min: 2, max: 100, name: "el nombre" });
+        const phone = normalizePhone(body.phone);
         if (!phone)
           fail(400, "Ingresá un teléfono válido, con código de área.");
-        const customer = ensureCustomer(phone, b);
+        const customer = ensureCustomer(phone, { ...body, name });
         if (session) store.sessions.delete(session.id);
         const s = store.sessions.create({
           role: "cliente",
@@ -409,80 +624,81 @@ export function createApi({ store, events, push }) {
           name: customer.name,
           plan: customer.plan,
         });
+        store.audit.log(s, "session.login", "customer", phone);
         return json(200, publicSession(s), { session: s });
       }
     }
     if (path === "/api/session/staff" && method === "POST") {
-      const b = body;
-      if (!staffPin)
+      staffLimit(ip);
+      if (!config.staffAccess)
         fail(403, "El acceso del equipo no está configurado en este servidor.");
-      if (typeof b.pin !== "string" || b.pin !== staffPin)
+      const role = oneOf(body.role || "admin", ["admin", "repartidor"], "rol");
+      const who =
+        role === "admin"
+          ? "admin"
+          : oneOf(body.driver, config.drivers, "repartidor");
+      const pin = str(body.pin, { min: 4, max: 32, name: "el PIN" });
+      if (!pins[who] || pins[who] !== pin) {
+        store.audit.log(null, "session.staff_denied", "staff", who, { ip });
         fail(401, "PIN incorrecto.");
-      let s;
-      if (b.role === "repartidor") {
-        if (!drivers.some((d) => d.name === b.driver))
-          fail(400, "Elegí tu nombre de repartidor.");
-        s = {
-          role: "repartidor",
-          driver: b.driver,
-          name: b.driver,
-          phone: drivers.find((d) => d.name === b.driver).phone,
-        };
-      } else
-        s = {
-          role: "admin",
-          name: business.adminName,
-          phone: config.adminPhone,
-        };
+      }
+      const data =
+        role === "repartidor"
+          ? {
+              role,
+              driver: who,
+              name: who,
+              phone: drivers.find((d) => d.name === who).phone,
+            }
+          : {
+              role: "admin",
+              name: business.adminName,
+              phone: config.adminPhone,
+            };
       if (session) store.sessions.delete(session.id);
-      const created = store.sessions.create(s);
-      return json(200, publicSession(created), { session: created });
+      const s = store.sessions.create(data);
+      store.audit.log(s, "session.staff_login", "staff", who, { ip });
+      return json(200, publicSession(s), { session: s });
     }
 
+    // ---- Cliente ----
     if (path === "/api/me" && method === "GET") {
       if (!session || session.role !== "cliente") return json(200, null);
-      const customer = store.customers.get(session.phone);
-      return json(
-        200,
-        customer
-          ? {
-              ...customer,
-              summary: accountSummary(
-                store.orders.forCustomer(session.phone),
-                customer,
-              ),
-            }
-          : null,
-      );
+      const c = store.customers.get(session.phone);
+      return json(200, c ? withSummary(c) : null);
     }
     if (path === "/api/me" && method === "PATCH") {
       if (!session || session.role !== "cliente")
         fail(401, "Ingresá con tu teléfono.");
-      const customer = ensureCustomer(session.phone, {
+      const c = ensureCustomer(session.phone, {
         ...body,
         name: body.name || session.name,
       });
       if (plans.includes(body.plan)) {
-        customer.plan = body.plan;
-        store.customers.save(customer);
+        c.plan = body.plan;
+        store.customers.save(c);
       }
-      return json(200, customer);
+      return json(200, withSummary(c));
     }
-
     if (path === "/api/geo/reverse" && method === "GET") {
-      const lat = Number(query.get("lat"));
-      const lng = Number(query.get("lng"));
-      if (!inMendoza({ lat, lng }))
+      const point = {
+        lat: Number(query.get("lat")),
+        lng: Number(query.get("lng")),
+      };
+      if (!inMendoza(point))
         fail(
           400,
           "Esa ubicación está fuera de nuestra zona de reparto (Mendoza).",
         );
-      const result = await reverse(store, lat, lng, localities).catch(
-        () => null,
+      return json(
+        200,
+        await reverse(store, point.lat, point.lng, localities).catch(
+          () => null,
+        ),
       );
-      return json(200, result);
     }
 
+    // ---- Push ----
     if (path === "/api/push/subscribe" && method === "POST") {
       if (!session) fail(401, "Ingresá para activar los avisos.");
       const sub = body.subscription;
@@ -501,132 +717,210 @@ export function createApi({ store, events, push }) {
       return json(200, { ok: true });
     }
 
+    // ---- Pedidos ----
     if (path === "/api/orders" && method === "GET")
-      return json(200, visibleOrders(session).map(decorate));
+      return json(
+        200,
+        visibleOrders(session).map((o) => view(o, session)),
+      );
     if (path === "/api/orders" && method === "POST") {
-      if (session && session.role === "repartidor")
+      if (session?.role === "repartidor")
         fail(403, "Los repartidores no crean pedidos.");
       const { order, session: s, created } = createOrder(body, session);
+      if (created) afterCreate(order);
       return json(
         created ? 201 : 200,
-        decorate(order),
+        view(order, s),
         s !== session ? { session: s } : {},
       );
     }
-    if (path.startsWith("/api/orders/") && method === "PATCH") {
+    const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
+    if (orderMatch && method === "PATCH" && !orderMatch[2]) {
       if (!session) fail(401, "Ingresá para gestionar pedidos.");
-      const o = store.orders.get(decodeURIComponent(path.split("/")[3]));
+      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
       if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+      const before = {
+        status: o.status,
+        paid: o.paid,
+        driver: o.driver,
+        total: o.total,
+      };
       const after = await updateOrder(o, body, session);
-      store.orders.save(o);
+      store.transaction(() => {
+        store.orders.save(o);
+        store.audit.log(session, "order.update", "order", o.id, {
+          before,
+          after: {
+            status: o.status,
+            paid: o.paid,
+            driver: o.driver,
+            total: o.total,
+          },
+          keys: Object.keys(body),
+        });
+      });
       events.orderChanged(o);
       for (const task of after)
         Promise.resolve()
           .then(task)
           .catch(() => {});
-      return json(200, decorate(o));
+      return json(200, view(o, session));
+    }
+    if (orderMatch && orderMatch[2] === "mp" && method === "POST") {
+      // Enlace de pago online (Checkout Pro) para el propio pedido.
+      if (!session) fail(401, "Ingresá para pagar.");
+      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
+      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+      if (o.paid) fail(400, "El pedido ya está pagado.");
+      if (!config.mercadopago) fail(400, "El pago online no está habilitado.");
+      const pref = await createPreference(o, { base });
+      o.mp = { preferenceId: pref.id, createdAt: now() };
+      store.orders.save(o);
+      return json(200, { url: pref.initPoint });
+    }
+    if (path === "/api/mp/webhook" && method === "POST") {
+      // Notificación de Mercado Pago: se verifica el pago contra su API antes de marcar nada.
+      const paymentId =
+        body?.data?.id || query.get("data.id") || query.get("id");
+      if (!paymentId || (body?.type && body.type !== "payment"))
+        return json(200, { ignored: true });
+      const pmt = await fetchPayment(paymentId).catch(() => null);
+      if (!pmt?.orderId) return json(200, { ignored: true });
+      const o = store.orders.get(pmt.orderId);
+      if (o && pmt.approved && !o.paid && Math.abs(pmt.amount - o.total) < 1) {
+        Object.assign(o, {
+          paid: true,
+          paidAt: now(),
+          paidBy: "mercadopago",
+          paidMethod: "mercadopago",
+          paymentId: "MP-" + pmt.id,
+        });
+        store.orders.save(o);
+        store.audit.log(null, "payment.mercadopago", "order", o.id, pmt);
+        events.orderChanged(o);
+        notifyAdmins({
+          title: `Pago online acreditado · ${o.name}`,
+          body: `${o.id} · ${ars(o.total)} por Mercado Pago.`,
+        });
+      }
+      return json(200, { ok: true });
     }
 
+    // ---- Clientes (equipo) ----
     if (path === "/api/customers" && method === "GET") {
-      if (!session || session.role === "cliente") fail(403, "Solo el equipo.");
-      // El repartidor solo ve los clientes de su reparto (pedidos asignados o repartidor habitual).
-      const mine =
-        session.role === "repartidor"
-          ? new Set(
-              store.orders.forDriver(session.driver).map((o) => o.customer),
-            )
-          : null;
-      const list = store.customers
-        .all()
-        .filter(
-          (c) => !mine || mine.has(c.phone) || c.driver === session.driver,
-        )
-        .map((c) => ({
-          ...c,
-          summary: accountSummary(store.orders.forCustomer(c.phone), c),
-        }))
-        .sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
+      if (!isStaff(session)) fail(403, "Solo el equipo.");
+      const list = (
+        session.role === "admin"
+          ? store.customers.all()
+          : driverCustomers(session)
+      ).map(withSummary);
+      if (session.role === "repartidor")
+        for (const c of list) delete c.payments;
       return json(200, list);
     }
-    if (path.startsWith("/api/customers/") && method === "PATCH") {
-      if (session?.role !== "admin") fail(403, "Solo administración.");
-      const c = store.customers.get(decodeURIComponent(path.split("/")[3]));
-      if (!c) fail(404, "Cliente no encontrado.");
-      if (plans.includes(body.plan)) c.plan = body.plan;
-      if (typeof body.credit === "boolean") c.credit = body.credit;
-      if (body.driver !== undefined) {
-        if (body.driver !== "" && !drivers.some((d) => d.name === body.driver))
-          fail(400, "Repartidor inválido.");
-        c.driver = body.driver;
-      }
-      c.updated = now();
-      store.customers.save(c);
-      events.customerChanged(c);
-      return json(200, c);
-    }
-    if (
-      path.startsWith("/api/customers/") &&
-      path.endsWith("/payments") &&
-      method === "POST"
-    ) {
-      if (!session || session.role === "cliente")
-        fail(403, "Solo el equipo registra pagos.");
-      const phone = decodeURIComponent(path.split("/")[3]);
+    const customerMatch = path.match(
+      /^\/api\/customers\/([^/]+)(?:\/(payments|boxes))?$/,
+    );
+    if (customerMatch) {
+      if (!isStaff(session)) fail(403, "Solo el equipo.");
+      const phone = decodeURIComponent(customerMatch[1]);
       const c = store.customers.get(phone);
-      if (!c) fail(404, "Cliente no encontrado.");
-      const customerOrders = store.orders.forCustomer(phone);
-      if (
-        session.role === "repartidor" &&
-        !customerOrders.some((o) => o.driver === session.driver) &&
-        c.driver !== session.driver
-      )
-        fail(403, "Solo podés cobrar a clientes de tu reparto.");
-      const amount = Math.round(Number(body.amount) * 100) / 100;
-      const method_ = ["efectivo", "transferencia"].includes(body.method)
-        ? body.method
-        : "efectivo";
-      const { covered, leftover } = applyPayment(
-        customerOrders,
-        amount,
-        c.creditBalance || 0,
-      );
-      const payment = {
-        id: "PG-" + randomUUID().slice(0, 6).toUpperCase(),
-        amount,
-        method: method_,
-        note: String(body.note || "").slice(0, 200),
-        at: now(),
-        by: session.role === "repartidor" ? session.driver : "admin",
-        applied: covered.map((o) => o.id),
-      };
-      for (const o of covered) {
-        o.paid = true;
-        o.paidAt = payment.at;
-        o.paidBy = payment.by;
-        o.paymentId = payment.id;
-        store.orders.save(o);
-        events.orderChanged(o);
+      if (!c || !driverServes(session, phone))
+        fail(404, "Cliente no encontrado.");
+      const sub = customerMatch[2];
+      if (!sub && method === "PATCH") {
+        if (session.role !== "admin") fail(403, "Solo administración.");
+        if (body.plan !== undefined)
+          c.plan = oneOf(body.plan, plans, "modalidad");
+        if (body.credit !== undefined) c.credit = bool(body.credit, "crédito");
+        if (body.driver !== undefined)
+          c.driver =
+            body.driver === ""
+              ? ""
+              : oneOf(body.driver, config.drivers, "repartidor");
+        store.customers.save(c);
+        store.audit.log(session, "customer.update", "customer", phone, body);
+        events.customerChanged(c);
+        return json(200, withSummary(c));
       }
-      c.creditBalance = leftover;
-      c.payments = [...(c.payments || []), payment];
-      c.updated = now();
-      store.customers.save(c);
-      events.customerChanged(c);
-      push
-        ?.toCustomer(phone, {
-          url: "/cuenta",
-          tag: payment.id,
-          title: "Pago registrado",
-          body: `Recibimos ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(amount)} (${method_}). Gracias.`,
-        })
-        .catch(() => {});
-      return json(201, {
-        payment,
-        customer: {
-          ...c,
-          summary: accountSummary(store.orders.forCustomer(phone), c),
-        },
+      if (sub === "payments" && method === "POST") {
+        const { payment, covered } = registerPayment(c, body, session);
+        for (const o of covered) events.orderChanged(o);
+        events.customerChanged(c);
+        push
+          ?.toCustomer(phone, {
+            url: "/cuenta",
+            tag: payment.id,
+            title: "Pago registrado",
+            body: `Recibimos ${ars(payment.amount)} (${payment.method}). Gracias.`,
+          })
+          .catch(() => {});
+        return json(201, {
+          payment,
+          customer: withSummary(store.customers.get(phone)),
+        });
+      }
+      if (sub === "boxes" && method === "POST") {
+        const count = num(body.boxes, {
+          min: 1,
+          max: 1000,
+          integer: true,
+          name: "envases",
+        });
+        const touched = returnCustomerBoxes(c, count, session);
+        for (const o of touched) events.orderChanged(o);
+        events.customerChanged(c);
+        return json(200, {
+          returned: count,
+          orders: touched.map((o) => o.id),
+          customer: withSummary(store.customers.get(phone)),
+        });
+      }
+    }
+
+    // ---- Chat interno administración ↔ repartidor ----
+    if (path === "/api/messages" && method === "GET") {
+      if (!isStaff(session)) fail(403, "El chat interno es del equipo.");
+      if (session.role === "admin" && !query.get("thread"))
+        return json(200, {
+          threads: config.drivers.map((d) => `repartidor:${d}`),
+          unread: store.messages.unreadFor("admin"),
+        });
+      const thread = threadFor(session, query.get("thread"));
+      if (query.get("read") === "1")
+        store.messages.markRead(thread, session.role);
+      return json(200, {
+        thread,
+        messages: store.messages.list(thread),
+        unread: store.messages.unreadFor(session.role),
       });
+    }
+    if (path === "/api/messages" && method === "POST") {
+      if (!isStaff(session)) fail(403, "El chat interno es del equipo.");
+      const thread = threadFor(session, body.thread);
+      const text = str(body.text, { min: 1, max: 1000, name: "el mensaje" });
+      const message = store.messages.add(
+        thread,
+        {
+          role: session.role,
+          name: session.role === "admin" ? business.adminName : session.driver,
+        },
+        text,
+      );
+      events.messageAdded(message, thread.slice(11));
+      if (session.role === "admin")
+        notifyDriver(thread.slice(11), {
+          title: `${business.adminName}: ${text.slice(0, 60)}`,
+          body: "Mensaje de administración",
+          tag: "chat",
+        });
+      else
+        notifyAdmins({
+          title: `${session.driver}: ${text.slice(0, 60)}`,
+          body: "Mensaje del reparto",
+          tag: "chat",
+        });
+      return json(201, message);
     }
     return null;
   };
@@ -661,9 +955,18 @@ export function createEvents() {
       for (const c of clients)
         if (
           c.session.role === "admin" ||
+          c.session.role === "repartidor" ||
           (c.session.role === "cliente" && c.session.phone === customer.phone)
         )
           send(c, "customer", { phone: customer.phone });
+    },
+    messageAdded(message, driver) {
+      for (const c of clients)
+        if (
+          c.session.role === "admin" ||
+          (c.session.role === "repartidor" && c.session.driver === driver)
+        )
+          send(c, "message", { thread: message.thread, id: message.id });
     },
   };
 }

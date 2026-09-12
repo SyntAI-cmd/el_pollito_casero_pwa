@@ -1,145 +1,182 @@
 import React, { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-const pin = (kind, text) =>
-  L.divIcon({
-    className: `map-pin map-pin-${kind}`,
-    html: `<span>${text}</span>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-  });
+import { LocateFixed } from "lucide-react";
+import {
+  createMap,
+  marker,
+  glide,
+  ensureRouteLayers,
+  lineFeature,
+  osrmRoute,
+  fitTo,
+  toLngLat,
+  distanceKm,
+} from "./lib/mapkit.js";
 
 /**
- * Mapa de seguimiento: local de origen, domicilio de entrega (si se pudo geocodificar)
- * y posición del repartidor cuando comparte su GPS. La ruta por calles se pide al
- * servidor público de OSRM; si no responde, se dibuja el recorrido registrado.
+ * Mapa de seguimiento del cliente (estilo Uber/Rappi):
+ * local, domicilio, camioneta que se desliza entre lecturas GPS con su rumbo,
+ * ruta por calles recalculada mientras avanza y cámara que sigue a la camioneta
+ * hasta que el usuario toca el mapa ("Centrar" la vuelve a seguir).
  */
 export default function LiveMap({ order, origin, onRoute }) {
   const ref = useRef();
   const map = useRef();
-  const layer = useRef();
-  const [routeState, setRouteState] = useState({ key: "", coords: null });
-  const driver = order.location
-    ? [order.location.lat, order.location.lng]
+  const markers = useRef({});
+  const routeState = useRef({ from: null, at: 0 });
+  const [following, setFollowing] = useState(true);
+  const [ready, setReady] = useState(false);
+  const followingRef = useRef(true);
+  followingRef.current = following;
+
+  const originLL = origin ? [origin.lng, origin.lat] : null;
+  const destLL = order.destination
+    ? [order.destination.lng, order.destination.lat]
     : null;
-  const dest = order.destination
-    ? [order.destination.lat, order.destination.lng]
+  const driverLL = order.location
+    ? [order.location.lng, order.location.lat]
     : null;
-  const from = driver || (origin ? [origin.lat, origin.lng] : null);
-  const routeKey =
-    from && dest && order.status !== "entregado"
-      ? `${from.map((n) => n.toFixed(4))}>${dest}`
-      : "";
+  const active = order.status === "en_camino";
 
   useEffect(() => {
-    map.current = L.map(ref.current, {
-      scrollWheelZoom: false,
-      zoomControl: true,
-      attributionControl: true,
+    const m = createMap(ref.current, {
+      center: destLL || originLL || undefined,
+      zoom: 14,
     });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map.current);
-    layer.current = L.layerGroup().addTo(map.current);
+    map.current = m;
+    const stopFollowing = () => {
+      followingRef.current = false;
+      setFollowing(false);
+    };
+    m.on("dragstart", stopFollowing);
+    m.on("wheel", stopFollowing);
+    m.on("load", () => {
+      ensureRouteLayers(m);
+      setReady(true);
+    });
+    m.on("styledata", () => {
+      if (m.isStyleLoaded() && !m.getSource("route")) ensureRouteLayers(m);
+    });
     return () => {
-      map.current.remove();
+      for (const mk of Object.values(markers.current)) mk.remove();
+      m.remove();
       map.current = null;
     };
   }, []);
 
-  // Ruta por calles (OSRM público). Se recalcula cuando cambia la posición del repartidor.
+  // Marcadores y encuadre.
   useEffect(() => {
-    if (!routeKey) return;
-    const controller = new AbortController();
-    const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${dest[1]},${dest[0]}?overview=full&geometries=geojson`;
-    fetch(url, { signal: controller.signal })
-      .then((r) => r.json())
-      .then((data) => {
-        const route = data.routes?.[0];
-        if (!route) throw Error();
-        setRouteState({
-          key: routeKey,
-          coords: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
-        });
-        onRoute?.({
-          minutes: Math.round(route.duration / 60),
-          km: route.distance / 1000,
-        });
-      })
-      .catch(() => setRouteState({ key: routeKey, coords: null }));
-    return () => controller.abort();
-  }, [routeKey]);
-
-  useEffect(() => {
-    if (!map.current) return;
-    layer.current.clearLayers();
-    const points = [];
-    if (origin) {
-      L.marker([origin.lat, origin.lng], { icon: pin("origin", "PC") })
-        .addTo(layer.current)
-        .bindPopup(origin.name || "Pollito Casero");
-      points.push([origin.lat, origin.lng]);
+    const m = map.current;
+    if (!m || !ready) return;
+    const mk = markers.current;
+    if (originLL && !mk.origin)
+      mk.origin = marker("origin", "PC", originLL).addTo(m);
+    if (destLL) {
+      if (!mk.dest) mk.dest = marker("dest", "●", destLL).addTo(m);
+      else mk.dest.setLngLat(destLL);
     }
-    if (dest) {
-      L.marker(dest, { icon: pin("dest", "●") })
-        .addTo(layer.current)
-        .bindPopup("Tu domicilio de entrega");
-      points.push(dest);
+    if (driverLL && active) {
+      if (!mk.driver)
+        mk.driver = marker("driver", (order.driver || "R")[0], driverLL).addTo(
+          m,
+        );
+      else glide(mk.driver, driverLL, 1500);
+    } else if (mk.driver) {
+      mk.driver.remove();
+      delete mk.driver;
     }
-    if (order.track?.length > 1)
-      L.polyline(order.track, {
-        color: "#20201e",
-        weight: 3,
-        opacity: 0.35,
-      }).addTo(layer.current);
-    const routeCoords = routeState.key === routeKey ? routeState.coords : null;
-    if (routeCoords)
-      L.polyline(routeCoords, {
-        color: "#cc242a",
-        weight: 5,
-        opacity: 0.9,
-      }).addTo(layer.current);
-    else if (from && dest)
-      L.polyline([from, dest], {
-        color: "#cc242a",
-        weight: 4,
-        dashArray: "8 8",
-      }).addTo(layer.current);
-    if (driver) {
-      L.marker(driver, {
-        icon: pin("driver", order.driver?.[0] || "R"),
-        zIndexOffset: 1000,
-      })
-        .addTo(layer.current)
-        .bindPopup(`${order.driver || "Repartidor"} · ubicación compartida`);
-      points.push(driver);
-    }
-    if (points.length > 1)
-      map.current.fitBounds(L.latLngBounds(points).pad(0.25), {
-        animate: false,
-        maxZoom: 16,
-      });
-    else if (points.length === 1)
-      map.current.setView(points[0], 15, { animate: false });
-    else map.current.setView([-33.0806, -68.4686], 13, { animate: false });
+    if (m.getSource("track"))
+      m.getSource("track").setData(
+        lineFeature((order.track || []).map(toLngLat)),
+      );
+    const points = [
+      driverLL && active ? driverLL : null,
+      destLL,
+      !driverLL || !active ? originLL : null,
+    ].filter(Boolean);
+    if (followingRef.current)
+      fitTo(m, points, { padding: 70, animate: !!mk._fitted });
+    mk._fitted = true;
   }, [
+    ready,
     order.id,
     order.location?.at,
     order.destination?.lat,
     order.status,
-    routeState,
-    origin,
   ]);
 
+  // Ruta por calles: se recalcula si la camioneta se movió más de 60 m o pasaron 45 s.
+  useEffect(() => {
+    const m = map.current;
+    if (
+      !m ||
+      !ready ||
+      !destLL ||
+      order.status === "entregado" ||
+      order.status === "cancelado"
+    ) {
+      if (m?.getSource("route")) m.getSource("route").setData(lineFeature([]));
+      return;
+    }
+    const from = active && driverLL ? driverLL : originLL;
+    if (!from) return;
+    const prev = routeState.current;
+    const moved = !prev.from || distanceKm(prev.from, from) > 0.06;
+    if (!moved && Date.now() - prev.at < 45000) return;
+    routeState.current = { from, at: Date.now() };
+    const controller = new AbortController();
+    osrmRoute(from, destLL, controller.signal)
+      .then(({ coords, minutes, km }) => {
+        if (!map.current) return;
+        m.getSource("route")?.setData(
+          lineFeature(coords, { estimated: false }),
+        );
+        onRoute?.({ minutes, km });
+      })
+      .catch(() => {
+        if (!map.current) return;
+        m.getSource("route")?.setData(
+          lineFeature([from, destLL], { estimated: true }),
+        );
+      });
+    return () => controller.abort();
+  }, [
+    ready,
+    order.id,
+    order.location?.at,
+    order.destination?.lat,
+    order.status,
+  ]);
+
+  const recenter = () => {
+    setFollowing(true);
+    followingRef.current = true;
+    const points = [
+      driverLL && active ? driverLL : null,
+      destLL,
+      !driverLL || !active ? originLL : null,
+    ].filter(Boolean);
+    if (map.current) fitTo(map.current, points, { padding: 70 });
+  };
+
   return (
-    <div
-      className="live-map"
-      ref={ref}
-      role="region"
-      aria-label="Mapa con el local, tu domicilio y la posición del repartidor cuando comparte su ubicación."
-    />
+    <div className="live-map-wrap">
+      <div
+        className="live-map"
+        ref={ref}
+        role="region"
+        aria-label="Mapa con el local, tu domicilio y la camioneta en tiempo real."
+      />
+      {!following && (
+        <button className="map-recenter" onClick={recenter}>
+          <LocateFixed size={15} /> Centrar
+        </button>
+      )}
+      {active && driverLL && (
+        <div className="map-legend">
+          <span className="legend-driver">{(order.driver || "R")[0]}</span>{" "}
+          {order.driver} en camino
+        </div>
+      )}
+    </div>
   );
 }

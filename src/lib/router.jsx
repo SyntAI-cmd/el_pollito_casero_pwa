@@ -80,6 +80,11 @@ const meta = {
   ],
   "/operacion": ["Operación", "Gestión de pedidos, repartidores y clientes."],
   "/reparto": ["Mis entregas", "Entregas asignadas, GPS y cobros."],
+  "/ingresar": [
+    "Ingresar",
+    "Ingresá con tu WhatsApp para ver y seguir tus pedidos.",
+  ],
+  "/operacion/nuevo": ["Cargar pedido", "Pedido telefónico."],
   "/admin": [
     "Ingreso Pollito Casero",
     "Ingreso de administración de Pollito Casero.",

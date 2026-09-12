@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   House,
   ShoppingBag,
@@ -10,78 +10,73 @@ import {
   ArrowRight,
   ChevronDown,
   Bell,
-  Settings2,
   Download,
   WifiOff,
   CircleCheck,
   MessageCircle,
   Truck,
   Menu as MenuIcon,
-  ShieldCheck,
+  LogOut,
+  ClipboardList,
+  Plus,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
 import { isActive, planNames } from "./lib/format.js";
 import { MobileCartBar } from "./components/Cart.jsx";
 import Modals from "./components/Modals.jsx";
+import Chat from "./components/Chat.jsx";
+import PushToggle from "./components/PushToggle.jsx";
 import Catalog from "./pages/Catalog.jsx";
 import Orders from "./pages/Orders.jsx";
 import Tracking from "./pages/Tracking.jsx";
 import Account from "./pages/Account.jsx";
 import Plans from "./pages/Plans.jsx";
 import Help from "./pages/Help.jsx";
+import Login from "./pages/Login.jsx";
 import Operations from "./pages/Operations.jsx";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
 
-const pages = {
+/**
+ * Tres aplicaciones en una, separadas por rol. El servidor ya filtra los datos;
+ * acá además cada rol solo puede ver sus pantallas y nunca ve enlaces a las otras.
+ */
+const CLIENT_ROUTES = {
   "/": Catalog,
+  "/ingresar": Login,
   "/pedidos": Orders,
   "/seguimiento": Tracking,
   "/cuenta": Account,
   "/planes": Plans,
   "/ayuda": Help,
-  "/operacion": Operations,
-  "/reparto": Delivery,
-  "/acceso": Access,
-  "/admin": Access,
-  "/imprimir": Print,
 };
+const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
+const ADMIN_ROUTES = {
+  "/operacion": Operations,
+  "/operacion/nuevo": Catalog,
+  "/imprimir": Print,
+  "/ayuda": Help,
+};
+const DRIVER_ROUTES = { "/reparto": Delivery, "/ayuda": Help };
+const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
+const homeFor = (role) =>
+  role === "admin" ? "/operacion" : role === "repartidor" ? "/reparto" : "/";
 
-function navFor(session) {
-  const base = [
-    ["/", "Hacer un pedido", House],
-    ["/pedidos", "Mis pedidos", ShoppingBag],
-    ["/seguimiento", "Seguir mi pedido", MapPin],
-  ];
-  if (session?.role === "admin")
-    return [
-      ["/operacion", "Operación", Settings2],
-      ["/", "Catálogo", House],
-      ["/pedidos", "Pedidos", ShoppingBag],
-      ["/seguimiento", "Seguimiento", MapPin],
-      ["/planes", "Planes", Tag],
-    ];
-  if (session?.role === "repartidor")
-    return [
-      ["/reparto", "Mis entregas", Truck],
-      ["/seguimiento", "Seguimiento", MapPin],
-      ["/", "Catálogo", House],
-    ];
-  return [
-    ...base,
-    ["/cuenta", "Mi cuenta", Wallet],
-    ["/planes", "Nuestros planes", Tag],
-  ];
-}
+const clientNav = [
+  ["/", "Hacer un pedido", House],
+  ["/pedidos", "Mis pedidos", ShoppingBag],
+  ["/seguimiento", "Seguir mi pedido", MapPin],
+  ["/cuenta", "Mi cuenta", Wallet],
+  ["/planes", "Nuestros planes", Tag],
+];
 const shortNames = {
   "Hacer un pedido": "Pedir",
   "Seguir mi pedido": "Seguimiento",
   "Mis pedidos": "Pedidos",
   "Mi cuenta": "Cuenta",
   "Nuestros planes": "Planes",
-  "Mis entregas": "Entregas",
 };
 
 function NotFound() {
@@ -100,8 +95,45 @@ function NotFound() {
   );
 }
 
-export default function App() {
-  const { path } = useRoute();
+function Notices() {
+  const { online, serverDown, error } = useStore();
+  return (
+    <>
+      {!online && (
+        <div className="notice offline">
+          <WifiOff size={18} /> Estás sin conexión a internet. Podés consultar
+          el catálogo cargado; los pedidos requieren conexión.
+        </div>
+      )}
+      {error && (
+        <div role="alert" className="notice error">
+          <span>
+            {serverDown && online && <strong>Servidor apagado · </strong>}
+            {error}
+          </span>
+          <button onClick={() => location.reload()}>Reintentar</button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function Toast() {
+  const { toast } = useStore();
+  return (
+    <div
+      className={"toast " + (toast ? "visible" : "")}
+      role="status"
+      aria-live="polite"
+    >
+      <CircleCheck size={19} />
+      {toast}
+    </div>
+  );
+}
+
+/** Interfaz del cliente: catálogo, pedidos, seguimiento, cuenta. */
+function ClientShell({ Page, path }) {
   const {
     session,
     orders,
@@ -110,28 +142,15 @@ export default function App() {
     plan,
     config,
     loaded,
-    error,
-    online,
-    serverDown,
-    toast,
     setModal,
     install,
     setInstall,
     contact,
   } = useStore();
-  useDocumentMeta(path);
-  const nav = navFor(session);
-  const Page = pages[path];
   const pending = orders.filter(isActive).length;
   const displayName = session?.name || profile.name || "";
   const address = me?.address || profile.address || "";
-  const roleLabel =
-    session?.role === "admin"
-      ? "Administración"
-      : session?.role === "repartidor"
-        ? "Repartidor"
-        : `Cliente ${planNames[plan].toLowerCase()}`;
-  const staff = session && session.role !== "cliente";
+  const account = () => setModal({ type: "profile" });
   return (
     <>
       <a className="skip-link" href="#contenido">
@@ -146,7 +165,7 @@ export default function App() {
         </Link>
         <div className="brand-caption">DE NUESTRA CASA A LA TUYA</div>
         <nav aria-label="Navegación principal">
-          {nav.map(([url, name, Icon]) => (
+          {clientNav.map(([url, name, Icon]) => (
             <Link
               to={url}
               className={"nav-link " + (path === url ? "active" : "")}
@@ -158,73 +177,51 @@ export default function App() {
               {url === "/pedidos" && pending > 0 && (
                 <span className="nav-count">{pending}</span>
               )}
-              {url === "/reparto" && pending > 0 && (
-                <span className="nav-count">{pending}</span>
-              )}
-              {url === "/operacion" &&
-                orders.filter((o) => o.status === "recibido").length > 0 && (
-                  <span className="nav-count">
-                    {orders.filter((o) => o.status === "recibido").length}
-                  </span>
-                )}
             </Link>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          {!staff && (
-            <div className="sidebar-help">
-              <MessageCircle size={23} />
-              <h3>¿Te damos una mano?</h3>
-              <p>Estamos del otro lado.</p>
-              <button onClick={() => contact("admin")}>
-                Hablemos <ArrowUpRight size={16} />
-              </button>
-            </div>
-          )}
+          <div className="sidebar-help">
+            <MessageCircle size={23} />
+            <h3>¿Te damos una mano?</h3>
+            <p>Estamos del otro lado.</p>
+            <button onClick={() => contact("admin")}>
+              Hablemos <ArrowUpRight size={16} />
+            </button>
+          </div>
           <Link to="/ayuda" className="nav-link">
             <CircleHelp size={19} /> Ayuda y contacto
           </Link>
-          {!staff && (
-            <Link to="/admin" className="nav-link operation-link">
-              <ShieldCheck size={17} /> Soy de Pollito Casero
+          {session ? (
+            <button className="profile" onClick={account}>
+              <span className="avatar">
+                {displayName[0]?.toUpperCase() || "PC"}
+              </span>
+              <span>
+                <strong>{displayName}</strong>
+                <small>Cliente {planNames[plan].toLowerCase()}</small>
+              </span>
+              <ChevronDown size={16} />
+            </button>
+          ) : (
+            <Link
+              to={"/ingresar?volver=" + encodeURIComponent(path)}
+              className="profile"
+            >
+              <span className="avatar">PC</span>
+              <span>
+                <strong>Ingresar</strong>
+                <small>Con tu WhatsApp</small>
+              </span>
+              <ArrowRight size={16} />
             </Link>
           )}
-          <button
-            className="profile"
-            onClick={() => setModal({ type: session ? "profile" : "login" })}
-          >
-            <span className="avatar">
-              {displayName ? displayName[0].toUpperCase() : "PC"}
-            </span>
-            <span>
-              <strong>{displayName || "Ingresar"}</strong>
-              <small>{session ? roleLabel : "Con tu teléfono"}</small>
-            </span>
-            <ChevronDown size={16} />
-          </button>
         </div>
       </aside>
       <div className="app-shell">
         <header className="topbar">
-          {staff ? (
-            <div className="address-button static">
-              <span className="location-icon">
-                {session.role === "admin" ? (
-                  <Settings2 size={18} />
-                ) : (
-                  <Truck size={18} />
-                )}
-              </span>
-              <span>
-                <small>{roleLabel.toUpperCase()}</small>
-                <strong>{session.name}</strong>
-              </span>
-            </div>
-          ) : (
-            <button
-              className="address-button"
-              onClick={() => setModal({ type: session ? "profile" : "login" })}
-            >
+          {session ? (
+            <button className="address-button" onClick={account}>
               <span className="location-icon">
                 <MapPin size={18} />
               </span>
@@ -234,6 +231,17 @@ export default function App() {
               </span>
               <ChevronDown size={15} />
             </button>
+          ) : (
+            <Link to="/ingresar" className="address-button">
+              <span className="location-icon">
+                <MapPin size={18} />
+              </span>
+              <span>
+                <small>ENTREGAR EN</small>
+                <strong>San Martín, Mendoza y alrededores</strong>
+              </span>
+              <ArrowRight size={15} />
+            </Link>
           )}
           <div className="topbar-right">
             {config?.demo && <span className="demo-pill">Demo</span>}
@@ -254,31 +262,23 @@ export default function App() {
             >
               <MenuIcon size={20} />
             </button>
-            <button
-              className="top-avatar"
-              aria-label={session ? "Mis datos" : "Ingresar"}
-              onClick={() => setModal({ type: session ? "profile" : "login" })}
-            >
-              {displayName ? displayName[0].toUpperCase() : "PC"}
-            </button>
+            {session ? (
+              <button
+                className="top-avatar"
+                aria-label="Mis datos"
+                onClick={account}
+              >
+                {displayName[0]?.toUpperCase() || "PC"}
+              </button>
+            ) : (
+              <Link to="/ingresar" className="top-login">
+                Ingresar
+              </Link>
+            )}
           </div>
         </header>
         <main id="contenido" tabIndex="-1">
-          {!online && (
-            <div className="notice offline">
-              <WifiOff size={18} /> Estás sin conexión a internet. Podés
-              consultar el catálogo cargado; los pedidos requieren conexión.
-            </div>
-          )}
-          {error && (
-            <div role="alert" className="notice error">
-              <span>
-                {serverDown && online && <strong>Servidor apagado · </strong>}
-                {error}
-              </span>
-              <button onClick={() => location.reload()}>Reintentar</button>
-            </div>
-          )}
+          <Notices />
           {!config && !loaded ? (
             <div className="loading">Preparando el catálogo…</div>
           ) : Page ? (
@@ -295,7 +295,6 @@ export default function App() {
           <div>
             <Link to="/ayuda">Ayuda</Link>
             <Link to="/planes">Planes</Link>
-            <Link to="/admin">Ingreso Pollito Casero</Link>
             <button
               onClick={async () => {
                 if (install) {
@@ -310,7 +309,7 @@ export default function App() {
         </footer>
       </div>
       <nav className="mobile-nav" aria-label="Navegación móvil">
-        {nav.slice(0, 4).map(([url, name, Icon]) => (
+        {clientNav.slice(0, 4).map(([url, name, Icon]) => (
           <Link
             key={url}
             to={url}
@@ -322,16 +321,142 @@ export default function App() {
           </Link>
         ))}
       </nav>
-      {path === "/" && <MobileCartBar />}
-      <div
-        className={"toast " + (toast ? "visible" : "")}
-        role="status"
-        aria-live="polite"
-      >
-        <CircleCheck size={19} />
-        {toast}
-      </div>
+      {Page === Catalog && <MobileCartBar />}
+    </>
+  );
+}
+
+/** Interfaz del equipo: barra oscura compacta, sin nada del lado del cliente. */
+function StaffShell({ Page, path }) {
+  const { session, orders, logout, config, live } = useStore();
+  const admin = session.role === "admin";
+  const nav = admin
+    ? [
+        ["/operacion", "Operación", ClipboardList],
+        ["/operacion/nuevo", "Cargar pedido", Plus],
+      ]
+    : [["/reparto", "Mis entregas", Truck]];
+  const received = orders.filter((o) => o.status === "recibido").length;
+  return (
+    <div className="staff-app">
+      <a className="skip-link" href="#contenido">
+        Saltar al contenido
+      </a>
+      <header className="staff-bar">
+        <Link to={homeFor(session.role)} className="staff-brand">
+          <img src="/icon.svg" width="34" height="34" alt="" />
+          <span>
+            <strong>Pollito Casero</strong>
+            <small>{admin ? "Administración" : "Reparto"}</small>
+          </span>
+        </Link>
+        <nav aria-label="Secciones del equipo">
+          {nav.map(([url, name, Icon]) => (
+            <Link
+              key={url}
+              to={url}
+              className={path === url ? "active" : ""}
+              aria-current={path === url ? "page" : undefined}
+            >
+              <Icon size={16} /> <span>{name}</span>
+              {url === "/operacion" && received > 0 && (
+                <b className="nav-count">{received}</b>
+              )}
+            </Link>
+          ))}
+        </nav>
+        <div className="staff-bar-right">
+          {config?.demo && <span className="demo-pill">Demo</span>}
+          <span
+            className={"live-indicator " + (live ? "on" : "")}
+            title={live ? "Conexión en vivo" : "Reconectando"}
+          >
+            <i />
+          </span>
+          <PushToggle compact />
+          <span className="staff-user">
+            <span className="avatar">{session.name[0]}</span>
+            <span>{session.name}</span>
+          </span>
+          <button className="link-button" onClick={logout}>
+            <LogOut size={14} /> Salir
+          </button>
+        </div>
+      </header>
+      <main id="contenido" tabIndex="-1" className="staff-main">
+        <Notices />
+        {Page ? <Page /> : <NotFound />}
+      </main>
+      {Page === Catalog && <MobileCartBar />}
+      <Chat />
+    </div>
+  );
+}
+
+export default function App() {
+  const { path, navigate } = useRoute();
+  const { session, loaded } = useStore();
+  useDocumentMeta(path);
+  const role = session?.role || "anon";
+  const staff = role === "admin" || role === "repartidor";
+
+  // Redirecciones por rol: nadie llega a una pantalla que no le corresponde.
+  useEffect(() => {
+    if (!loaded) return;
+    const inClient = path in CLIENT_ROUTES;
+    const inAdmin = path in ADMIN_ROUTES;
+    const inDriver = path in DRIVER_ROUTES;
+    const inLogin = path in STAFF_LOGIN;
+    if (role === "admin" && !inAdmin && !inLogin)
+      navigate("/operacion", { replace: true });
+    else if (role === "repartidor" && !inDriver && !inLogin)
+      navigate("/reparto", { replace: true });
+    else if (role === "cliente" && (inAdmin || inDriver) && !inClient)
+      navigate("/", { replace: true });
+    else if (role === "anon" && (inAdmin || inDriver) && !inClient)
+      navigate("/admin", { replace: true });
+    else if (role === "anon" && CLIENT_PRIVATE.includes(path))
+      navigate(
+        "/ingresar?volver=" + encodeURIComponent(path + location.search),
+        { replace: true },
+      );
+  }, [path, role, loaded]);
+
+  if (!loaded && !session) return <div className="loading">Preparando…</div>;
+  const chrome = (
+    <>
+      <Toast />
       <Modals />
+    </>
+  );
+  if (path in STAFF_LOGIN)
+    return (
+      <>
+        <Access />
+        {chrome}
+      </>
+    );
+  if (path === "/ingresar" && !staff)
+    return (
+      <>
+        <Login />
+        {chrome}
+      </>
+    );
+  if (staff)
+    return (
+      <>
+        <StaffShell
+          Page={(role === "admin" ? ADMIN_ROUTES : DRIVER_ROUTES)[path]}
+          path={path}
+        />
+        {chrome}
+      </>
+    );
+  return (
+    <>
+      <ClientShell Page={CLIENT_ROUTES[path]} path={path} />
+      {chrome}
     </>
   );
 }

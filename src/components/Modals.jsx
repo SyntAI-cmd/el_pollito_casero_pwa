@@ -116,18 +116,22 @@ function Checkout() {
           {canCredit && (
             <option value="cuenta">Cuenta corriente · cliente habitual</option>
           )}
-          <option value="entrega">Pago al recibir</option>
-          <option value="transferencia" disabled={!config?.transferAlias}>
-            Transferencia{" "}
-            {config?.transferAlias ? "" : "· no disponible por ahora"}
-          </option>
+          <option value="entrega">Efectivo al recibir</option>
+          {config?.transfer && (
+            <option value="transferencia">
+              Transferencia a Mercado Pago / banco (alias)
+            </option>
+          )}
+          {config?.mercadopago && (
+            <option value="mercadopago">Pagar online con Mercado Pago</option>
+          )}
         </select>
+        <small>
+          {config?.transfer
+            ? "Si elegís transferencia, al confirmar te mostramos el alias y avisás cuando la hiciste."
+            : "Pagás al recibir el pedido. La transferencia se habilita cuando el negocio cargue su alias."}
+        </small>
       </label>
-      {config?.transferAlias && (
-        <p>
-          Alias: {config.transferAlias}. El pago lo verifica administración.
-        </p>
-      )}
       <label>
         Indicaciones para el reparto <small>(opcional)</small>
         <textarea
@@ -215,13 +219,6 @@ function Login() {
       <p className="demo-note">
         En producción este paso se confirma con un código enviado por WhatsApp.
       </p>
-      <Link
-        to="/admin"
-        className="link-button staff-link"
-        onClick={() => setModal(null)}
-      >
-        <ShieldCheck size={14} /> ¿Sos de Pollito Casero? Ingresá al panel
-      </Link>
     </form>
   );
 }
@@ -318,33 +315,34 @@ function Menu() {
   const { setModal, session, logout } = useStore();
   const { navigate } = useRoute();
   const links = [
+    ["/", "Hacer un pedido"],
+    ["/cuenta", "Mi cuenta"],
     ["/planes", "Nuestros planes"],
     ["/ayuda", "Ayuda y WhatsApp"],
-    ...(session?.role === "admin" ? [["/operacion", "Operación"]] : []),
-    ...(session?.role === "repartidor" ? [["/reparto", "Mis entregas"]] : []),
-    ...(!session || session.role === "cliente"
-      ? [["/admin", "Soy de Pollito Casero"]]
-      : []),
   ];
   return (
     <>
       <h2>Tu Pollito Casero</h2>
-      <button
-        className="notification-row"
-        onClick={() =>
-          setModal({
-            type:
-              session?.role === "cliente" || !session
-                ? session
-                  ? "profile"
-                  : "login"
-                : "profile",
-          })
-        }
-      >
-        <User size={20} />{" "}
-        {session ? `${session.name} · mis datos` : "Ingresar con mi teléfono"}
-      </button>
+      {session ? (
+        <button
+          className="notification-row"
+          onClick={() => setModal({ type: "profile" })}
+        >
+          <User size={20} /> {session.name} · mis datos
+        </button>
+      ) : (
+        <Link
+          to="/ingresar"
+          className="notification-row"
+          onClick={(e) => {
+            e.preventDefault();
+            setModal(null);
+            navigate("/ingresar");
+          }}
+        >
+          <User size={20} /> Ingresar con mi celular
+        </Link>
+      )}
       {links.map(([to, title]) => (
         <Link
           to={to}
@@ -403,19 +401,33 @@ function Notifications() {
 
 function Payment({ order }) {
   const { busy, update, setModal } = useStore();
+  const [method, setMethod] = useState(
+    order.payment === "transferencia" ? "transferencia" : "efectivo",
+  );
   return (
     <>
       <h2>Registrar un cobro</h2>
       <p>
         Confirmá únicamente si recibiste <strong>{money(order.total)}</strong>{" "}
-        por el pedido {order.id} de {order.name}. Esta acción registra el pago;
-        no realiza un cargo.
+        por el pedido {order.id} de {order.name}.
+        {order.transfer
+          ? ` El cliente avisó una transferencia a las ${new Date(order.transfer.reportedAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${order.transfer.reference ? " (ref. " + order.transfer.reference + ")" : ""}: verificá el ingreso antes de confirmar.`
+          : ""}
       </p>
+      <label>
+        ¿Cómo pagó?
+        <select value={method} onChange={(e) => setMethod(e.target.value)}>
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia (alias / CVU)</option>
+          <option value="mercadopago">Mercado Pago (QR / link)</option>
+        </select>
+      </label>
       <button
         disabled={busy}
         className="primary full"
         onClick={async () => {
-          if (await update(order, { paid: true })) setModal(null);
+          if (await update(order, { paid: true, paidMethod: method }))
+            setModal(null);
         }}
       >
         Ya recibí el pago <Check size={16} />
@@ -558,6 +570,55 @@ function Weights({ order }) {
 }
 
 /** Pago de cuenta corriente de un cliente habitual: se aplica a los pedidos más viejos. */
+/** Envases devueltos por un cliente (se descuentan de sus pedidos más viejos). */
+function BoxesReturn({ customer }) {
+  const { busy, returnBoxes, setModal, formError } = useStore();
+  const pending = customer.summary?.boxes || 0;
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (
+          await returnBoxes(
+            customer,
+            Number(new FormData(e.target).get("boxes")),
+          )
+        )
+          setModal(null);
+      }}
+    >
+      <span className="eyebrow">ENVASES</span>
+      <h2>Recibir envases de {customer.name}</h2>
+      <p>
+        Tiene {pending}{" "}
+        {pending === 1 ? "envase pendiente" : "envases pendientes"}. Se
+        descuentan de sus entregas más antiguas.
+      </p>
+      <label>
+        Envases que devuelve ahora
+        <input
+          name="boxes"
+          type="number"
+          inputMode="numeric"
+          min="1"
+          max={pending}
+          defaultValue={pending}
+          step="1"
+          required
+        />
+      </label>
+      {formError && (
+        <p className="form-error" role="alert">
+          {formError}
+        </p>
+      )}
+      <button className="primary full" disabled={busy || !pending}>
+        Registrar devolución <Check size={16} />
+      </button>
+    </form>
+  );
+}
+
 function AccountPayment({ customer }) {
   const { busy, registerPayment, setModal, formError } = useStore();
   const balance = customer.summary?.balance || 0;
@@ -672,7 +733,8 @@ export default function Modals() {
   }, [modal]);
   const type = modal?.type;
   const showError =
-    formError && !["delivery", "return", "account-payment"].includes(type);
+    formError &&
+    !["delivery", "return", "account-payment", "boxes-return"].includes(type);
   return (
     <dialog
       className={type === "cart" ? "sheet" : ""}
@@ -716,6 +778,8 @@ export default function Modals() {
         <Boxes order={modal.order} kind={type} />
       ) : type === "weights" ? (
         <Weights order={modal.order} />
+      ) : type === "boxes-return" ? (
+        <BoxesReturn customer={modal.customer} />
       ) : type === "account-payment" ? (
         <AccountPayment customer={modal.customer} />
       ) : type === "cancel" ? (

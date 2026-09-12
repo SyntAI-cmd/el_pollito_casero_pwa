@@ -403,5 +403,15 @@
     "intermedio": 1500,
     "minorista": 1500
   },
-  "localitiesNote": "lat/lng: centro aproximado de cada localidad, para centrar el mapa. No son direcciones verificadas."
+  "localitiesNote": "lat/lng: centro aproximado de cada localidad, para centrar el mapa. No son direcciones verificadas.",
+  "transfer": {
+    "alias": "",
+    "cvu": "",
+    "holder": "",
+    "bank": "Mercado Pago",
+    "note": "Completar alias/CVU de Mercado Pago del negocio. Vacío = transferencia deshabilitada."
+  },
+  "staff": {
+    "note": "PINs por persona en la variable de entorno STAFF_PINS (JSON), p. ej. {\"admin\":\"...\",\"Franco\":\"...\",\"Maxi\":\"...\"}. Si falta, se usa STAFF_PIN para todos (demo: 1234)."
+  }
 }

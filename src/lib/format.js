@@ -40,12 +40,13 @@ export const productPrice = (product, plan) => product[planKey[plan]];
 export const lineAmount = (price, kg) =>
   Math.round(Math.round(price * 100) * kg) / 100;
 
-export const paymentLabel = (o) =>
-  o.payment === "cuenta"
-    ? "Cuenta corriente"
-    : o.payment === "entrega"
-      ? "Pago al recibir"
-      : "Transferencia";
+export const paymentNames = {
+  cuenta: "Cuenta corriente",
+  entrega: "Efectivo al recibir",
+  transferencia: "Transferencia",
+  mercadopago: "Mercado Pago online",
+};
+export const paymentLabel = (o) => paymentNames[o.payment] || o.payment;
 
 export const totalKg = (o) => o.items.reduce((n, p) => n + p.kg, 0);
 export const localityText = (o) =>

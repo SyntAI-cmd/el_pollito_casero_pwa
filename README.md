@@ -22,6 +22,16 @@ npm start
 
 Desarrollo con recarga: `npm run dev`.
 
+## Tres aplicaciones separadas por rol
+
+| Rol | Entra por | Ve | No ve |
+|---|---|---|---|
+| **Cliente** | `/ingresar` (nombre + WhatsApp, sin contraseña) o directamente al confirmar un pedido | catálogo, sus pedidos, seguimiento en el mapa con ETA, su cuenta y envases | ningún enlace ni pantalla del equipo |
+| **Administración** | `/admin` + PIN | tablero de pedidos, cargar pedido telefónico, pesaje, clientes (cuenta corriente, repartidor habitual), reparto y rendición, impresión, **chat interno** con cada repartidor | catálogo público, seguimiento del cliente |
+| **Repartidor** | `/acceso` → su nombre + PIN | solo sus entregas: salir, GPS, navegar, cobrar, pesar, entregar con envases; clientes de su reparto para **cobrar saldos** y **recibir envases**; chat con administración | pedidos ajenos, catálogo, panel de administración |
+
+El servidor filtra los datos por rol en cada consulta (no solo la interfaz): un repartidor no puede leer ni modificar pedidos que no le asignaron; un cliente solo ve los suyos. Los intentos de PIN se limitan a 6 por minuto por IP y quedan registrados en `audit_log`. PIN por persona con `STAFF_PINS={"admin":"…","Franco":"…","Maxi":"…"}`.
+
 ## Cómo se usa
 
 **Cliente** · entra al catálogo, elige modalidad (mayorista, intermedio o minorista), agrega kilos y confirma con nombre, WhatsApp y dirección. Puede marcar el punto exacto de entrega con **"Usar mi ubicación actual"** (GPS del dispositivo) o arrastrando el pin en el mapa; la dirección y la localidad se completan solas. Con ese teléfono queda identificado: ve sus pedidos, los sigue en el mapa con **hora estimada de llegada**, recibe **avisos** (repartidor asignado, camioneta en camino con la hora, entregado) aunque cierre la app, puede cancelar mientras estén "recibidos", repetirlos y consultar su cuenta corriente y envases. Desde otro dispositivo recupera todo con "Ingresar con mi teléfono".
@@ -41,6 +51,10 @@ Todos los cambios de estado llegan al instante a las pantallas abiertas (Server-
 - Cuenta corriente y saldo de envases por cliente; administración habilita o quita el crédito. **Pagos a cuenta** registrados por administración o el repartidor (efectivo/transferencia) se aplican a los pedidos más antiguos; el sobrante queda como saldo a favor y se descuenta del próximo pedido a cuenta.
 - **Peso real en balanza**: administración (o el repartidor desde la preparación) carga los kilos pesados por corte; el importe se recalcula con el precio por kilo, el cliente ve "pediste 20 kg · pesado 19,6 kg" y recibe el aviso.
 - Repartidor: paradas ordenadas por localidad y **ruta completa en Google Maps** con todas las paradas del día.
+- **Mapa profesional** (MapLibre GL + tiles vectoriales de OpenFreeMap, sin API key): camioneta que se desliza entre lecturas GPS con flecha de rumbo, ruta por calles (OSRM) recalculada al avanzar, cámara que sigue a la camioneta hasta que el usuario toca el mapa ("Centrar" la retoma), local y domicilio marcados. Si el estilo vectorial no carga, cae a OpenStreetMap raster.
+- **Pagos**: efectivo al recibir; **transferencia a Mercado Pago/banco** con alias y CVU (el cliente avisa "ya transferí" con referencia y administración confirma); **Mercado Pago online** (Checkout Pro) si se configura `MP_ACCESS_TOKEN`, con webhook que acredita el pago automáticamente; cuenta corriente con pagos parciales y saldo a favor.
+- **Chat interno** administración ↔ repartidor en tiempo real (SSE) con avisos push y contador de no leídos.
+- **Backend**: SQLite relacional (pedidos, ítems, eventos, recorrido, envases, pagos, clientes, sesiones con vencimiento, suscripciones push, mensajes, auditoría), transacciones en todas las operaciones de dinero, migración automática desde la base anterior, copia de seguridad diaria en `data/backups` (14 días), validación explícita de cada cuerpo, límite de intentos de ingreso, `GET /api/health`.
 - Mapa OpenStreetMap/Leaflet con el local, el domicilio (punto marcado por el cliente o geocodificado con Nominatim) y el repartidor en vivo. Ruta por calles y ETA con el servidor público de OSRM; el servidor calcula la hora estimada al salir y la actualiza con cada posición GPS (cada 45 s); si OSRM no responde, estima por distancia.
 - Notificaciones Web Push (`web-push`, claves VAPID en `data/vapid.json`): pedido nuevo y cancelaciones a administración; repartidor asignado, salida con hora estimada y entrega al cliente; pedido asignado al repartidor.
 - Hojas imprimibles (A4 apaisado): pedidos del día por repartidor con total a preparar por producto; hoja de ruta y rendición por repartidor con firmas.
@@ -81,6 +95,10 @@ GEOCODING=on            # off desactiva Nominatim
 ROUTING=on              # off desactiva OSRM (ETA por distancia)
 PUSH=on                 # off desactiva el envío de avisos
 VAPID_PUBLIC_KEY= / VAPID_PRIVATE_KEY=   # opcional; si faltan se generan en data/vapid.json
+STAFF_PINS={"admin":"...","Franco":"...","Maxi":"..."}   # PIN por persona (reemplaza a STAFF_PIN)
+TRANSFER_ALIAS=pollito.casero.mp   # alias de Mercado Pago/banco; habilita "transferencia" (también en business.json → transfer)
+TRANSFER_CVU= / TRANSFER_HOLDER=
+MP_ACCESS_TOKEN=        # Checkout Pro (pago online); requiere SITE_URL https para el webhook
 ```
 
 Con `business.demo: true` el PIN por defecto es 1234, la cuenta corriente se habilita automáticamente a los nuevos clientes mayoristas y se siembra un pedido de ejemplo (PC-1024, asignado a Franco).
@@ -94,11 +112,15 @@ server/store.mjs      SQLite (pedidos, clientes, sesiones, caché de geocodifica
 server/geo.mjs        Nominatim (directo e inverso) con cola de 1 req/s
 server/route.mjs      ETA con OSRM o estimación por distancia
 server/push.mjs       Web Push con claves VAPID
+server/mercadopago.mjs transferencia (alias/CVU) y Checkout Pro + webhook
+server/validate.mjs   validación de cuerpos y límite de intentos
+server/errors.mjs     ApiError
 domain.mjs            precios, validación, teléfonos, resumen de cuenta (compartido con tests)
 src/lib/              api + SSE, router, store (estado global), formato, push, reportes (hoja de ruta)
 src/components/       carrito, tarjeta de producto, tarjeta operativa, modales, UI
 src/pages/            catálogo, pedidos, seguimiento, cuenta, planes, ayuda, operación, reparto, acceso, impresión
-src/Map.jsx           Leaflet + ruta OSRM
+src/Map.jsx           MapLibre GL: camioneta animada, ruta OSRM, cámara que sigue
+src/lib/mapkit.js     estilo vectorial (OpenFreeMap) con respaldo raster, marcadores, interpolación
 ```
 
 ## Verificación

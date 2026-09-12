@@ -1,72 +1,65 @@
 import React, { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-const pinIcon = L.divIcon({
-  className: "map-pin map-pin-dest",
-  html: "<span>●</span>",
-  iconSize: [36, 36],
-  iconAnchor: [18, 18],
-});
+import { createMap, marker } from "../lib/mapkit.js";
 
 /**
- * Mapa para marcar el punto exacto de entrega: se puede arrastrar el pin o tocar el mapa.
+ * Mapa para marcar el punto exacto de entrega: tocar el mapa o arrastrar el pin.
  * `value` es {lat, lng} o null; `center` se usa cuando todavía no hay punto.
  */
 export default function LocationPicker({ value, center, onChange }) {
   const ref = useRef();
   const map = useRef();
-  const marker = useRef();
+  const pin = useRef();
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   useEffect(() => {
-    map.current = L.map(ref.current, {
-      scrollWheelZoom: false,
-      zoomControl: true,
-      attributionControl: true,
+    const start = value || center;
+    const m = createMap(ref.current, {
+      center: [start.lng, start.lat],
+      zoom: value ? 17 : 14,
     });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map.current);
-    map.current.on("click", (e) =>
-      onChange({ lat: e.latlng.lat, lng: e.latlng.lng }),
+    map.current = m;
+    m.on("click", (e) =>
+      onChangeRef.current({ lat: e.lngLat.lat, lng: e.lngLat.lng }),
     );
-    // Dentro de un <dialog> el mapa se monta antes de tener tamaño final.
-    const fix = setTimeout(() => map.current?.invalidateSize(), 50);
+    // Dentro de un <dialog> el mapa se monta antes de tener su tamaño final.
+    const fix = setTimeout(() => map.current?.resize(), 80);
     return () => {
       clearTimeout(fix);
-      map.current.remove();
+      pin.current?.remove();
+      pin.current = null;
+      m.remove();
       map.current = null;
-      marker.current = null;
     };
   }, []);
+
   useEffect(() => {
     const m = map.current;
     if (!m) return;
     if (value) {
-      if (!marker.current) {
-        marker.current = L.marker([value.lat, value.lng], {
-          icon: pinIcon,
-          draggable: true,
-          keyboard: true,
-        })
-          .addTo(m)
-          .on("dragend", (e) => {
-            const p = e.target.getLatLng();
-            onChange({ lat: p.lat, lng: p.lng });
-          });
-        m.setView([value.lat, value.lng], 17, { animate: false });
+      const ll = [value.lng, value.lat];
+      if (!pin.current) {
+        pin.current = marker("dest", "●", ll, { draggable: true }).addTo(m);
+        pin.current.on("dragend", () => {
+          const p = pin.current.getLngLat();
+          onChangeRef.current({ lat: p.lat, lng: p.lng });
+        });
+        m.easeTo({
+          center: ll,
+          zoom: Math.max(m.getZoom(), 16),
+          duration: 500,
+        });
       } else {
-        marker.current.setLatLng([value.lat, value.lng]);
-        if (!m.getBounds().contains([value.lat, value.lng]))
-          m.panTo([value.lat, value.lng], { animate: false });
+        pin.current.setLngLat(ll);
+        if (!m.getBounds().contains(ll))
+          m.easeTo({ center: ll, duration: 400 });
       }
-    } else {
-      marker.current?.remove();
-      marker.current = null;
-      m.setView([center.lat, center.lng], 14, { animate: false });
+    } else if (pin.current) {
+      pin.current.remove();
+      pin.current = null;
     }
-  }, [value?.lat, value?.lng, center?.lat, center?.lng]);
+  }, [value?.lat, value?.lng]);
+
   return (
     <div
       className="location-picker"

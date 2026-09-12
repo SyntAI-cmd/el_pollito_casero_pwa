@@ -1,124 +1,120 @@
 import React, { useState } from "react";
-import { ShieldCheck, Truck, Settings2, ArrowRight } from "lucide-react";
+import { ShieldCheck, Truck, Settings2, ArrowRight, Lock } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
-import { PageHead } from "../components/ui.jsx";
 
-/** Ingreso del equipo (administración y repartidores) con PIN compartido. */
+/**
+ * Ingreso del equipo (administración y repartidores). Pantalla aparte, sin navegación
+ * de clientes: no se enlaza desde ningún lugar de la app pública.
+ */
 export default function Access() {
   const { config, staffLogin, busy, formError, session, logout } = useStore();
   const { path } = useRoute();
   const [role, setRole] = useState(path === "/admin" ? "admin" : "repartidor");
-  if (session && session.role !== "cliente")
-    return (
-      <>
-        <PageHead
-          eyebrow="EQUIPO"
-          title={`Ya estás adentro, ${session.name}.`}
-          description={
-            session.role === "admin"
-              ? "Panel de operación habilitado."
-              : "Tus entregas te esperan."
-          }
-        />
-        <div className="actions-row">
-          <Link
-            to={session.role === "admin" ? "/operacion" : "/reparto"}
-            className="primary"
-          >
-            {session.role === "admin" ? "Ir a Operación" : "Ir a Mis entregas"}{" "}
-            <ArrowRight size={16} />
-          </Link>
-          <button className="secondary" onClick={logout}>
-            Cambiar de usuario
-          </button>
-        </div>
-      </>
-    );
   return (
-    <>
-      <PageHead
-        eyebrow="EQUIPO"
-        title={
-          path === "/admin"
-            ? "Ingreso de Pollito Casero."
-            : "Acceso del equipo."
-        }
-        description="Para administración y repartidores de Pollito Casero. Si sos cliente, volvé al catálogo: no necesitás clave."
-      />
-      <form
-        className="access-form panel"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const f = Object.fromEntries(new FormData(e.target));
-          staffLogin({ role, pin: f.pin, driver: f.driver });
-        }}
-      >
-        <div className="role-switch" role="group" aria-label="Rol">
-          <button
-            type="button"
-            className={role === "repartidor" ? "selected" : ""}
-            aria-pressed={role === "repartidor"}
-            onClick={() => setRole("repartidor")}
-          >
-            <Truck size={18} /> Repartidor
-          </button>
-          <button
-            type="button"
-            className={role === "admin" ? "selected" : ""}
-            aria-pressed={role === "admin"}
-            onClick={() => setRole("admin")}
-          >
-            <Settings2 size={18} /> Administración
-          </button>
+    <div className="staff-login">
+      <div className="staff-card">
+        <div className="staff-head">
+          <img src="/icon.svg" width="44" height="44" alt="" />
+          <div>
+            <span className="eyebrow">POLLITO CASERO · EQUIPO</span>
+            <h1>
+              {session && session.role !== "cliente"
+                ? `Hola, ${session.name}.`
+                : "Ingreso del equipo"}
+            </h1>
+          </div>
         </div>
-        {role === "repartidor" && (
-          <label>
-            ¿Quién sos?
-            <select name="driver" required defaultValue="">
-              <option value="" disabled>
-                Elegí tu nombre…
-              </option>
-              {(config?.drivers || []).map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-          </label>
+        {session && session.role !== "cliente" ? (
+          <div className="actions-row">
+            <Link
+              to={session.role === "admin" ? "/operacion" : "/reparto"}
+              className="primary"
+            >
+              {session.role === "admin"
+                ? "Ir a Operación"
+                : "Ir a Mis entregas"}{" "}
+              <ArrowRight size={16} />
+            </Link>
+            <button className="secondary" onClick={logout}>
+              Cambiar de usuario
+            </button>
+          </div>
+        ) : (
+          <form
+            className="access-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const f = Object.fromEntries(new FormData(e.target));
+              staffLogin({ role, pin: f.pin, driver: f.driver });
+            }}
+          >
+            <div className="role-switch" role="group" aria-label="Rol">
+              <button
+                type="button"
+                className={role === "repartidor" ? "selected" : ""}
+                aria-pressed={role === "repartidor"}
+                onClick={() => setRole("repartidor")}
+              >
+                <Truck size={18} /> Repartidor
+              </button>
+              <button
+                type="button"
+                className={role === "admin" ? "selected" : ""}
+                aria-pressed={role === "admin"}
+                onClick={() => setRole("admin")}
+              >
+                <Settings2 size={18} /> Administración
+              </button>
+            </div>
+            {role === "repartidor" && (
+              <label>
+                ¿Quién sos?
+                <select name="driver" required defaultValue="">
+                  <option value="" disabled>
+                    Elegí tu nombre…
+                  </option>
+                  {(config?.drivers || []).map((d) => (
+                    <option key={d}>{d}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label>
+              PIN {role === "admin" ? "de administración" : "personal"}
+              <input
+                name="pin"
+                type="password"
+                inputMode="numeric"
+                autoComplete="current-password"
+                required
+                minLength="4"
+                maxLength="32"
+                placeholder="••••"
+              />
+            </label>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+            <button className="primary full" disabled={busy}>
+              <ShieldCheck size={16} /> {busy ? "Verificando…" : "Ingresar"}
+            </button>
+            <p className="staff-note">
+              <Lock size={12} /> Acceso registrado. Tras varios intentos
+              fallidos el ingreso se bloquea un minuto.
+              {config?.demo ? " Demostración: PIN 1234." : ""}
+            </p>
+          </form>
         )}
-        <label>
-          PIN del equipo
-          <input
-            name="pin"
-            type="password"
-            inputMode="numeric"
-            autoComplete="current-password"
-            required
-            minLength="4"
-            maxLength="12"
-            placeholder="••••"
-          />
-        </label>
-        {formError && (
-          <p className="form-error" role="alert">
-            {formError}
+        {session?.role === "cliente" && (
+          <p className="staff-note">
+            Estás ingresado como cliente ({session.name}). Al entrar como equipo
+            se cierra esa sesión en este dispositivo.
           </p>
         )}
-        <button
-          className="primary full"
-          disabled={busy || !config?.staffAccess}
-        >
-          <ShieldCheck size={16} /> {busy ? "Verificando…" : "Ingresar"}
-        </button>
-        {!config?.staffAccess && (
-          <p className="demo-note">
-            El acceso del equipo no está configurado en este servidor
-            (STAFF_PIN).
-          </p>
-        )}
-        {config?.demo && (
-          <p className="demo-note">Demostración: el PIN es 1234.</p>
-        )}
-      </form>
-    </>
+      </div>
+    </div>
   );
 }

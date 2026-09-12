@@ -18,6 +18,8 @@ const server = spawn(process.execPath, ["server.mjs"], {
     ROUTING: "off",
     PUSH: "off",
     STAFF_PIN: "1234",
+    TRANSFER_ALIAS: "pollito.casero.mp",
+    TRANSFER_HOLDER: "El Pollito Casero",
   },
   stdio: "pipe",
   windowsHide: true,
@@ -513,8 +515,8 @@ try {
   assert.equal(
     (await maxi("/customers/" + almacen.phone + "/payments", { amount: 100 }))
       .status,
-    403,
-    "Maxi no reparte al almacén",
+    404,
+    "Maxi no reparte al almacén (ni sabe que existe)",
   );
   assert.equal(
     (
@@ -535,6 +537,78 @@ try {
     (await maxi("/customers")).data.some((c) => c.phone === almacen.phone),
     false,
   );
+
+  // Pagos: transferencia informada por el cliente, Mercado Pago online deshabilitado, envases por cliente.
+  assert.equal(
+    cfg.transfer?.alias,
+    "pollito.casero.mp",
+    "alias de transferencia publicado",
+  );
+  assert.equal(cfg.mercadopago, false);
+  assert.equal(
+    cfg.staffAccess,
+    undefined,
+    "el cliente no recibe pistas del acceso del equipo",
+  );
+  const tr = await ana("/orders", {
+    ...sample,
+    key: "transfer-1",
+    payment: "transferencia",
+    items: [{ id: "alas", kg: 2 }],
+  });
+  assert.equal(tr.status, 201);
+  assert.equal(
+    (
+      await ana(
+        "/orders/" + tr.data.id,
+        { transfer: { reference: "MP-778899" } },
+        "PATCH",
+      )
+    ).data.transfer?.reference,
+    "MP-778899",
+  );
+  assert.equal(
+    (await admin("/orders")).data.find((o) => o.id === tr.data.id).transfer
+      .reference,
+    "MP-778899",
+    "administración ve la transferencia informada",
+  );
+  const confirmed = (
+    await admin(
+      "/orders/" + tr.data.id,
+      { paid: true, paidMethod: "transferencia" },
+      "PATCH",
+    )
+  ).data;
+  assert.equal(confirmed.paid, true);
+  assert.equal(confirmed.paidMethod, "transferencia");
+  assert.equal(
+    (await ana("/orders", { ...sample, key: "mp-1", payment: "mercadopago" }))
+      .status,
+    400,
+    "MP online deshabilitado sin token",
+  );
+  assert.equal((await ana("/orders/" + tr.data.id + "/mp", {})).status, 400);
+  assert.equal(
+    (await franco("/customers/" + cust.phone + "/boxes", { boxes: 1 })).status,
+    200,
+    "el repartidor recibe envases del cliente",
+  );
+  assert.equal(
+    (await franco("/customers/" + cust.phone + "/boxes", { boxes: 99 })).status,
+    400,
+    "no más de los pendientes",
+  );
+  assert.equal(
+    (await ana("/customers/" + cust.phone + "/boxes", { boxes: 1 })).status,
+    403,
+  );
+  assert.equal(
+    (await anon("/messages")).status,
+    403,
+    "el chat interno no es para clientes",
+  );
+  assert.equal((await anon("/health")).data.ok, true);
 
   // SSE: el cliente recibe la novedad cuando administración cambia el estado.
   const sseCookie = (
@@ -691,9 +765,10 @@ try {
     "Punto marcado",
     { timeout: 10000 },
   );
-  await expect(
-    page.locator(".location-picker .leaflet-marker-icon"),
-  ).toHaveCount(1, "pin arrastrable en el mapa del checkout");
+  await expect(page.locator(".location-picker .map-pin-dest")).toHaveCount(
+    1,
+    "pin arrastrable en el mapa del checkout",
+  );
   await page.getByLabel("Indicaciones para el reparto").fill("Timbre azul");
   await page.getByRole("button", { name: "Confirmar pedido" }).click();
   await expect(page).toHaveURL(/\/seguimiento\?pedido=PC-/);
@@ -707,10 +782,8 @@ try {
     ignoreCase: true,
     timeout: 8000,
   });
-  await expect(page.locator(".leaflet-marker-icon.map-pin-origin")).toHaveCount(
-    1,
-  );
-  await expect(page.locator(".leaflet-marker-icon.map-pin-dest")).toHaveCount(
+  await expect(page.locator(".map-pin-origin")).toHaveCount(1);
+  await expect(page.locator(".live-map-wrap .map-pin-dest")).toHaveCount(
     1,
     "el destino marcado por el cliente aparece en el mapa",
   );
@@ -730,12 +803,15 @@ try {
   const ops = await newPage();
   await ops.context().grantPermissions(["notifications"]);
   await ops.goto(base + "/operacion");
-  await expect(
-    ops.getByRole("link", { name: "Ir al acceso de administración" }),
-  ).toBeVisible();
-  await ops.goto(base + "/acceso");
-  await ops.getByRole("button", { name: "Administración" }).click();
-  await ops.getByLabel("PIN del equipo").fill("1234");
+  await expect(ops, "anónimo en /operacion → ingreso del equipo").toHaveURL(
+    /[\/]admin/,
+  );
+  await expect(ops.locator(".staff-login")).toBeVisible();
+  await expect(ops.locator(".sidebar")).toHaveCount(
+    0,
+    "el ingreso del equipo no muestra la interfaz de clientes",
+  );
+  await ops.getByLabel(/PIN de administración/).fill("1234");
   await ops
     .locator(".access-form")
     .getByRole("button", { name: "Ingresar" })
@@ -814,12 +890,12 @@ try {
     .setGeolocation({ latitude: -33.0785, longitude: -68.476 });
   await driver.goto(base + "/acceso");
   await driver.getByLabel("¿Quién sos?").selectOption("Maxi");
-  await driver.getByLabel("PIN del equipo").fill("1234");
+  await driver.getByLabel(/PIN personal/).fill("1234");
   await driver
     .locator(".access-form")
     .getByRole("button", { name: "Ingresar" })
     .click();
-  await expect(driver).toHaveURL(/\/reparto/);
+  await expect(driver).toHaveURL(/[\/]reparto/);
   const dcard = driver.locator(".operation-order", { hasText: orderId });
   await expect(dcard).toBeVisible();
   await expect(
@@ -836,7 +912,7 @@ try {
   await dcard.getByRole("button", { name: "Compartir mi GPS" }).click();
   await expect(dcard).toContainText("Compartiendo GPS", { timeout: 8000 });
   await expect(
-    page.locator(".leaflet-marker-icon.map-pin-driver"),
+    page.locator(".map-pin-driver"),
     "el cliente ve al repartidor",
   ).toHaveCount(1, { timeout: 10000 });
   await expect(page.locator(".eta-banner")).toContainText("Maxi salió");
@@ -877,6 +953,64 @@ try {
     "Navegador repartidor (móvil): acceso, entregas propias, GPS compartido visible para el cliente, cobro y entrega.",
   );
 
+  // Separación por rol: cada uno solo llega a sus pantallas.
+  await ops.goto(base + "/");
+  await expect(ops, "admin en el catálogo público → Operación").toHaveURL(
+    /[\/]operacion$/,
+  );
+  await ops.goto(base + "/seguimiento");
+  await expect(ops, "admin no ve el seguimiento del cliente").toHaveURL(
+    /[\/]operacion$/,
+  );
+  await expect(ops.locator(".staff-bar")).toBeVisible();
+  await expect(ops.locator(".sidebar")).toHaveCount(0);
+  await driver.goto(base + "/operacion");
+  await expect(driver, "repartidor no entra a Operación").toHaveURL(
+    /[\/]reparto$/,
+  );
+  await driver.goto(base + "/");
+  await expect(driver, "repartidor no ve el catálogo").toHaveURL(
+    /[\/]reparto$/,
+  );
+  await page.goto(base + "/operacion");
+  await expect(page, "cliente no entra a Operación").toHaveURL(base + "/");
+  await expect(page.locator("text=Soy de Pollito Casero")).toHaveCount(
+    0,
+    "sin enlaces al panel en la app del cliente",
+  );
+  await expect(page.locator('a[href="/admin"], a[href="/acceso"]')).toHaveCount(
+    0,
+  );
+  await page.goto(base + "/reparto");
+  await expect(page).toHaveURL(base + "/");
+  step(
+    "Separación por rol: administración, repartidor y cliente no acceden a las pantallas de los otros.",
+  );
+
+  // Chat interno administración ↔ repartidor.
+  await ops.goto(base + "/operacion");
+  await ops.getByRole("button", { name: "Chat interno" }).click();
+  await ops.getByRole("tab", { name: /Maxi/ }).click();
+  await ops
+    .getByLabel("Mensaje")
+    .fill("Maxi, ¿llegás bien al pedido " + orderId + "?");
+  await ops.getByRole("button", { name: "Enviar" }).click();
+  await expect(ops.locator(".chat-msg.mine")).toContainText("llegás bien");
+  await driver.goto(base + "/reparto");
+  await expect(
+    driver.locator(".chat-fab.has-unread"),
+    "el repartidor ve el mensaje sin leer",
+  ).toBeVisible({ timeout: 8000 });
+  await driver.getByRole("button", { name: "Chat interno" }).click();
+  await expect(driver.locator(".chat-msg")).toContainText("llegás bien");
+  await driver.getByLabel("Mensaje").fill("Sí, en 5 minutos estoy.");
+  await driver.getByRole("button", { name: "Enviar" }).click();
+  await expect(
+    ops.locator(".chat-msg").last(),
+    "administración recibe la respuesta en vivo",
+  ).toContainText("5 minutos", { timeout: 8000 });
+  step("Chat interno en tiempo real entre administración y repartidor.");
+
   // Cliente: historial, repetir, cuenta, cancelación y sesión en otro dispositivo.
   await page.goto(base + "/pedidos");
   await expect(page.locator(".order-row")).toHaveCount(1);
@@ -902,13 +1036,13 @@ try {
   );
   const other = await newPage();
   await other.goto(base + "/pedidos");
-  await other.getByRole("button", { name: "Ingresar con mi teléfono" }).click();
+  await expect(other, "anónimo en /pedidos → página de ingreso").toHaveURL(
+    /[\/]ingresar[?]volver=%2Fpedidos/,
+  );
   await other.getByLabel("Nombre y apellido").fill("Cliente Navegador");
   await other.getByLabel("WhatsApp").fill("+54 9 263 466 7788");
-  await other
-    .locator("dialog")
-    .getByRole("button", { name: "Ingresar" })
-    .click();
+  await other.getByRole("button", { name: "Continuar con mi celular" }).click();
+  await expect(other).toHaveURL(/[\/]pedidos$/);
   await expect(other.locator(".order-row")).toHaveCount(
     2,
     "mismo teléfono, mismos pedidos",

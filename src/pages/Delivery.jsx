@@ -1,14 +1,34 @@
 import React from "react";
-import { Truck, LogOut, ShieldCheck, Navigation, Map } from "lucide-react";
-import { kgText, totalKg } from "../lib/format.js";
+import {
+  Truck,
+  LogOut,
+  ShieldCheck,
+  Navigation,
+  Map,
+  Wallet,
+  Package,
+} from "lucide-react";
+import { kgText, totalKg, money } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
-import PushToggle from "../components/PushToggle.jsx";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
 export default function Delivery() {
-  const { session, orders, logout, sharing, live, config } = useStore();
+  const {
+    session,
+    orders,
+    logout,
+    sharing,
+    live,
+    config,
+    customers,
+    setModal,
+    busy,
+  } = useStore();
+  const accounts = customers
+    .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
+    .sort((a, b) => (b.summary?.balance || 0) - (a.summary?.balance || 0));
   if (session?.role !== "repartidor" && session?.role !== "admin")
     return (
       <>
@@ -65,10 +85,6 @@ export default function Delivery() {
           <span className={"live-indicator " + (live ? "on" : "")}>
             <i /> {live ? "En vivo" : "Reconectando…"}
           </span>
-          <PushToggle compact />
-          <button className="link-button" onClick={logout}>
-            <LogOut size={14} /> Salir
-          </button>
         </div>
       </PageHead>
       {sharing && (
@@ -130,6 +146,62 @@ export default function Delivery() {
           )}
         </div>
       )}
+      <section
+        className="panel accounts-panel"
+        aria-labelledby="clientes-reparto"
+      >
+        <div className="section-line">
+          <h2 id="clientes-reparto">Clientes de mi reparto</h2>
+          <span className="muted">Saldos y envases pendientes</span>
+        </div>
+        {accounts.length === 0 ? (
+          <p className="muted">
+            Ningún cliente tuyo tiene saldo ni envases pendientes.
+          </p>
+        ) : (
+          <ul className="accounts-list">
+            {accounts.map((c) => (
+              <li key={c.phone}>
+                <div>
+                  <strong>{c.name}</strong>
+                  <small>
+                    {c.address ? c.address + " · " : ""}
+                    {c.summary.balance > 0
+                      ? `Debe ${money(c.summary.balance)}`
+                      : "Sin saldo"}{" "}
+                    · {c.summary.boxes}{" "}
+                    {c.summary.boxes === 1 ? "envase" : "envases"}
+                  </small>
+                </div>
+                <div className="accounts-actions">
+                  {c.summary.balance > 0 && (
+                    <button
+                      className="secondary small"
+                      disabled={busy}
+                      onClick={() =>
+                        setModal({ type: "account-payment", customer: c })
+                      }
+                    >
+                      <Wallet size={14} /> Cobrar
+                    </button>
+                  )}
+                  {c.summary.boxes > 0 && (
+                    <button
+                      className="secondary small"
+                      disabled={busy}
+                      onClick={() =>
+                        setModal({ type: "boxes-return", customer: c })
+                      }
+                    >
+                      <Package size={14} /> Recibir envases
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </>
   );
 }

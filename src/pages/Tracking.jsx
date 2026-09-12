@@ -31,6 +31,7 @@ import {
   Timeline,
 } from "../components/ui.jsx";
 import PushToggle from "../components/PushToggle.jsx";
+import PaymentPanel from "../components/PaymentPanel.jsx";
 
 const LiveMap = lazy(() => import("../Map.jsx"));
 
@@ -247,6 +248,7 @@ export default function Tracking() {
           )}
         </section>
       </div>
+      {session.role === "cliente" && <PaymentPanel order={active} />}
       <section className="panel order-detail">
         <div>
           <h2>Detalle de entrega</h2>

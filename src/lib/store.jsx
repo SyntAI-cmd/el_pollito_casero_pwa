@@ -37,6 +37,9 @@ export function StoreProvider({ children }) {
   const [me, setMe] = useState(null);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [chat, setChat] = useState({ thread: null, messages: [], unread: {} });
+  const chatThread = useRef(null);
+  const chatOpen = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [online, setOnline] = useState(navigator.onLine);
@@ -115,6 +118,7 @@ export function StoreProvider({ children }) {
         sessionRef.current = s;
         if (s?.plan) setPlanState(s.plan);
         await Promise.all([loadOrders(), loadMe(), loadCustomers()]);
+        loadChat().catch(() => {});
       })
       .catch(() => {
         setServerDown(true);
@@ -141,7 +145,11 @@ export function StoreProvider({ children }) {
   useEffect(() => {
     if (!session) return;
     const close = subscribe(
-      (type) => {
+      (type, data) => {
+        if (type === "message") {
+          loadChat(data.thread).catch(() => {});
+          return;
+        }
         if (type === "orders")
           loadOrders({ silent: true }).then(() =>
             Promise.all([loadMe(), loadCustomers()]),
@@ -314,7 +322,7 @@ export function StoreProvider({ children }) {
       return order;
     });
 
-  const login = (fields, { message } = {}) =>
+  const login = (fields, { message, redirect } = {}) =>
     run(async () => {
       const s = await post("/session", fields);
       setSession(s);
@@ -332,6 +340,7 @@ export function StoreProvider({ children }) {
       await Promise.all([loadOrders(), loadMe()]);
       syncPush().catch(() => {});
       setModal(null);
+      if (redirect) navigate(redirect);
       notify(message || `Hola, ${s.name.split(" ")[0]}.`);
     });
 
@@ -342,6 +351,7 @@ export function StoreProvider({ children }) {
       sessionRef.current = s;
       lastStatuses.current = {};
       await Promise.all([loadOrders(), loadCustomers()]);
+      loadChat().catch(() => {});
       syncPush().catch(() => {});
       setModal(null);
       navigate(s.role === "admin" ? "/operacion" : "/reparto");
@@ -394,6 +404,88 @@ export function StoreProvider({ children }) {
         await post("/customers/" + customer.phone + "/payments", data);
         await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
         notify("Pago registrado.");
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+
+  /** Chat interno administración ↔ repartidor. */
+  async function loadChat(thread, { read = chatOpen.current } = {}) {
+    const role = sessionRef.current?.role;
+    if (role !== "admin" && role !== "repartidor") return;
+    const target = role === "admin" ? thread || chatThread.current : null;
+    if (role === "admin" && !target) {
+      const r = await api("/messages");
+      setChat((c) => ({ ...c, unread: r.unread || {} }));
+      return;
+    }
+    // Solo se marca como leída la conversación abierta.
+    if (
+      role === "admin" &&
+      thread &&
+      chatThread.current &&
+      thread !== chatThread.current
+    ) {
+      const r = await api("/messages");
+      setChat((c) => ({ ...c, unread: r.unread || {} }));
+      return;
+    }
+    const params = new URLSearchParams();
+    if (target) params.set("thread", target);
+    if (read) params.set("read", "1");
+    const r = await api("/messages" + (params.size ? "?" + params : ""));
+    chatThread.current = r.thread;
+    setChat({ thread: r.thread, messages: r.messages, unread: r.unread || {} });
+  }
+  const openChat = (thread) => {
+    chatThread.current = thread || chatThread.current;
+    chatOpen.current = true;
+    return loadChat(thread, { read: true }).catch((e) => notify(e.message));
+  };
+  const closeChat = () => {
+    chatOpen.current = false;
+  };
+  const sendMessage = (text, thread) =>
+    run(
+      async () => {
+        await post("/messages", { text, thread: thread || chatThread.current });
+        await loadChat(thread || chatThread.current);
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const unreadTotal = Object.values(chat.unread || {}).reduce(
+    (s, n) => s + n,
+    0,
+  );
+
+  const returnBoxes = (customer, boxes) =>
+    run(
+      async () => {
+        await post("/customers/" + customer.phone + "/boxes", { boxes });
+        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        notify(`${boxes} envases recibidos de ${customer.name}.`);
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const reportTransfer = (o, reference) =>
+    run(
+      async () => {
+        await patch("/orders/" + o.id, { transfer: { reference } });
+        await loadOrders({ silent: true });
+        notify(
+          "Avisamos a administración. Te confirmamos el pago en cuanto lo veamos acreditado.",
+        );
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const payOnline = (o) =>
+    run(
+      async () => {
+        const { url } = await post("/orders/" + o.id + "/mp", {});
+        window.open(url, "_blank", "noopener,noreferrer");
         return true;
       },
       { onError: (e) => notify(e.message) },
@@ -499,6 +591,15 @@ export function StoreProvider({ children }) {
     update,
     updateCustomer,
     registerPayment,
+    returnBoxes,
+    reportTransfer,
+    payOnline,
+    chat,
+    unreadTotal,
+    openChat,
+    closeChat,
+    loadChat,
+    sendMessage,
     contact,
     share,
     activeOrder,
