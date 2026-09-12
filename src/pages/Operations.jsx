@@ -12,7 +12,8 @@ import {
   Printer,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
-import { Link } from "../lib/router.jsx";
+import { Link, useRoute } from "../lib/router.jsx";
+import Team from "./Team.jsx";
 import { money, planNames, dateText, waLink } from "../lib/format.js";
 import { routeSheet, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
@@ -38,7 +39,13 @@ export default function Operations() {
     live,
     setModal,
   } = useStore();
-  const [tab, setTab] = useState("pedidos");
+  const { path } = useRoute();
+  const tab =
+    {
+      "/operacion/reparto": "reparto",
+      "/operacion/clientes": "clientes",
+      "/operacion/equipo": "equipo",
+    }[path] || "pedidos";
   const [showAll, setShowAll] = useState(false);
   const [date, setDate] = useState(today());
   const [driver, setDriver] = useState("");
@@ -122,29 +129,14 @@ export default function Operations() {
           <span>clientes</span>
         </div>
       </div>
-      <div className="tabs">
-        <div
-          role="tablist"
-          aria-label="Secciones de operación"
-          className="tablist"
-        >
-          {[
-            ["pedidos", "Pedidos", ClipboardList],
-            ["reparto", "Reparto y rendición", Truck],
-            ["clientes", "Clientes", Users],
-          ].map(([id, label, Icon]) => (
-            <button
-              key={id}
-              role="tab"
-              aria-selected={tab === id}
-              className={tab === id ? "active" : ""}
-              onClick={() => setTab(id)}
-            >
-              <Icon size={16} /> {label}
-            </button>
-          ))}
-        </div>
-        {tab === "pedidos" && (
+      {tab === "pedidos" && (
+        <div className="board-toolbar">
+          <p className="board-hint">
+            Los pedidos entran a <strong>Recibidos</strong>. Pesalos y pasalos a{" "}
+            <strong>En preparación</strong>, asigná repartidor y tocá{" "}
+            <strong>Iniciar reparto</strong>; el repartidor cobra y completa la
+            entrega desde su app.
+          </p>
           <label className="toggle">
             <input
               type="checkbox"
@@ -153,9 +145,8 @@ export default function Operations() {
             />{" "}
             Ver historial completo
           </label>
-        )}
-      </div>
-
+        </div>
+      )}
       {tab === "pedidos" && (
         <div className="board">
           {columns.map(([status, title, hint]) => {
@@ -373,12 +364,7 @@ export default function Operations() {
           </p>
         </section>
       )}
-      {config?.demo && (
-        <p className="demo-note">
-          <Settings2 size={13} /> Instalación de demostración: el PIN del equipo
-          es {`"1234"`} hasta que se defina STAFF_PIN en el servidor.
-        </p>
-      )}
+      {tab === "equipo" && <Team />}
     </>
   );
 }

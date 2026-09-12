@@ -11,14 +11,27 @@ import "./styles-roles.css";
 import { RouterProvider } from "./lib/router.jsx";
 import { StoreProvider } from "./lib/store.jsx";
 import App from "./App.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <RouterProvider>
-    <StoreProvider>
-      <App />
-    </StoreProvider>
-  </RouterProvider>,
+  <ErrorBoundary>
+    <RouterProvider>
+      <StoreProvider>
+        <App />
+      </StoreProvider>
+    </RouterProvider>
+  </ErrorBoundary>,
 );
 
-if ("serviceWorker" in navigator && import.meta.env.PROD)
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
   navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // Cuando se instala una versión nueva, se recarga una vez para no mezclar código viejo y nuevo.
+  // Solo si ya había una versión controlando la página (en la primera instalación no hay que recargar).
+  const hadController = !!navigator.serviceWorker.controller;
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing || !hadController) return;
+    refreshing = true;
+    location.reload();
+  });
+}

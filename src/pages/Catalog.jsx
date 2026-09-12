@@ -86,9 +86,8 @@ export default function Catalog() {
               fetchPriority="high"
               alt="Pollo entero fresco sobre papel de carnicería, con limón y romero. Imagen ilustrativa."
             />
-            <div className="hero-stamp">
-              DE ACÁ.
-              <br />
+            <div className="hero-stamp" aria-hidden="true">
+              <i>DE ACÁ.</i>
               <b>BIEN CASERO.</b>
               <span>PARA VOS.</span>
             </div>

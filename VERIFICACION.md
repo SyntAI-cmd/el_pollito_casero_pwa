@@ -36,3 +36,12 @@ No se enviaron mensajes de WhatsApp ni se realizaron pagos. No se verificó GPS 
 - Axe sin violaciones en 12 rutas (incluidas `/ingresar`, `/admin`, `/operacion` y `/reparto` con sesión).
 - Mapa MapLibre verificado en Chromium headless (WebGL): marcadores de local, domicilio y camioneta, ruta OSRM, pin arrastrable en el checkout.
 - Inspección visual: ingreso del cliente (split tipo Rappi), ingreso del equipo (pantalla oscura aparte), barra de administración con chat, vista móvil del repartidor con clientes de su reparto, hover de planes simplificado.
+
+## Etapa 6 · 12 de septiembre de 2026
+
+- Esquema v3: cuentas de cliente (email + contraseña scrypt, Google, enlaces temporales de un uso, passkeys WebAuthn) y usuarios del equipo (`staff_users`) en lugar de PINs. Sesiones con vencimiento y vinculación de teléfono en el primer pedido.
+- Unit 10/10. E2E correcto con nuevas comprobaciones: registro e ingreso por email (contraseña corta y duplicado rechazados), enlace mágico (un solo uso, vencido → `/ingresar?enlace=vencido`), opciones de passkey con desafío firmado, Google rechazado sin `GOOGLE_CLIENT_ID`, ingreso del equipo por usuario/contraseña, alta/desactivación/cambio de contraseña desde Equipo (el usuario desactivado pierde la sesión al instante, nadie se desactiva a sí mismo), `/api/staff` vedado a repartidor y cliente, cliente sin teléfono no ve pedidos, búsqueda de direcciones acotada a Mendoza.
+- Axe sin violaciones en 13 rutas (incluidas `/ingresar`, `/admin`, `/operacion/equipo`).
+- Ubicación: `matchLocality` prioriza nombre de distrito sobre código postal (Los Barriales ya no cae en Palmira); en PC sin GPS se avisa el margen de error y se ofrece la búsqueda de dirección con sugerencias.
+- Pantalla en blanco al actualizar: ErrorBoundary con recarga automática ante chunks viejos y recarga al cambiar el service worker.
+- Inspección visual: sello del hero centrado, pantalla de ingreso con las cuatro opciones, pestaña Equipo, sugerencias de dirección en el checkout.

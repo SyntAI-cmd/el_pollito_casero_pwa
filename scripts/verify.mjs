@@ -17,7 +17,8 @@ const server = spawn(process.execPath, ["server.mjs"], {
     GEOCODING: "off",
     ROUTING: "off",
     PUSH: "off",
-    STAFF_PIN: "1234",
+    ADMIN_PASSWORD: "clave-de-prueba-1",
+    LOGIN_LIMIT: "100",
     TRANSFER_ALIAS: "pollito.casero.mp",
     TRANSFER_HOLDER: "El Pollito Casero",
   },
@@ -101,17 +102,29 @@ try {
     (await anon("/orders/" + id, { status: "preparando" }, "PATCH")).status,
     401,
   );
-  assert.equal((await admin("/session/staff", { pin: "0000" })).status, 401);
   assert.equal(
-    (await admin("/session/staff", { pin: "1234" })).data.role,
+    (
+      await admin("/session/staff", {
+        username: "admin",
+        password: "incorrecta",
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await admin("/session/staff", {
+        username: "admin",
+        password: "clave-de-prueba-1",
+      })
+    ).data.role,
     "admin",
   );
   assert.equal(
     (
       await franco("/session/staff", {
-        pin: "1234",
-        role: "repartidor",
-        driver: "Franco",
+        username: "franco",
+        password: "clave-de-prueba-1",
       })
     ).data.driver,
     "Franco",
@@ -457,7 +470,10 @@ try {
     Math.round((9.52 * 3500 + 2.1 * 7440) * 100) / 100,
     "total recalculado con peso real",
   );
-  assert.ok(weighed.weighed && weighed.weighedBy === "admin");
+  assert.ok(
+    weighed.weighed && weighed.weighedBy,
+    "queda registrado quién pesó",
+  );
   assert.equal(
     (await admin("/orders/" + w.data.id, { weights: { entero: 0 } }, "PATCH"))
       .status,
@@ -508,9 +524,8 @@ try {
   assert.equal((await ana("/me")).data.creditBalance, 2600);
   const maxi = client();
   await maxi("/session/staff", {
-    pin: "1234",
-    role: "repartidor",
-    driver: "Maxi",
+    username: "maxi",
+    password: "clave-de-prueba-1",
   });
   assert.equal(
     (await maxi("/customers/" + almacen.phone + "/payments", { amount: 100 }))
@@ -609,6 +624,173 @@ try {
     "el chat interno no es para clientes",
   );
   assert.equal((await anon("/health")).data.ok, true);
+
+  // Cuentas de cliente: email + contraseña, enlace mágico, passkeys, y vinculación del WhatsApp en el primer pedido.
+  const eva = client();
+  assert.equal(
+    (
+      await eva("/auth/register", {
+        name: "Eva Email",
+        email: "eva@example.com",
+        password: "corta",
+      })
+    ).status,
+    400,
+    "contraseña corta",
+  );
+  const reg = await eva("/auth/register", {
+    name: "Eva Email",
+    email: "Eva@Example.com",
+    password: "secreto-eva-1",
+  });
+  assert.equal(reg.status, 201);
+  assert.equal(reg.data.account, true);
+  assert.equal(reg.data.phone, null, "todavía sin WhatsApp");
+  assert.deepEqual(
+    (await eva("/orders")).data,
+    [],
+    "sin teléfono no hay pedidos",
+  );
+  assert.equal(
+    (
+      await eva("/auth/register", {
+        name: "Eva",
+        email: "eva@example.com",
+        password: "otra-clave-9",
+      })
+    ).status,
+    409,
+    "email repetido",
+  );
+  const evaOrder = await eva("/orders", {
+    ...sample,
+    key: "eva-1",
+    plan: "minorista",
+    payment: "entrega",
+    name: "Eva Email",
+    phone: "263 477-8899",
+    items: [{ id: "alas", kg: 1 }],
+  });
+  assert.equal(evaOrder.status, 201);
+  assert.equal(
+    (await eva("/session")).data.phone,
+    "5492634778899",
+    "la cuenta quedó asociada al WhatsApp del pedido",
+  );
+  const eva2 = client();
+  assert.equal(
+    (await eva2("/auth/login", { email: "eva@example.com", password: "mala" }))
+      .status,
+    401,
+  );
+  assert.equal(
+    (
+      await eva2("/auth/login", {
+        email: "eva@example.com",
+        password: "secreto-eva-1",
+      })
+    ).data.phone,
+    "5492634778899",
+  );
+  assert.equal(
+    (await eva2("/orders")).data.length,
+    1,
+    "desde otro dispositivo ve su pedido",
+  );
+  assert.equal((await eva2("/me")).data.account.email, "eva@example.com");
+  const magic = await anon("/auth/magic", {
+    email: "link@example.com",
+    name: "Link",
+  });
+  assert.equal(magic.status, 200);
+  assert.ok(magic.data.demoLink, "en demo el enlace se devuelve para probarlo");
+  const magicRes = await fetch(magic.data.demoLink, { redirect: "manual" });
+  assert.equal(magicRes.status, 302);
+  assert.match(magicRes.headers.get("location"), /[\/]pedidos$/);
+  const magicCookie = magicRes.headers.get("set-cookie").split(";")[0];
+  const magicSession = await (
+    await fetch(base + "/api/session", { headers: { Cookie: magicCookie } })
+  ).json();
+  assert.equal(magicSession.role, "cliente");
+  assert.equal(magicSession.account, true);
+  assert.match(
+    (await fetch(magic.data.demoLink, { redirect: "manual" })).headers.get(
+      "location",
+    ),
+    /vencido/,
+    "el enlace es de un solo uso",
+  );
+  const pk = await eva2("/auth/passkey/register/options", {});
+  assert.equal(pk.status, 200);
+  assert.equal(pk.data.options.rp.id, "localhost");
+  assert.ok(pk.data.token);
+  assert.equal(
+    (await client()("/auth/passkey/register/options", {})).status,
+    401,
+    "passkey solo con cuenta",
+  );
+  assert.equal((await client()("/auth/passkey/login/options", {})).status, 200);
+  assert.equal(
+    (await anon("/auth/google", { credential: "x".repeat(30) })).status,
+    400,
+    "Google sin configurar",
+  );
+
+  // Usuarios del equipo: solo administración los gestiona; un usuario desactivado pierde el acceso.
+  assert.equal((await franco("/staff")).status, 403);
+  const staffList = (await admin("/staff")).data;
+  assert.equal(staffList.length, 3, "admin, franco y maxi creados al inicio");
+  const newUser = await admin("/staff", {
+    username: "lucas",
+    name: "Lucas Prueba",
+    role: "repartidor",
+    driver: "Maxi",
+    password: "clave-lucas-1",
+  });
+  assert.equal(newUser.status, 201);
+  const lucas = client();
+  assert.equal(
+    (
+      await lucas("/session/staff", {
+        username: "LUCAS",
+        password: "clave-lucas-1",
+      })
+    ).data.driver,
+    "Maxi",
+  );
+  const deact = await admin(
+    "/staff/" + newUser.data.id,
+    { active: false },
+    "PATCH",
+  );
+  assert.equal(deact.status, 200, JSON.stringify(deact.data));
+  assert.equal(deact.data.active, false);
+  assert.equal(
+    (await lucas("/session")).data,
+    null,
+    "sesión cerrada al desactivar",
+  );
+  assert.equal(
+    (
+      await client()("/session/staff", {
+        username: "lucas",
+        password: "clave-lucas-1",
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await admin(
+        "/staff/" + staffList.find((u) => u.username === "admin").id,
+        { active: false },
+        "PATCH",
+      )
+    ).status,
+    400,
+    "no se desactiva a sí mismo",
+  );
+  assert.equal((await anon("/geo/search?q=Pergamino")).status, 200);
 
   // SSE: el cliente recibe la novedad cuando administración cambia el estado.
   const sseCookie = (
@@ -811,7 +993,8 @@ try {
     0,
     "el ingreso del equipo no muestra la interfaz de clientes",
   );
-  await ops.getByLabel(/PIN de administración/).fill("1234");
+  await ops.getByLabel("Usuario").fill("admin");
+  await ops.getByLabel("Contraseña").fill("clave-de-prueba-1");
   await ops
     .locator(".access-form")
     .getByRole("button", { name: "Ingresar" })
@@ -843,7 +1026,10 @@ try {
   await expect(
     card.getByRole("button", { name: "Iniciar reparto" }),
   ).toBeEnabled();
-  await ops.getByRole("tab", { name: "Clientes" }).click();
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Clientes" })
+    .click();
   await expect(ops.locator("table.customers")).toContainText(
     "Cliente Navegador",
   );
@@ -855,7 +1041,10 @@ try {
     ops.locator(".push-chip.on"),
     "avisos push registrados para administración",
   ).toBeVisible({ timeout: 8000 });
-  await ops.getByRole("tab", { name: "Reparto y rendición" }).click();
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Reparto y rendición" })
+    .click();
   await expect(ops.locator(".sheet")).toContainText("Saldo a rendir");
   await ops.locator(".route-controls select").selectOption("Maxi");
   await expect(ops.locator(".sheet")).toContainText("Maxi");
@@ -876,10 +1065,13 @@ try {
   });
   await ops.emulateMedia({ media: "screen" });
   await ops.goto(base + "/operacion");
-  await ops.getByRole("tab", { name: "Pedidos" }).click();
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Pedidos" })
+    .click();
   await ops.screenshot({ path: "test-results/operacion.png", fullPage: true });
   step(
-    "Navegador administración: acceso con PIN, tablero, preparación, asignación y clientes.",
+    "Navegador administración: acceso con usuario y contraseña, tablero, preparación, asignación y clientes.",
   );
 
   // Repartidor en móvil: ve solo lo suyo, sale a entregar, comparte GPS (simulado), cobra y entrega.
@@ -889,8 +1081,8 @@ try {
     .context()
     .setGeolocation({ latitude: -33.0785, longitude: -68.476 });
   await driver.goto(base + "/acceso");
-  await driver.getByLabel("¿Quién sos?").selectOption("Maxi");
-  await driver.getByLabel(/PIN personal/).fill("1234");
+  await driver.getByLabel("Usuario").fill("maxi");
+  await driver.getByLabel("Contraseña").fill("clave-de-prueba-1");
   await driver
     .locator(".access-form")
     .getByRole("button", { name: "Ingresar" })
@@ -978,9 +1170,12 @@ try {
     0,
     "sin enlaces al panel en la app del cliente",
   );
-  await expect(page.locator('a[href="/admin"], a[href="/acceso"]')).toHaveCount(
-    0,
-  );
+  await expect(
+    page.locator(
+      '.sidebar a[href="/admin"], nav a[href="/admin"], .topbar a[href="/admin"], a[href="/acceso"]',
+    ),
+  ).toHaveCount(0, "solo el enlace discreto del pie lleva al equipo");
+  await expect(page.locator('footer a[href="/admin"]')).toHaveCount(1);
   await page.goto(base + "/reparto");
   await expect(page).toHaveURL(base + "/");
   step(
@@ -1011,6 +1206,38 @@ try {
   ).toContainText("5 minutos", { timeout: 8000 });
   step("Chat interno en tiempo real entre administración y repartidor.");
 
+  // Ingreso del cliente con email + contraseña y con enlace de acceso, desde el navegador.
+  const mail = await newPage();
+  await mail.goto(base + "/ingresar");
+  await mail.getByRole("button", { name: "Continuar con email" }).click();
+  await mail.getByRole("tab", { name: "Crear cuenta" }).click();
+  await mail.getByLabel("Nombre y apellido").fill("Marta Correo");
+  await mail.getByLabel("Email").fill("marta@example.com");
+  await mail.getByLabel("Contraseña").fill("clave-marta-1");
+  await mail.getByRole("button", { name: "Crear mi cuenta" }).click();
+  await expect(mail).toHaveURL(/[/]pedidos$/);
+  await expect(mail.locator(".sidebar .profile")).toContainText("Marta Correo");
+  await mail.locator(".top-avatar").click();
+  await expect(mail.locator(".account-box")).toContainText("marta@example.com");
+  await mail.locator("dialog .modal-close").click();
+  const magicPage = await newPage();
+  await magicPage.goto(base + "/ingresar");
+  await magicPage.getByRole("button", { name: "Continuar con email" }).click();
+  await magicPage.getByRole("tab", { name: "Enlace de acceso" }).click();
+  await magicPage.getByLabel("Email").fill("marta@example.com");
+  await magicPage.getByRole("button", { name: "Enviarme el enlace" }).click();
+  await magicPage
+    .getByRole("link", { name: /Abrir el enlace de demostración/ })
+    .click();
+  await expect(magicPage).toHaveURL(/[/]pedidos$/);
+  await expect(
+    magicPage.locator(".sidebar .profile"),
+    "el enlace abre la misma cuenta",
+  ).toContainText("Marta Correo");
+  step(
+    "Navegador cliente: cuenta con email y contraseña, y enlace de acceso de un solo uso.",
+  );
+
   // Cliente: historial, repetir, cuenta, cancelación y sesión en otro dispositivo.
   await page.goto(base + "/pedidos");
   await expect(page.locator(".order-row")).toHaveCount(1);
@@ -1039,6 +1266,7 @@ try {
   await expect(other, "anónimo en /pedidos → página de ingreso").toHaveURL(
     /[\/]ingresar[?]volver=%2Fpedidos/,
   );
+  await other.getByRole("button", { name: "Continuar con celular" }).click();
   await other.getByLabel("Nombre y apellido").fill("Cliente Navegador");
   await other.getByLabel("WhatsApp").fill("+54 9 263 466 7788");
   await other.getByRole("button", { name: "Continuar con mi celular" }).click();

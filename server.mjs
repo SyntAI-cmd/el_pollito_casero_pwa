@@ -4,7 +4,8 @@ import { resolve, extname, sep } from "node:path";
 import { openStore } from "./server/store.mjs";
 import { createApi, createEvents, ApiError } from "./server/api.mjs";
 import { createPush } from "./server/push.mjs";
-import { statuses, origin } from "./domain.mjs";
+import { seedStaff } from "./server/auth.mjs";
+import { statuses, origin, drivers } from "./domain.mjs";
 import pkg from "./package.json" with { type: "json" };
 
 const dev = process.argv.includes("--dev");
@@ -29,6 +30,7 @@ const push = await createPush({
   contact: `mailto:pedidos@${baseHost.split(":")[0] === "localhost" ? "pollitocasero.local" : baseHost}`,
 });
 const api = createApi({ store, events, push, base });
+await seedStaff(store, drivers, log);
 
 // Copias de seguridad diarias (data/backups) y limpieza de sesiones vencidas.
 if (dbPath !== ":memory:") {
@@ -151,6 +153,9 @@ const pages = {
   ],
   "/operacion": ["Operación", "Panel interno."],
   "/operacion/nuevo": ["Cargar pedido", "Panel interno."],
+  "/operacion/reparto": ["Reparto y rendición", "Panel interno."],
+  "/operacion/clientes": ["Clientes", "Panel interno."],
+  "/operacion/equipo": ["Equipo", "Panel interno."],
   "/reparto": ["Mis entregas", "Panel interno."],
   "/acceso": ["Acceso del equipo", "Panel interno."],
   "/admin": ["Administración", "Panel interno."],
@@ -160,6 +165,9 @@ const indexable = ["/", "/planes", "/ayuda"];
 const internal = [
   "/operacion",
   "/operacion/nuevo",
+  "/operacion/reparto",
+  "/operacion/clientes",
+  "/operacion/equipo",
   "/reparto",
   "/acceso",
   "/admin",
@@ -297,6 +305,14 @@ const server = http.createServer(async (req, res) => {
       const headers = {};
       if ("session" in result)
         headers["Set-Cookie"] = sessionCookie(result.session?.id);
+      if (result.redirect) {
+        res.writeHead(result.status || 302, {
+          Location: result.redirect,
+          "Cache-Control": "no-store",
+          ...headers,
+        });
+        return res.end();
+      }
       json(res, result.status, result.body, headers);
       if (req.method !== "GET" || result.status >= 400)
         log.info(

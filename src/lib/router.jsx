@@ -85,6 +85,9 @@ const meta = {
     "Ingresá con tu WhatsApp para ver y seguir tus pedidos.",
   ],
   "/operacion/nuevo": ["Cargar pedido", "Pedido telefónico."],
+  "/operacion/reparto": ["Reparto y rendición", "Panel interno."],
+  "/operacion/clientes": ["Clientes", "Panel interno."],
+  "/operacion/equipo": ["Equipo", "Panel interno."],
   "/admin": [
     "Ingreso Pollito Casero",
     "Ingreso de administración de Pollito Casero.",

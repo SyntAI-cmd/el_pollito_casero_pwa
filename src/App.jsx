@@ -19,6 +19,8 @@ import {
   LogOut,
   ClipboardList,
   Plus,
+  Users,
+  ShieldCheck,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
@@ -55,6 +57,9 @@ const CLIENT_ROUTES = {
 const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
 const ADMIN_ROUTES = {
   "/operacion": Operations,
+  "/operacion/reparto": Operations,
+  "/operacion/clientes": Operations,
+  "/operacion/equipo": Operations,
   "/operacion/nuevo": Catalog,
   "/imprimir": Print,
   "/ayuda": Help,
@@ -295,6 +300,9 @@ function ClientShell({ Page, path }) {
           <div>
             <Link to="/ayuda">Ayuda</Link>
             <Link to="/planes">Planes</Link>
+            <Link to="/admin" className="footer-staff" rel="nofollow">
+              Equipo
+            </Link>
             <button
               onClick={async () => {
                 if (install) {
@@ -332,8 +340,11 @@ function StaffShell({ Page, path }) {
   const admin = session.role === "admin";
   const nav = admin
     ? [
-        ["/operacion", "Operación", ClipboardList],
+        ["/operacion", "Pedidos", ClipboardList],
         ["/operacion/nuevo", "Cargar pedido", Plus],
+        ["/operacion/reparto", "Reparto y rendición", Truck],
+        ["/operacion/clientes", "Clientes", Users],
+        ["/operacion/equipo", "Equipo", ShieldCheck],
       ]
     : [["/reparto", "Mis entregas", Truck]];
   const received = orders.filter((o) => o.status === "recibido").length;

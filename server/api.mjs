@@ -7,7 +7,6 @@ import {
   statuses,
   plans,
   shippingByPlan,
-  paymentMethods,
   priceOrder,
   normalizePhone,
   accountSummary,
@@ -15,7 +14,12 @@ import {
   applyPayment,
 } from "../domain.mjs";
 import business from "../business.json" with { type: "json" };
-import { geocode, reverse, enabled as geocodingEnabled } from "./geo.mjs";
+import {
+  geocode,
+  reverse,
+  search,
+  enabled as geocodingEnabled,
+} from "./geo.mjs";
 import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
@@ -25,6 +29,15 @@ import {
   createPreference,
   fetchPayment,
 } from "./mercadopago.mjs";
+import {
+  hashPassword,
+  verifyPassword,
+  validEmail,
+  passwordOk,
+  sendMagicLink,
+  verifyGoogleToken,
+  createPasskeys,
+} from "./auth.mjs";
 
 export { ApiError };
 
@@ -47,21 +60,8 @@ const actorOf = (s) =>
   s?.role === "repartidor"
     ? s.driver
     : s?.role === "admin"
-      ? "admin"
+      ? s.name || "admin"
       : s?.name || "cliente";
-
-/** PINs del equipo: STAFF_PINS={"admin":"…","Franco":"…"} o STAFF_PIN compartido (demo: 1234). */
-function staffPins() {
-  try {
-    if (process.env.STAFF_PINS) return JSON.parse(process.env.STAFF_PINS);
-  } catch {}
-  const shared = process.env.STAFF_PIN || (business.demo ? "1234" : "");
-  return shared
-    ? Object.fromEntries(
-        ["admin", ...drivers.map((d) => d.name)].map((k) => [k, shared]),
-      )
-    : {};
-}
 
 export function createApi({
   store,
@@ -69,9 +69,11 @@ export function createApi({
   push,
   base = "http://localhost:5173",
 }) {
-  const pins = staffPins();
-  const loginLimit = rateLimiter({ limit: 10, windowMs: 60000 });
-  const staffLimit = rateLimiter({ limit: 6, windowMs: 60000 });
+  // Intentos de ingreso por minuto y por IP (LOGIN_LIMIT permite subirlo en pruebas).
+  const attempts = Number(process.env.LOGIN_LIMIT) || 0;
+  const loginLimit = rateLimiter({ limit: attempts || 10, windowMs: 60000 });
+  const staffLimit = rateLimiter({ limit: attempts || 6, windowMs: 60000 });
+  const passkeys = createPasskeys({ base });
   const config = {
     products,
     localities,
@@ -83,8 +85,10 @@ export function createApi({
     adminPhone: process.env.ADMIN_WHATSAPP || business.adminPhone,
     transfer: transferInfo(),
     mercadopago: checkoutEnabled(),
-    staffAccess: Object.keys(pins).length > 0,
     pushKey: push?.publicKey || null,
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    magicLinks: true,
+    passkeys: true,
   };
   const publicSession = (s) =>
     s
@@ -94,12 +98,12 @@ export function createApi({
           phone: s.phone,
           driver: s.driver || null,
           plan: s.plan || null,
+          account: !!s.accountId,
+          staff: !!s.staffId,
         }
       : null;
   const publicConfig = (session) => ({
     ...config,
-    // El cliente no necesita saber cómo entra el equipo.
-    staffAccess: isStaff(session) || undefined,
     session: publicSession(session),
   });
 
@@ -107,7 +111,7 @@ export function createApi({
     const existing = store.customers.get(phone);
     const customer = existing || {
       phone,
-      name: data.name.trim(),
+      name: String(data.name || "Cliente").trim(),
       plan: plans.includes(data.plan) ? data.plan : "minorista",
       credit: !!business.demo,
       creditBalance: 0,
@@ -129,12 +133,43 @@ export function createApi({
     summary: accountSummary(store.orders.forCustomer(c.phone), c),
   });
 
+  /** Abre sesión de cliente para una cuenta (email, Google o passkey). */
+  function sessionForAccount(account, current) {
+    if (current) store.sessions.delete(current.id);
+    const customer = account.phone ? store.customers.get(account.phone) : null;
+    account.lastLogin = now();
+    store.accounts.save(account);
+    const s = store.sessions.create({
+      role: "cliente",
+      accountId: account.id,
+      phone: account.phone || null,
+      name: account.name,
+      plan: customer?.plan || null,
+    });
+    store.audit.log(s, "session.login", "account", account.id, {
+      via: "cuenta",
+    });
+    return s;
+  }
+  function findOrCreateAccount({ email, name, googleSub }) {
+    let account =
+      (googleSub && store.accounts.byGoogle(googleSub)) ||
+      (email && store.accounts.byEmail(email)) ||
+      null;
+    if (!account) account = store.accounts.create({ email, name, googleSub });
+    else if (googleSub && !account.googleSub) {
+      account.googleSub = googleSub;
+      store.accounts.save(account);
+    }
+    return account;
+  }
+
   function visibleOrders(session) {
     if (!session) return [];
     if (session.role === "admin") return store.orders.all();
     if (session.role === "repartidor")
       return store.orders.forDriver(session.driver);
-    return store.orders.forCustomer(session.phone);
+    return session.phone ? store.orders.forCustomer(session.phone) : [];
   }
   const canSee = (session, o) =>
     session &&
@@ -160,11 +195,10 @@ export function createApi({
   /** Lo que ve cada rol de un pedido: el cliente no recibe datos internos. */
   const view = (o, session) => {
     const out = { ...o, driverContact: driverContact(o) };
-    if (session?.role === "cliente") {
-      delete out.createdBy;
+    if (session?.role !== "admin") {
       delete out.key;
+      if (session?.role === "cliente") delete out.createdBy;
     }
-    if (session?.role === "repartidor") delete out.key;
     return out;
   };
 
@@ -209,7 +243,10 @@ export function createApi({
     const previous = store.orders.byKey(key);
     if (previous) return { order: previous, session, created: false };
     const phone =
-      session?.role === "cliente" ? session.phone : normalizePhone(b.phone);
+      session?.role === "cliente" && session.phone
+        ? session.phone
+        : normalizePhone(b.phone);
+    if (!phone) fail(400, "Ingresá un WhatsApp válido, con código de área.");
     const location =
       b.location && inMendoza(b.location)
         ? { lat: Number(b.location.lat), lng: Number(b.location.lng) }
@@ -229,6 +266,18 @@ export function createApi({
           name: customer.name,
           plan: customer.plan,
         });
+      else if (session.role === "cliente" && !session.phone) {
+        // Primer pedido de una cuenta (email/Google/passkey): queda asociada a este WhatsApp.
+        store.sessions.update(session.id, { phone, plan: customer.plan });
+        if (session.accountId) {
+          const account = store.accounts.get(session.accountId);
+          if (account && !account.phone) {
+            account.phone = phone;
+            store.accounts.save(account);
+          }
+        }
+        nextSession = { ...session, phone, plan: customer.plan };
+      }
       const o = {
         ...priced,
         id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
@@ -591,7 +640,7 @@ export function createApi({
     fail(403, "El chat interno es del equipo.");
   };
 
-  /** Enrutador. Devuelve { status, body, session? } o null si la ruta no existe. */
+  /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
   return async function handle({ method, path, body, query, session, ip }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
 
@@ -611,6 +660,7 @@ export function createApi({
         return json(200, null, { session: null });
       }
       if (method === "POST") {
+        // Ingreso rápido por celular (sin contraseña).
         loginLimit(ip);
         const name = str(body.name, { min: 2, max: 100, name: "el nombre" });
         const phone = normalizePhone(body.phone);
@@ -618,67 +668,337 @@ export function createApi({
           fail(400, "Ingresá un teléfono válido, con código de área.");
         const customer = ensureCustomer(phone, { ...body, name });
         if (session) store.sessions.delete(session.id);
+        const account = store.accounts.byPhone(phone);
         const s = store.sessions.create({
           role: "cliente",
           phone,
           name: customer.name,
           plan: customer.plan,
+          accountId: account?.id || null,
         });
-        store.audit.log(s, "session.login", "customer", phone);
+        store.audit.log(s, "session.login", "customer", phone, {
+          via: "celular",
+        });
         return json(200, publicSession(s), { session: s });
       }
     }
     if (path === "/api/session/staff" && method === "POST") {
       staffLimit(ip);
-      if (!config.staffAccess)
-        fail(403, "El acceso del equipo no está configurado en este servidor.");
-      const role = oneOf(body.role || "admin", ["admin", "repartidor"], "rol");
-      const who =
-        role === "admin"
-          ? "admin"
-          : oneOf(body.driver, config.drivers, "repartidor");
-      const pin = str(body.pin, { min: 4, max: 32, name: "el PIN" });
-      if (!pins[who] || pins[who] !== pin) {
-        store.audit.log(null, "session.staff_denied", "staff", who, { ip });
-        fail(401, "PIN incorrecto.");
+      const username = str(body.username, {
+        min: 2,
+        max: 40,
+        name: "el usuario",
+      }).toLowerCase();
+      const password = str(body.password, {
+        min: 1,
+        max: 200,
+        name: "la contraseña",
+      });
+      const user = store.staff.byUsername(username);
+      if (
+        !user ||
+        !user.active ||
+        !(await verifyPassword(password, user.password_hash))
+      ) {
+        store.audit.log(null, "session.staff_denied", "staff", username, {
+          ip,
+        });
+        fail(401, "Usuario o contraseña incorrectos.");
       }
+      const driverInfo =
+        user.role === "repartidor"
+          ? drivers.find((d) => d.name === user.driver)
+          : null;
+      if (user.role === "repartidor" && !driverInfo)
+        fail(
+          403,
+          "Este usuario no tiene un repartidor asignado. Pedile a administración que lo configure.",
+        );
       const data =
-        role === "repartidor"
+        user.role === "repartidor"
           ? {
-              role,
-              driver: who,
-              name: who,
-              phone: drivers.find((d) => d.name === who).phone,
+              role: "repartidor",
+              staffId: user.id,
+              driver: user.driver,
+              name: user.name,
+              phone: driverInfo.phone,
             }
           : {
               role: "admin",
-              name: business.adminName,
+              staffId: user.id,
+              name: user.name,
               phone: config.adminPhone,
             };
       if (session) store.sessions.delete(session.id);
       const s = store.sessions.create(data);
-      store.audit.log(s, "session.staff_login", "staff", who, { ip });
+      store.staff.touch(user.id);
+      store.audit.log(s, "session.staff_login", "staff", username, { ip });
       return json(200, publicSession(s), { session: s });
+    }
+
+    // ---- Cuentas de clientes: email + contraseña, enlace mágico, Google, passkeys ----
+    if (path === "/api/auth/register" && method === "POST") {
+      loginLimit(ip);
+      const name = str(body.name, { min: 2, max: 100, name: "el nombre" });
+      const email = str(body.email, {
+        min: 5,
+        max: 160,
+        name: "el email",
+      }).toLowerCase();
+      if (!validEmail(email)) fail(400, "Ingresá un email válido.");
+      if (!passwordOk(body.password))
+        fail(400, "La contraseña debe tener al menos 8 caracteres.");
+      const existing = store.accounts.byEmail(email);
+      if (existing?.passwordHash)
+        fail(
+          409,
+          "Ese email ya tiene cuenta. Ingresá con tu contraseña o pedí un enlace de acceso.",
+        );
+      const account = existing || store.accounts.create({ email, name });
+      account.name = name;
+      account.passwordHash = await hashPassword(body.password);
+      store.accounts.save(account);
+      const s = sessionForAccount(account, session);
+      return json(201, publicSession(s), { session: s });
+    }
+    if (path === "/api/auth/login" && method === "POST") {
+      loginLimit(ip);
+      const email = str(body.email, {
+        min: 5,
+        max: 160,
+        name: "el email",
+      }).toLowerCase();
+      const account = store.accounts.byEmail(email);
+      if (
+        !account ||
+        !account.passwordHash ||
+        !(await verifyPassword(
+          String(body.password || ""),
+          account.passwordHash,
+        ))
+      ) {
+        store.audit.log(null, "session.denied", "account", email, { ip });
+        fail(401, "Email o contraseña incorrectos.");
+      }
+      const s = sessionForAccount(account, session);
+      return json(200, publicSession(s), { session: s });
+    }
+    if (path === "/api/auth/magic" && method === "POST") {
+      loginLimit(ip);
+      const email = str(body.email, {
+        min: 5,
+        max: 160,
+        name: "el email",
+      }).toLowerCase();
+      if (!validEmail(email)) fail(400, "Ingresá un email válido.");
+      const name = str(body.name, {
+        max: 100,
+        name: "el nombre",
+        optional: true,
+      });
+      const token = store.tokens.create("magic", email, { name }, 15 * 60000);
+      const link = `${base}/api/auth/magic/${token}`;
+      let result;
+      try {
+        result = await sendMagicLink(email, link);
+      } catch (e) {
+        store.audit.log(null, "auth.magic_failed", "account", email, {
+          error: e.message,
+        });
+        fail(500, "No pudimos enviar el email. Probá con otro método.");
+      }
+      store.audit.log(null, "auth.magic_sent", "account", email, {
+        sent: result.sent,
+      });
+      return json(200, {
+        sent: result.sent,
+        demoLink: result.demoLink || null,
+      });
+    }
+    if (path.startsWith("/api/auth/magic/") && method === "GET") {
+      const t = store.tokens.consume(
+        path.slice("/api/auth/magic/".length),
+        "magic",
+      );
+      if (!t) return { status: 302, redirect: "/ingresar?enlace=vencido" };
+      const account = findOrCreateAccount({
+        email: t.subject,
+        name: t.payload?.name || t.subject.split("@")[0],
+      });
+      const s = sessionForAccount(account, session);
+      return { status: 302, redirect: "/pedidos", session: s };
+    }
+    if (path === "/api/auth/google" && method === "POST") {
+      loginLimit(ip);
+      const g = await verifyGoogleToken(
+        str(body.credential, { min: 20, max: 4000, name: "la credencial" }),
+      );
+      const account = findOrCreateAccount({
+        email: g.email,
+        name: g.name,
+        googleSub: g.sub,
+      });
+      const s = sessionForAccount(account, session);
+      return json(200, publicSession(s), { session: s });
+    }
+    if (path === "/api/auth/passkey/register/options" && method === "POST") {
+      if (!session?.accountId)
+        fail(
+          401,
+          "Ingresá con tu cuenta (email o Google) para activar la huella o Face ID.",
+        );
+      const account = store.accounts.get(session.accountId);
+      const options = await passkeys.registrationOptions(
+        account,
+        store.passkeys.forAccount(account.id),
+      );
+      const token = store.tokens.create(
+        "webauthn-reg",
+        account.id,
+        { challenge: options.challenge },
+        5 * 60000,
+      );
+      return json(200, { options, token });
+    }
+    if (path === "/api/auth/passkey/register/verify" && method === "POST") {
+      if (!session?.accountId) fail(401, "Ingresá con tu cuenta.");
+      const pending = store.tokens.consume(
+        String(body.token || ""),
+        "webauthn-reg",
+      );
+      if (!pending || pending.subject !== session.accountId)
+        fail(400, "El registro venció. Probá de nuevo.");
+      const key = await passkeys.verifyRegistration(
+        body.response,
+        pending.payload.challenge,
+      );
+      store.passkeys.add({
+        ...key,
+        accountId: session.accountId,
+        device:
+          str(body.device, { max: 60, optional: true, name: "dispositivo" }) ||
+          key.device,
+      });
+      store.audit.log(
+        session,
+        "auth.passkey_added",
+        "account",
+        session.accountId,
+      );
+      return json(201, {
+        ok: true,
+        passkeys: store.passkeys.forAccount(session.accountId).length,
+      });
+    }
+    if (path === "/api/auth/passkey/login/options" && method === "POST") {
+      loginLimit(ip);
+      const options = await passkeys.authenticationOptions();
+      const token = store.tokens.create(
+        "webauthn-auth",
+        null,
+        { challenge: options.challenge },
+        5 * 60000,
+      );
+      return json(200, { options, token });
+    }
+    if (path === "/api/auth/passkey/login/verify" && method === "POST") {
+      loginLimit(ip);
+      const pending = store.tokens.consume(
+        String(body.token || ""),
+        "webauthn-auth",
+      );
+      if (!pending) fail(400, "El ingreso venció. Probá de nuevo.");
+      const key = store.passkeys.get(String(body.response?.id || ""));
+      if (!key) fail(401, "Esa llave de acceso no está registrada.");
+      const counter = await passkeys.verifyAuthentication(
+        body.response,
+        pending.payload.challenge,
+        key,
+      );
+      store.passkeys.used(key.id, counter);
+      const account = store.accounts.get(key.accountId);
+      const s = sessionForAccount(account, session);
+      return json(200, publicSession(s), { session: s });
+    }
+    if (path.startsWith("/api/auth/passkey/") && method === "DELETE") {
+      if (!session?.accountId) fail(401, "Ingresá con tu cuenta.");
+      store.passkeys.remove(
+        decodeURIComponent(path.split("/")[4]),
+        session.accountId,
+      );
+      return json(200, { ok: true });
     }
 
     // ---- Cliente ----
     if (path === "/api/me" && method === "GET") {
       if (!session || session.role !== "cliente") return json(200, null);
-      const c = store.customers.get(session.phone);
-      return json(200, c ? withSummary(c) : null);
+      const c = session.phone ? store.customers.get(session.phone) : null;
+      const account = session.accountId
+        ? store.accounts.get(session.accountId)
+        : null;
+      const data = c
+        ? withSummary(c)
+        : {
+            phone: session.phone,
+            name: session.name,
+            summary: {
+              balance: 0,
+              owed: 0,
+              creditBalance: 0,
+              pendingOrders: 0,
+              boxes: 0,
+            },
+          };
+      return json(200, {
+        ...data,
+        name: data.name || account?.name || session.name,
+        account: account
+          ? {
+              email: account.email,
+              google: !!account.googleSub,
+              password: !!account.passwordHash,
+              passkeys: store.passkeys
+                .forAccount(account.id)
+                .map((k) => ({
+                  id: k.id,
+                  device: k.device,
+                  created: k.created,
+                  lastUsed: k.lastUsed,
+                })),
+            }
+          : null,
+      });
     }
     if (path === "/api/me" && method === "PATCH") {
       if (!session || session.role !== "cliente")
-        fail(401, "Ingresá con tu teléfono.");
-      const c = ensureCustomer(session.phone, {
+        fail(401, "Ingresá para editar tus datos.");
+      let current = session;
+      if (!current.phone) {
+        const phone = normalizePhone(body.phone);
+        if (!phone) fail(400, "Ingresá tu WhatsApp con código de área.");
+        store.sessions.update(current.id, { phone });
+        current = { ...current, phone };
+        if (current.accountId) {
+          const account = store.accounts.get(current.accountId);
+          if (account) {
+            account.phone = phone;
+            store.accounts.save(account);
+          }
+        }
+      }
+      const c = ensureCustomer(current.phone, {
         ...body,
-        name: body.name || session.name,
+        name: body.name || current.name,
       });
       if (plans.includes(body.plan)) {
         c.plan = body.plan;
         store.customers.save(c);
       }
-      return json(200, withSummary(c));
+      return json(
+        200,
+        withSummary(c),
+        current !== session ? { session: current } : {},
+      );
     }
     if (path === "/api/geo/reverse" && method === "GET") {
       const point = {
@@ -696,6 +1016,10 @@ export function createApi({
           () => null,
         ),
       );
+    }
+    if (path === "/api/geo/search" && method === "GET") {
+      const q = str(query.get("q"), { min: 3, max: 120, name: "la búsqueda" });
+      return json(200, await search(store, q, localities).catch(() => []));
     }
 
     // ---- Push ----
@@ -728,10 +1052,13 @@ export function createApi({
         fail(403, "Los repartidores no crean pedidos.");
       const { order, session: s, created } = createOrder(body, session);
       if (created) afterCreate(order);
+      const sessionChanged =
+        s !== session &&
+        (!session || s.id !== session.id || s.phone !== session.phone);
       return json(
         created ? 201 : 200,
         view(order, s),
-        s !== session ? { session: s } : {},
+        sessionChanged ? { session: s } : {},
       );
     }
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
@@ -767,7 +1094,6 @@ export function createApi({
       return json(200, view(o, session));
     }
     if (orderMatch && orderMatch[2] === "mp" && method === "POST") {
-      // Enlace de pago online (Checkout Pro) para el propio pedido.
       if (!session) fail(401, "Ingresá para pagar.");
       const o = store.orders.get(decodeURIComponent(orderMatch[1]));
       if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
@@ -779,7 +1105,6 @@ export function createApi({
       return json(200, { url: pref.initPoint });
     }
     if (path === "/api/mp/webhook" && method === "POST") {
-      // Notificación de Mercado Pago: se verifica el pago contra su API antes de marcar nada.
       const paymentId =
         body?.data?.id || query.get("data.id") || query.get("id");
       if (!paymentId || (body?.type && body.type !== "payment"))
@@ -878,6 +1203,84 @@ export function createApi({
       }
     }
 
+    // ---- Usuarios del equipo (solo administración) ----
+    if (path === "/api/staff" && method === "GET") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      return json(200, store.staff.all());
+    }
+    if (path === "/api/staff" && method === "POST") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const username = str(body.username, {
+        min: 2,
+        max: 40,
+        name: "el usuario",
+        pattern: /^[a-z0-9._-]+$/i,
+      }).toLowerCase();
+      const name = str(body.name, { min: 2, max: 80, name: "el nombre" });
+      const role = oneOf(body.role, ["admin", "repartidor"], "rol");
+      const driver =
+        role === "repartidor"
+          ? oneOf(body.driver, config.drivers, "repartidor")
+          : null;
+      if (!passwordOk(body.password))
+        fail(400, "La contraseña debe tener al menos 8 caracteres.");
+      if (store.staff.byUsername(username)) fail(409, "Ese usuario ya existe.");
+      const user = store.staff.create({
+        username,
+        name,
+        role,
+        driver,
+        passwordHash: await hashPassword(body.password),
+      });
+      store.audit.log(session, "staff.create", "staff", String(user.id), {
+        username,
+        role,
+        driver,
+      });
+      return json(201, { ...user, password_hash: undefined, active: true });
+    }
+    if (path.startsWith("/api/staff/") && method === "PATCH") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const id = Number(path.split("/")[3]);
+      const user = store.staff.get(id);
+      if (!user) fail(404, "Usuario no encontrado.");
+      const role =
+        body.role !== undefined
+          ? oneOf(body.role, ["admin", "repartidor"], "rol")
+          : user.role;
+      const active =
+        body.active !== undefined ? bool(body.active, "activo") : !!user.active;
+      if (user.id === session.staffId && (!active || role !== "admin"))
+        fail(400, "No podés desactivar ni degradar tu propio usuario.");
+      const driver =
+        role === "repartidor"
+          ? oneOf(body.driver ?? user.driver, config.drivers, "repartidor")
+          : null;
+      const name =
+        body.name !== undefined
+          ? str(body.name, { min: 2, max: 80, name: "el nombre" })
+          : user.name;
+      let passwordHash = null;
+      if (body.password !== undefined) {
+        if (!passwordOk(body.password))
+          fail(400, "La contraseña debe tener al menos 8 caracteres.");
+        passwordHash = await hashPassword(body.password);
+      }
+      store.staff.update(id, { name, role, driver, active, passwordHash });
+      if (!active || passwordHash) store.sessions.deleteFor({ staffId: id });
+      store.audit.log(session, "staff.update", "staff", String(id), {
+        role,
+        driver,
+        active,
+        password: !!passwordHash,
+      });
+      return json(200, {
+        ...store.staff.get(id),
+        password_hash: undefined,
+        active,
+      });
+    }
+
     // ---- Chat interno administración ↔ repartidor ----
     if (path === "/api/messages" && method === "GET") {
       if (!isStaff(session)) fail(403, "El chat interno es del equipo.");
@@ -903,14 +1306,17 @@ export function createApi({
         thread,
         {
           role: session.role,
-          name: session.role === "admin" ? business.adminName : session.driver,
+          name:
+            session.role === "admin"
+              ? session.name || business.adminName
+              : session.driver,
         },
         text,
       );
       events.messageAdded(message, thread.slice(11));
       if (session.role === "admin")
         notifyDriver(thread.slice(11), {
-          title: `${business.adminName}: ${text.slice(0, 60)}`,
+          title: `${session.name}: ${text.slice(0, 60)}`,
           body: "Mensaje de administración",
           tag: "chat",
         });

@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const SESSION_DAYS = 90;
 const now = () => new Date().toISOString();
 const j = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
@@ -67,6 +67,20 @@ CREATE TABLE IF NOT EXISTS sessions(
   id TEXT PRIMARY KEY, role TEXT NOT NULL, phone TEXT, name TEXT, driver TEXT, plan TEXT,
   created TEXT NOT NULL, expires TEXT NOT NULL, last_seen TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires);
+CREATE TABLE IF NOT EXISTS accounts(
+  id TEXT PRIMARY KEY, email TEXT UNIQUE, name TEXT NOT NULL, phone TEXT, password_hash TEXT,
+  google_sub TEXT UNIQUE, created TEXT NOT NULL, last_login TEXT);
+CREATE INDEX IF NOT EXISTS accounts_phone ON accounts(phone);
+CREATE TABLE IF NOT EXISTS auth_tokens(
+  token TEXT PRIMARY KEY, purpose TEXT NOT NULL, subject TEXT, payload TEXT, expires TEXT NOT NULL, used_at TEXT);
+CREATE TABLE IF NOT EXISTS passkeys(
+  id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  public_key TEXT NOT NULL, counter INTEGER NOT NULL DEFAULT 0, transports TEXT, device TEXT,
+  created TEXT NOT NULL, last_used TEXT);
+CREATE TABLE IF NOT EXISTS staff_users(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('admin','repartidor')), driver TEXT, password_hash TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1, created TEXT NOT NULL, last_login TEXT);
 CREATE TABLE IF NOT EXISTS push_subscriptions(
   endpoint TEXT PRIMARY KEY, role TEXT NOT NULL, phone TEXT, driver TEXT, created TEXT NOT NULL, subscription TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS geocache(query TEXT PRIMARY KEY, payload TEXT NOT NULL, at TEXT NOT NULL);
@@ -110,6 +124,14 @@ export async function openStore(path, { log = console } = {}) {
       if (tables.has(t)) db.exec(`ALTER TABLE ${t} RENAME TO ${t}_v1`);
   }
   db.exec(SCHEMA);
+  const sessionCols = db
+    .prepare("PRAGMA table_info(sessions)")
+    .all()
+    .map((c) => c.name);
+  if (!sessionCols.includes("account_id"))
+    db.exec("ALTER TABLE sessions ADD COLUMN account_id TEXT");
+  if (!sessionCols.includes("staff_id"))
+    db.exec("ALTER TABLE sessions ADD COLUMN staff_id INTEGER");
   const applied = new Set(
     db
       .prepare("SELECT version FROM schema_migrations")
@@ -209,9 +231,61 @@ export async function openStore(path, { log = console } = {}) {
     ),
     session: db.prepare("SELECT * FROM sessions WHERE id = ? AND expires > ?"),
     insertSession: db.prepare(
-      "INSERT INTO sessions(id, role, phone, name, driver, plan, created, expires, last_seen) VALUES(?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO sessions(id, role, phone, name, driver, plan, created, expires, last_seen, account_id, staff_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
     ),
     touchSession: db.prepare("UPDATE sessions SET last_seen = ? WHERE id = ?"),
+    updateSession: db.prepare(
+      "UPDATE sessions SET phone = COALESCE(?, phone), name = COALESCE(?, name), plan = COALESCE(?, plan) WHERE id = ?",
+    ),
+    deleteSessionsFor: db.prepare(
+      "DELETE FROM sessions WHERE (account_id = ? AND account_id IS NOT NULL) OR (staff_id = ? AND staff_id IS NOT NULL)",
+    ),
+    account: db.prepare("SELECT * FROM accounts WHERE id = ?"),
+    accountByEmail: db.prepare("SELECT * FROM accounts WHERE email = ?"),
+    accountByGoogle: db.prepare("SELECT * FROM accounts WHERE google_sub = ?"),
+    accountByPhone: db.prepare(
+      "SELECT * FROM accounts WHERE phone = ? ORDER BY created LIMIT 1",
+    ),
+    insertAccount: db.prepare(
+      "INSERT INTO accounts(id, email, name, phone, password_hash, google_sub, created, last_login) VALUES(?,?,?,?,?,?,?,?)",
+    ),
+    updateAccount: db.prepare(
+      "UPDATE accounts SET email = ?, name = ?, phone = ?, password_hash = ?, google_sub = ?, last_login = ? WHERE id = ?",
+    ),
+    insertToken: db.prepare(
+      "INSERT INTO auth_tokens(token, purpose, subject, payload, expires) VALUES(?,?,?,?,?)",
+    ),
+    token: db.prepare(
+      "SELECT * FROM auth_tokens WHERE token = ? AND purpose = ? AND used_at IS NULL AND expires > ?",
+    ),
+    useToken: db.prepare("UPDATE auth_tokens SET used_at = ? WHERE token = ?"),
+    purgeTokens: db.prepare("DELETE FROM auth_tokens WHERE expires < ?"),
+    passkeysFor: db.prepare("SELECT * FROM passkeys WHERE account_id = ?"),
+    passkey: db.prepare("SELECT * FROM passkeys WHERE id = ?"),
+    insertPasskey: db.prepare(
+      "INSERT INTO passkeys(id, account_id, public_key, counter, transports, device, created) VALUES(?,?,?,?,?,?,?)",
+    ),
+    usePasskey: db.prepare(
+      "UPDATE passkeys SET counter = ?, last_used = ? WHERE id = ?",
+    ),
+    deletePasskey: db.prepare(
+      "DELETE FROM passkeys WHERE id = ? AND account_id = ?",
+    ),
+    staffAll: db.prepare(
+      "SELECT id, username, name, role, driver, active, created, last_login FROM staff_users ORDER BY role, name",
+    ),
+    staffByUsername: db.prepare("SELECT * FROM staff_users WHERE username = ?"),
+    staffById: db.prepare("SELECT * FROM staff_users WHERE id = ?"),
+    staffCount: db.prepare("SELECT COUNT(*) AS n FROM staff_users"),
+    insertStaff: db.prepare(
+      "INSERT INTO staff_users(username, name, role, driver, password_hash, active, created) VALUES(?,?,?,?,?,1,?)",
+    ),
+    updateStaff: db.prepare(
+      "UPDATE staff_users SET name = ?, role = ?, driver = ?, active = ?, password_hash = COALESCE(?, password_hash) WHERE id = ?",
+    ),
+    touchStaff: db.prepare(
+      "UPDATE staff_users SET last_login = ? WHERE id = ?",
+    ),
     deleteSession: db.prepare("DELETE FROM sessions WHERE id = ?"),
     purgeSessions: db.prepare("DELETE FROM sessions WHERE expires <= ?"),
     pushRole: db.prepare(
@@ -519,6 +593,33 @@ export async function openStore(path, { log = console } = {}) {
     return c;
   }
 
+  const rowToAccount = (r) =>
+    r
+      ? {
+          id: r.id,
+          email: r.email,
+          name: r.name,
+          phone: r.phone,
+          passwordHash: r.password_hash,
+          googleSub: r.google_sub,
+          created: r.created,
+          lastLogin: r.last_login,
+        }
+      : null;
+  const rowToPasskey = (r) =>
+    r
+      ? {
+          id: r.id,
+          accountId: r.account_id,
+          publicKey: r.public_key,
+          counter: r.counter,
+          transports: p(r.transports, []),
+          device: r.device,
+          created: r.created,
+          lastUsed: r.last_used,
+        }
+      : null;
+
   let depth = 0;
   function transaction(fn) {
     if (depth > 0) return fn();
@@ -589,13 +690,14 @@ export async function openStore(path, { log = console } = {}) {
           name: r.name,
           driver: r.driver,
           plan: r.plan,
+          accountId: r.account_id || null,
+          staffId: r.staff_id || null,
         };
       },
       create: (data) => {
         const id = randomUUID();
-        const expires = new Date(
-          Date.now() + SESSION_DAYS * 86400000,
-        ).toISOString();
+        const days = data.role === "cliente" ? SESSION_DAYS : 14;
+        const expires = new Date(Date.now() + days * 86400000).toISOString();
         q.insertSession.run(
           id,
           data.role,
@@ -606,34 +708,133 @@ export async function openStore(path, { log = console } = {}) {
           now(),
           expires,
           now(),
+          data.accountId || null,
+          data.staffId || null,
         );
         return { id, ...data };
       },
+      update: (id, { phone, name, plan } = {}) =>
+        q.updateSession.run(phone ?? null, name ?? null, plan ?? null, id),
       delete: (id) => q.deleteSession.run(id),
-      purge: () => q.purgeSessions.run(now()).changes,
+      deleteFor: ({ accountId = null, staffId = null }) =>
+        q.deleteSessionsFor.run(accountId, staffId).changes,
+      purge: () => {
+        q.purgeTokens.run(now());
+        return q.purgeSessions.run(now()).changes;
+      },
+    },
+    accounts: {
+      get: (id) => rowToAccount(q.account.get(id)),
+      byEmail: (email) =>
+        rowToAccount(q.accountByEmail.get(String(email).toLowerCase())),
+      byGoogle: (sub) => rowToAccount(q.accountByGoogle.get(sub)),
+      byPhone: (phone) => rowToAccount(q.accountByPhone.get(phone)),
+      create: (a) => {
+        const id = randomUUID();
+        q.insertAccount.run(
+          id,
+          a.email ? a.email.toLowerCase() : null,
+          a.name,
+          a.phone || null,
+          a.passwordHash || null,
+          a.googleSub || null,
+          now(),
+          now(),
+        );
+        return rowToAccount(q.account.get(id));
+      },
+      save: (a) => {
+        q.updateAccount.run(
+          a.email ? a.email.toLowerCase() : null,
+          a.name,
+          a.phone || null,
+          a.passwordHash || null,
+          a.googleSub || null,
+          a.lastLogin || null,
+          a.id,
+        );
+        return a;
+      },
+    },
+    tokens: {
+      create: (purpose, subject, payload, ttlMs) => {
+        const token =
+          randomUUID().replace(/-/g, "") + randomUUID().replace(/-/g, "");
+        q.insertToken.run(
+          token,
+          purpose,
+          subject || null,
+          payload ? JSON.stringify(payload) : null,
+          new Date(Date.now() + ttlMs).toISOString(),
+        );
+        return token;
+      },
+      consume: (token, purpose) => {
+        const r = q.token.get(token, purpose, now());
+        if (!r) return null;
+        q.useToken.run(now(), token);
+        return { subject: r.subject, payload: p(r.payload, null) };
+      },
+    },
+    passkeys: {
+      forAccount: (accountId) => q.passkeysFor.all(accountId).map(rowToPasskey),
+      get: (id) => rowToPasskey(q.passkey.get(id)),
+      add: (k) =>
+        q.insertPasskey.run(
+          k.id,
+          k.accountId,
+          k.publicKey,
+          k.counter || 0,
+          JSON.stringify(k.transports || []),
+          k.device || null,
+          now(),
+        ),
+      used: (id, counter) => q.usePasskey.run(counter, now(), id),
+      remove: (id, accountId) => q.deletePasskey.run(id, accountId).changes,
+    },
+    staff: {
+      all: () => q.staffAll.all().map((r) => ({ ...r, active: !!r.active })),
+      byUsername: (u) => q.staffByUsername.get(String(u).toLowerCase()),
+      get: (id) => q.staffById.get(id),
+      count: () => q.staffCount.get().n,
+      create: ({ username, name, role, driver, passwordHash }) => {
+        const { lastInsertRowid } = q.insertStaff.run(
+          username.toLowerCase(),
+          name,
+          role,
+          driver || null,
+          passwordHash,
+          now(),
+        );
+        return q.staffById.get(Number(lastInsertRowid));
+      },
+      update: (id, { name, role, driver, active, passwordHash }) =>
+        q.updateStaff.run(
+          name,
+          role,
+          driver || null,
+          active ? 1 : 0,
+          passwordHash || null,
+          id,
+        ),
+      touch: (id) => q.touchStaff.run(now(), id),
     },
     push: {
       forRole: (role) =>
-        q.pushRole
-          .all(role)
-          .map((r) => ({
-            endpoint: r.endpoint,
-            subscription: JSON.parse(r.subscription),
-          })),
+        q.pushRole.all(role).map((r) => ({
+          endpoint: r.endpoint,
+          subscription: JSON.parse(r.subscription),
+        })),
       forCustomer: (phone) =>
-        q.pushCustomer
-          .all(phone)
-          .map((r) => ({
-            endpoint: r.endpoint,
-            subscription: JSON.parse(r.subscription),
-          })),
+        q.pushCustomer.all(phone).map((r) => ({
+          endpoint: r.endpoint,
+          subscription: JSON.parse(r.subscription),
+        })),
       forDriver: (name) =>
-        q.pushDriver
-          .all(name)
-          .map((r) => ({
-            endpoint: r.endpoint,
-            subscription: JSON.parse(r.subscription),
-          })),
+        q.pushDriver.all(name).map((r) => ({
+          endpoint: r.endpoint,
+          subscription: JSON.parse(r.subscription),
+        })),
       save: (session, subscription) =>
         q.pushSave.run(
           subscription.endpoint,

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import DeliveryPoint from "./DeliveryPoint.jsx";
+import { passkeyAvailable } from "../lib/auth.js";
 import {
   X,
   Check,
@@ -13,6 +14,7 @@ import {
   LogOut,
   ShieldCheck,
   Trash2,
+  Fingerprint,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
@@ -229,28 +231,92 @@ function Profile() {
     me,
     session,
     setProfile,
-    login,
+    saveProfile,
     busy,
     logout,
     plan,
     setPlan,
+    addPasskey,
+    removePasskey,
   } = useStore();
   const known = {
     ...profile,
     ...me,
-    phone: profile.phone || session?.phone || "",
+    phone: session?.phone
+      ? profile.phone || session.phone
+      : profile.phone || "",
   };
+  const [canPasskey, setCanPasskey] = useState(false);
+  useEffect(() => {
+    passkeyAvailable().then(setCanPasskey);
+  }, []);
+  const account = me?.account;
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
-        setProfile(f);
-        login(f, { message: "Datos guardados." });
+        setProfile((p) => ({ ...p, ...f }));
+        saveProfile(f);
       }}
     >
       <h2>Tus datos, a mano.</h2>
       <p>Los usamos para completar tu próximo pedido más rápido.</p>
+      {account && (
+        <div className="account-box">
+          <div>
+            <small>CUENTA</small>
+            <strong>{account.email || "Sin email"}</strong>
+            <span>
+              {[
+                account.google && "Google",
+                account.password && "contraseña",
+                account.passkeys.length &&
+                  `${account.passkeys.length} llave${account.passkeys.length > 1 ? "s" : ""} de acceso`,
+              ]
+                .filter(Boolean)
+                .join(" · ") || "enlace por email"}
+            </span>
+          </div>
+          {canPasskey && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={addPasskey}
+              disabled={busy}
+            >
+              <Fingerprint size={15} />{" "}
+              {account.passkeys.length
+                ? "Agregar este dispositivo"
+                : "Activar huella / Face ID"}
+            </button>
+          )}
+          {account.passkeys.length > 0 && (
+            <ul className="passkey-list">
+              {account.passkeys.map((k) => (
+                <li key={k.id}>
+                  <Fingerprint size={13} /> {k.device || "Dispositivo"} · desde{" "}
+                  {new Date(k.created).toLocaleDateString("es-AR")}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => removePasskey(k.id)}
+                    disabled={busy}
+                  >
+                    quitar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      {!session?.phone && (
+        <p className="notice">
+          Falta tu WhatsApp: lo usamos para identificar tus pedidos y avisarte
+          por el reparto.
+        </p>
+      )}
       <label>
         Nombre y apellido
         <input

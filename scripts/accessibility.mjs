@@ -53,10 +53,12 @@ try {
       await page.waitForURL("http://localhost:5173/");
       await page.goto("http://localhost:5173/acceso");
     }
-    await page.getByRole("button", { name: role }).click();
-    if (role === "Repartidor")
-      await page.getByLabel("¿Quién sos?").selectOption("Franco");
-    await page.getByLabel(/PIN/).fill(process.env.STAFF_PIN || "1234");
+    await page
+      .getByLabel("Usuario")
+      .fill(role === "Repartidor" ? "franco" : "admin");
+    await page
+      .getByLabel("Contraseña")
+      .fill(process.env.ADMIN_PASSWORD || "pollito2026");
     await page
       .locator(".access-form")
       .getByRole("button", { name: "Ingresar" })

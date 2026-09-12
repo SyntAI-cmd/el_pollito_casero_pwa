@@ -26,19 +26,19 @@ Desarrollo con recarga: `npm run dev`.
 
 | Rol | Entra por | Ve | No ve |
 |---|---|---|---|
-| **Cliente** | `/ingresar` (nombre + WhatsApp, sin contraseña) o directamente al confirmar un pedido | catálogo, sus pedidos, seguimiento en el mapa con ETA, su cuenta y envases | ningún enlace ni pantalla del equipo |
-| **Administración** | `/admin` + PIN | tablero de pedidos, cargar pedido telefónico, pesaje, clientes (cuenta corriente, repartidor habitual), reparto y rendición, impresión, **chat interno** con cada repartidor | catálogo público, seguimiento del cliente |
-| **Repartidor** | `/acceso` → su nombre + PIN | solo sus entregas: salir, GPS, navegar, cobrar, pesar, entregar con envases; clientes de su reparto para **cobrar saldos** y **recibir envases**; chat con administración | pedidos ajenos, catálogo, panel de administración |
+| **Cliente** | `/ingresar`: Google, email (contraseña o **enlace temporal** por correo), **huella / Face ID / PIN del dispositivo** (passkeys) o celular; o directamente al confirmar un pedido | catálogo, sus pedidos, seguimiento en el mapa con ETA, su cuenta y envases | ningún enlace ni pantalla del equipo |
+| **Administración** | `/admin` → usuario y contraseña (rol administración) | tablero de pedidos, cargar pedido telefónico, pesaje, clientes (cuenta corriente, repartidor habitual), reparto y rendición, impresión, **chat interno** con cada repartidor | catálogo público, seguimiento del cliente |
+| **Repartidor** | `/admin` → su usuario y contraseña (rol repartidor) | solo sus entregas: salir, GPS, navegar, cobrar, pesar, entregar con envases; clientes de su reparto para **cobrar saldos** y **recibir envases**; chat con administración | pedidos ajenos, catálogo, panel de administración |
 
-El servidor filtra los datos por rol en cada consulta (no solo la interfaz): un repartidor no puede leer ni modificar pedidos que no le asignaron; un cliente solo ve los suyos. Los intentos de PIN se limitan a 6 por minuto por IP y quedan registrados en `audit_log`. PIN por persona con `STAFF_PINS={"admin":"…","Franco":"…","Maxi":"…"}`.
+El servidor filtra los datos por rol en cada consulta (no solo la interfaz): un repartidor no puede leer ni modificar pedidos que no le asignaron; un cliente solo ve los suyos. Los intentos de ingreso del equipo se limitan a 6 por minuto por IP (10 para clientes) y quedan registrados en `audit_log`. Los usuarios del equipo (`staff_users`: usuario, nombre, rol admin/repartidor, contraseña scrypt, activo) se administran desde **Operación → Equipo**; al arrancar se crean `admin` y un usuario por repartidor de `business.json` con `ADMIN_PASSWORD` (en demo, `pollito2026`).
 
 ## Cómo se usa
 
-**Cliente** · entra al catálogo, elige modalidad (mayorista, intermedio o minorista), agrega kilos y confirma con nombre, WhatsApp y dirección. Puede marcar el punto exacto de entrega con **"Usar mi ubicación actual"** (GPS del dispositivo) o arrastrando el pin en el mapa; la dirección y la localidad se completan solas. Con ese teléfono queda identificado: ve sus pedidos, los sigue en el mapa con **hora estimada de llegada**, recibe **avisos** (repartidor asignado, camioneta en camino con la hora, entregado) aunque cierre la app, puede cancelar mientras estén "recibidos", repetirlos y consultar su cuenta corriente y envases. Desde otro dispositivo recupera todo con "Ingresar con mi teléfono".
+**Cliente** · entra al catálogo, elige modalidad (mayorista, intermedio o minorista), agrega kilos y confirma con nombre, WhatsApp y dirección. Puede marcar el punto exacto de entrega con **"Usar mi ubicación actual"** (GPS del dispositivo) o arrastrando el pin en el mapa; la dirección y la localidad se completan solas. Con ese teléfono queda identificado: ve sus pedidos, los sigue en el mapa con **hora estimada de llegada**, recibe **avisos** (repartidor asignado, camioneta en camino con la hora, entregado) aunque cierre la app, puede cancelar mientras estén "recibidos", repetirlos y consultar su cuenta corriente y envases. Desde otro dispositivo recupera todo ingresando con su cuenta (Google, email, enlace por correo, huella/Face ID o celular); el primer pedido vincula el WhatsApp a la cuenta. En **Mi cuenta** puede activar la huella o el Face ID del dispositivo y ver sus llaves.
 
-**Administración** (`/admin` → PIN; también "Soy de Pollito Casero" en el menú) · recibe un aviso por cada pedido nuevo, tablero por estado (recibidos, en preparación, en camino, entregados), asigna repartidor, registra cobros, envases y devoluciones, carga pedidos telefónicos desde el catálogo y administra clientes (modalidad, cuenta corriente y **repartidor habitual**, que deja los pedidos nuevos preasignados). Pestaña **Reparto y rendición**: hoja de ruta por repartidor y día (salida, paradas en orden, zonas, kilos, cobros, envases dejados/devueltos, saldo anterior de cada cliente habitual y **saldo a rendir**). Botones para **imprimir la hoja de pedidos del día y la hoja de ruta** (`/imprimir`).
+**Administración** (`/admin` → usuario y contraseña; el único acceso desde la app del cliente es el enlace discreto "Equipo" del pie) · recibe un aviso por cada pedido nuevo, tablero por estado (recibidos, en preparación, en camino, entregados), asigna repartidor, registra cobros, envases y devoluciones, carga pedidos telefónicos desde el catálogo y administra clientes (modalidad, cuenta corriente y **repartidor habitual**, que deja los pedidos nuevos preasignados). Pestaña **Reparto y rendición**: hoja de ruta por repartidor y día (salida, paradas en orden, zonas, kilos, cobros, envases dejados/devueltos, saldo anterior de cada cliente habitual y **saldo a rendir**). Botones para **imprimir la hoja de pedidos del día y la hoja de ruta** (`/imprimir`).
 
-**Repartidor** (`/acceso` → Repartidor → nombre + PIN) · ve solo sus entregas, inicia el reparto, comparte su GPS (el cliente lo ve moverse en el mapa con tiempo estimado de llegada), abre la navegación en Google Maps, registra el cobro y completa la entrega con los envases dejados.
+**Repartidor** (`/admin` → su usuario y contraseña) · ve solo sus entregas, inicia el reparto, comparte su GPS (el cliente lo ve moverse en el mapa con tiempo estimado de llegada), abre la navegación en Google Maps, registra el cobro y completa la entrega con los envases dejados.
 
 Todos los cambios de estado llegan al instante a las pantallas abiertas (Server-Sent Events). Los botones de WhatsApp abren la conversación con administración, el repartidor asignado o el cliente; no envían mensajes automáticos.
 
@@ -87,7 +87,11 @@ Variables de entorno opcionales:
 PORT=5173
 HOST=127.0.0.1          # 0.0.0.0 para exponer en la red local
 SITE_URL=http://localhost:5173   # canonicals, sitemap, OG y host permitido
-STAFF_PIN=1234          # PIN de administración y reparto (en demo, 1234)
+ADMIN_PASSWORD=         # contraseña inicial de admin y repartidores (en demo, pollito2026)
+GOOGLE_CLIENT_ID=       # habilita "Continuar con Google" (Google Identity Services)
+SMTP_URL=               # smtps://usuario:clave@smtp.ejemplo.com:465 · envía los enlaces de acceso por email
+MAIL_FROM=              # remitente de los enlaces (por defecto Pollito Casero <no-reply@dominio>)
+LOGIN_LIMIT=            # intentos por minuto y por IP (por defecto 10 cliente / 6 equipo)
 ADMIN_WHATSAPP=5492635037286
 TRANSFER_ALIAS=         # habilita "transferencia" como medio de pago
 DB_PATH=data/pollito.sqlite
@@ -95,13 +99,12 @@ GEOCODING=on            # off desactiva Nominatim
 ROUTING=on              # off desactiva OSRM (ETA por distancia)
 PUSH=on                 # off desactiva el envío de avisos
 VAPID_PUBLIC_KEY= / VAPID_PRIVATE_KEY=   # opcional; si faltan se generan en data/vapid.json
-STAFF_PINS={"admin":"...","Franco":"...","Maxi":"..."}   # PIN por persona (reemplaza a STAFF_PIN)
 TRANSFER_ALIAS=pollito.casero.mp   # alias de Mercado Pago/banco; habilita "transferencia" (también en business.json → transfer)
 TRANSFER_CVU= / TRANSFER_HOLDER=
 MP_ACCESS_TOKEN=        # Checkout Pro (pago online); requiere SITE_URL https para el webhook
 ```
 
-Con `business.demo: true` el PIN por defecto es 1234, la cuenta corriente se habilita automáticamente a los nuevos clientes mayoristas y se siembra un pedido de ejemplo (PC-1024, asignado a Franco).
+Con `business.demo: true` la contraseña inicial del equipo es `pollito2026`, el enlace de acceso por email se muestra en pantalla si no hay `SMTP_URL`, la cuenta corriente se habilita automáticamente a los nuevos clientes mayoristas y se siembra un pedido de ejemplo (PC-1024, asignado a Franco).
 
 ## Estructura
 
@@ -135,8 +138,8 @@ Los scripts de navegador usan Chromium de Playwright (`npx playwright install ch
 
 ## Para operar con clientes reales
 
-1. **Verificar el teléfono** al ingresar (código por WhatsApp Business API u OTP por SMS). Hoy la identidad es el número declarado, suficiente para la demo pero no para producción.
-2. **PIN por persona** para administración y repartidores (o cuentas con contraseña), y `STAFF_PIN` fuerte mientras tanto.
+1. **Cambiar las contraseñas demo** del equipo desde Operación → Equipo (o arrancar con `ADMIN_PASSWORD`). Verificar el teléfono de quien entra "con celular" (código por WhatsApp Business API u OTP por SMS); las cuentas con email, Google o passkey ya quedan verificadas.
+2. **`GOOGLE_CLIENT_ID`** (consola de Google Cloud, orígenes autorizados = `SITE_URL`) para el botón de Google y **`SMTP_URL`** para que los enlaces de acceso lleguen por correo. Las passkeys (huella/Face ID) y los avisos push requieren HTTPS fuera de localhost.
 3. **HTTPS y dominio** (`SITE_URL`), copias de seguridad de `data/pollito.sqlite`, `HOST=0.0.0.0` detrás de un proxy.
 4. **Plantillas de WhatsApp** automáticas (API de WhatsApp Business) si se quiere avisar también por WhatsApp además de los push.
 5. **Pagos online** (Mercado Pago) si se quiere cobrar antes de la entrega.

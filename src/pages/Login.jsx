@@ -1,22 +1,66 @@
-import React, { useEffect } from "react";
-import { Phone, ArrowRight, ShieldCheck, Truck, Leaf } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Phone,
+  ArrowRight,
+  ShieldCheck,
+  Truck,
+  Leaf,
+  Mail,
+  Fingerprint,
+  ArrowLeft,
+  Link2,
+  Check,
+} from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute, Link } from "../lib/router.jsx";
+import { passkeyAvailable, renderGoogleButton } from "../lib/auth.js";
 
 /**
- * Ingreso del cliente: pantalla completa, sin contraseñas.
- * Se identifica por su WhatsApp; el mismo con el que hizo o hará sus pedidos.
+ * Ingreso del cliente, sin contraseñas obligatorias:
+ * Google · email (contraseña o enlace de acceso) · huella / Face ID / PIN del dispositivo · celular.
  */
 export default function Login() {
-  const { login, busy, profile, session, formError } = useStore();
+  const {
+    login,
+    emailLogin,
+    emailRegister,
+    googleLogin,
+    requestMagicLink,
+    loginWithPasskey,
+    busy,
+    profile,
+    session,
+    formError,
+    config,
+    setFormError,
+  } = useStore();
   const { query, navigate } = useRoute();
   const redirect =
     query.get("volver") && query.get("volver").startsWith("/")
       ? query.get("volver")
       : "/pedidos";
+  const [mode, setMode] = useState(null); // null | "email" | "celular"
+  const [emailTab, setEmailTab] = useState("ingresar"); // ingresar | crear | enlace
+  const [magic, setMagic] = useState(null);
+  const [passkeys, setPasskeys] = useState(false);
+  const googleRef = useRef();
   useEffect(() => {
     if (session?.role === "cliente") navigate(redirect, { replace: true });
   }, [session]);
+  useEffect(() => {
+    passkeyAvailable().then(setPasskeys);
+  }, []);
+  useEffect(() => {
+    if (!mode)
+      return renderGoogleButton(
+        googleRef.current,
+        config?.googleClientId,
+        (credential) => googleLogin(credential, { redirect }),
+      );
+  }, [mode, config?.googleClientId]);
+  useEffect(() => setFormError(""), [mode, emailTab]);
+  const expired = query.get("enlace") === "vencido";
+
   return (
     <div className="login-page">
       <aside className="login-visual" aria-hidden="true">
@@ -49,66 +93,334 @@ export default function Login() {
             pollito<em>casero</em>
           </span>
         </Link>
-        <h2>Ingresá o registrate para continuar</h2>
-        <p>
-          Con tu nombre y tu WhatsApp. Sin contraseñas: te reconocemos por el
-          número con el que pedís.
-        </p>
-        <form
-          className="login-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            login(Object.fromEntries(new FormData(e.target)), { redirect });
-          }}
-        >
-          <label>
-            Nombre y apellido
-            <input
-              name="name"
-              autoComplete="name"
-              defaultValue={profile.name || ""}
-              required
-              minLength="2"
-              maxLength="100"
-              placeholder="Como te conocemos"
-            />
-          </label>
-          <label>
-            WhatsApp
-            <div className="phone-field">
-              <span>+54</span>
-              <input
-                name="phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel-national"
-                defaultValue={profile.phone || ""}
-                required
-                pattern="[+0-9 \(\)\-]{8,25}"
-                placeholder="263 4 55-1234"
-              />
-            </div>
-            <small>Con código de área, sin 0 ni 15.</small>
-          </label>
-          {formError && (
-            <p className="form-error" role="alert">
-              {formError}
+        {expired && !mode && (
+          <p className="notice error login-notice">
+            El enlace de acceso venció o ya se usó. Pedí uno nuevo.
+          </p>
+        )}
+
+        {!mode && (
+          <>
+            <h2>Ingresá o registrate para continuar</h2>
+            <p>
+              Elegí cómo entrar. Con cualquiera de estas opciones quedás
+              registrado la primera vez.
             </p>
-          )}
-          <button className="primary full login-cta" disabled={busy}>
-            <Phone size={17} />{" "}
-            {busy ? "Ingresando…" : "Continuar con mi celular"}{" "}
-            <ArrowRight size={17} />
-          </button>
-        </form>
-        <p className="login-foot">
-          ¿Primera vez? Con este paso ya quedás registrado.{" "}
-          <Link to="/">Ver el catálogo sin ingresar</Link>
-        </p>
-        <p className="demo-note">
-          En producción confirmamos el número con un código por WhatsApp.
-        </p>
+            <div className="login-options">
+              {config?.googleClientId ? (
+                <div className="google-slot" ref={googleRef} />
+              ) : (
+                <button
+                  className="login-option disabled"
+                  type="button"
+                  title="Requiere configurar GOOGLE_CLIENT_ID"
+                  disabled
+                >
+                  <GoogleG /> Continuar con Google <small>próximamente</small>
+                </button>
+              )}
+              <button
+                className="login-option"
+                type="button"
+                onClick={() => setMode("email")}
+              >
+                <Mail size={18} /> Continuar con email
+              </button>
+              {passkeys && (
+                <button
+                  className="login-option"
+                  type="button"
+                  onClick={() => loginWithPasskey({ redirect })}
+                  disabled={busy}
+                >
+                  <Fingerprint size={18} /> Huella, Face ID o PIN del
+                  dispositivo
+                </button>
+              )}
+              <button
+                className="login-option primary-option"
+                type="button"
+                onClick={() => setMode("celular")}
+              >
+                <Phone size={18} /> Continuar con celular
+              </button>
+            </div>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+            <p className="login-foot">
+              <Link to="/">Ver el catálogo sin ingresar</Link>
+            </p>
+          </>
+        )}
+
+        {mode === "celular" && (
+          <>
+            <button
+              className="link-button back"
+              type="button"
+              onClick={() => setMode(null)}
+            >
+              <ArrowLeft size={14} /> Otras opciones
+            </button>
+            <h2>Con tu celular</h2>
+            <p>
+              Te reconocemos por el WhatsApp con el que pedís. Sin contraseña.
+            </p>
+            <form
+              className="login-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                login(Object.fromEntries(new FormData(e.target)), { redirect });
+              }}
+            >
+              <label>
+                Nombre y apellido
+                <input
+                  name="name"
+                  autoComplete="name"
+                  defaultValue={profile.name || ""}
+                  required
+                  minLength="2"
+                  maxLength="100"
+                  placeholder="Como te conocemos"
+                />
+              </label>
+              <label>
+                WhatsApp
+                <div className="phone-field">
+                  <span>+54</span>
+                  <input
+                    name="phone"
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    defaultValue={profile.phone || ""}
+                    required
+                    pattern="[+0-9 \(\)\-]{8,25}"
+                    placeholder="263 4 55-1234"
+                  />
+                </div>
+                <small>Con código de área, sin 0 ni 15.</small>
+              </label>
+              {formError && (
+                <p className="form-error" role="alert">
+                  {formError}
+                </p>
+              )}
+              <button className="primary full login-cta" disabled={busy}>
+                <Phone size={17} />{" "}
+                {busy ? "Ingresando…" : "Continuar con mi celular"}{" "}
+                <ArrowRight size={17} />
+              </button>
+            </form>
+            <p className="demo-note">
+              En producción confirmamos el número con un código por WhatsApp.
+            </p>
+          </>
+        )}
+
+        {mode === "email" && (
+          <>
+            <button
+              className="link-button back"
+              type="button"
+              onClick={() => setMode(null)}
+            >
+              <ArrowLeft size={14} /> Otras opciones
+            </button>
+            <h2>Con tu email</h2>
+            <div className="login-tabs" role="tablist">
+              {[
+                ["ingresar", "Ingresar"],
+                ["crear", "Crear cuenta"],
+                ["enlace", "Enlace de acceso"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  type="button"
+                  aria-selected={emailTab === id}
+                  className={emailTab === id ? "active" : ""}
+                  onClick={() => setEmailTab(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {emailTab !== "enlace" ? (
+              <form
+                className="login-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = Object.fromEntries(new FormData(e.target));
+                  if (emailTab === "crear") emailRegister(f, { redirect });
+                  else emailLogin(f, { redirect });
+                }}
+              >
+                {emailTab === "crear" && (
+                  <label>
+                    Nombre y apellido
+                    <input
+                      name="name"
+                      autoComplete="name"
+                      defaultValue={profile.name || ""}
+                      required
+                      minLength="2"
+                      maxLength="100"
+                    />
+                  </label>
+                )}
+                <label>
+                  Email
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    maxLength="160"
+                    placeholder="vos@ejemplo.com"
+                  />
+                </label>
+                <label>
+                  Contraseña
+                  <input
+                    name="password"
+                    type="password"
+                    autoComplete={
+                      emailTab === "crear" ? "new-password" : "current-password"
+                    }
+                    required
+                    minLength="8"
+                    maxLength="200"
+                    placeholder={
+                      emailTab === "crear"
+                        ? "Mínimo 8 caracteres"
+                        : "Tu contraseña"
+                    }
+                  />
+                </label>
+                {formError && (
+                  <p className="form-error" role="alert">
+                    {formError}
+                  </p>
+                )}
+                <button className="primary full login-cta" disabled={busy}>
+                  {busy
+                    ? "Un momento…"
+                    : emailTab === "crear"
+                      ? "Crear mi cuenta"
+                      : "Ingresar"}{" "}
+                  <ArrowRight size={17} />
+                </button>
+                {emailTab === "ingresar" && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setEmailTab("enlace")}
+                  >
+                    <Link2 size={14} /> ¿Sin contraseña? Recibí un enlace de
+                    acceso por email
+                  </button>
+                )}
+              </form>
+            ) : (
+              <form
+                className="login-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const f = Object.fromEntries(new FormData(e.target));
+                  const r = await requestMagicLink(f);
+                  if (r) setMagic({ email: f.email, ...r });
+                }}
+              >
+                <p>
+                  Te mandamos un enlace temporal (15 minutos, un solo uso). Lo
+                  tocás y entrás, sin contraseña.
+                </p>
+                <label>
+                  Email
+                  <input
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    maxLength="160"
+                    placeholder="vos@ejemplo.com"
+                  />
+                </label>
+                <label>
+                  Nombre <small>(si es tu primera vez)</small>
+                  <input
+                    name="name"
+                    autoComplete="name"
+                    defaultValue={profile.name || ""}
+                    maxLength="100"
+                  />
+                </label>
+                {formError && (
+                  <p className="form-error" role="alert">
+                    {formError}
+                  </p>
+                )}
+                {magic ? (
+                  <div className="magic-sent">
+                    <Check size={18} />
+                    <div>
+                      <strong>
+                        {magic.sent
+                          ? `Enviado a ${magic.email}`
+                          : "Enlace generado"}
+                      </strong>
+                      <p>
+                        {magic.sent
+                          ? "Revisá tu bandeja de entrada (y spam). Vale 15 minutos."
+                          : "Este servidor no tiene email configurado (SMTP_URL)."}
+                      </p>
+                      {magic.demoLink && (
+                        <a className="primary magic-demo" href={magic.demoLink}>
+                          Abrir el enlace de demostración{" "}
+                          <ArrowRight size={15} />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <button className="primary full login-cta" disabled={busy}>
+                    <Mail size={17} />{" "}
+                    {busy ? "Enviando…" : "Enviarme el enlace"}
+                  </button>
+                )}
+              </form>
+            )}
+          </>
+        )}
       </main>
     </div>
+  );
+}
+
+function GoogleG() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.5 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"
+      />
+      <path
+        fill="#4285F4"
+        d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M10.5 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.1.8-4.6l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.7l7.9-6.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M24 48c6.3 0 11.6-2.1 15.5-5.7l-7.6-5.9c-2.1 1.4-4.8 2.3-7.9 2.3-6.3 0-11.6-4.1-13.5-9.7l-7.9 6.1C6.5 42.6 14.6 48 24 48z"
+      />
+    </svg>
   );
 }

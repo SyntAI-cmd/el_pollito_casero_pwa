@@ -26,6 +26,12 @@ import {
 } from "./format.js";
 import { useRoute } from "./router.jsx";
 import { enablePush, disablePush, syncPush, pushPermission } from "./push.js";
+import {
+  passkeyLogin,
+  passkeyRegister,
+  passkeyRemove,
+  deviceLabel,
+} from "./auth.js";
 
 const StoreContext = createContext(null);
 export const useStore = () => useContext(StoreContext);
@@ -344,6 +350,96 @@ export function StoreProvider({ children }) {
       notify(message || `Hola, ${s.name.split(" ")[0]}.`);
     });
 
+  /** Ingreso con cuenta (email, Google, passkey): aplica la sesión devuelta por el servidor. */
+  async function adoptSession(s, { redirect, message } = {}) {
+    setSession(s);
+    sessionRef.current = s;
+    if (s.plan) setPlanState(s.plan);
+    setProfile((p) => ({
+      ...p,
+      name: s.name || p.name,
+      ...(s.phone ? {} : {}),
+    }));
+    lastStatuses.current = {};
+    await Promise.all([loadOrders(), loadMe()]);
+    syncPush().catch(() => {});
+    setModal(null);
+    if (redirect) navigate(redirect);
+    notify(message || `Hola, ${(s.name || "").split(" ")[0] || "de nuevo"}.`);
+  }
+  const saveProfile = (fields) =>
+    run(async () => {
+      await patch("/me", fields);
+      const s = await api("/session");
+      setSession(s);
+      sessionRef.current = s;
+      if (s?.plan) setPlanState(s.plan);
+      await Promise.all([loadMe(), loadOrders({ silent: true })]);
+      setModal(null);
+      notify("Datos guardados.");
+      return true;
+    });
+  const emailLogin = (fields, opts) =>
+    run(async () => adoptSession(await post("/auth/login", fields), opts));
+  const emailRegister = (fields, opts) =>
+    run(async () =>
+      adoptSession(await post("/auth/register", fields), {
+        ...opts,
+        message: "¡Cuenta creada! Bienvenido.",
+      }),
+    );
+  const googleLogin = (credential, opts) =>
+    run(async () =>
+      adoptSession(await post("/auth/google", { credential }), opts),
+    );
+  const requestMagicLink = (fields) =>
+    run(async () => {
+      const r = await post("/auth/magic", fields);
+      notify(
+        r.sent
+          ? "Te enviamos el enlace por email. Vale 15 minutos."
+          : "Enlace generado.",
+      );
+      return r;
+    });
+  const loginWithPasskey = (opts) =>
+    run(async () => adoptSession(await passkeyLogin(), opts), {
+      onError: (e) =>
+        notify(
+          e.name === "NotAllowedError"
+            ? "Cancelaste la verificación del dispositivo."
+            : e.message,
+        ),
+    });
+  const addPasskey = () =>
+    run(
+      async () => {
+        await passkeyRegister(deviceLabel());
+        await loadMe();
+        notify(
+          "Listo: ya podés entrar con la huella, Face ID o el PIN de este dispositivo.",
+        );
+        return true;
+      },
+      {
+        onError: (e) =>
+          notify(
+            e.name === "NotAllowedError"
+              ? "Cancelaste el registro."
+              : e.name === "InvalidStateError"
+                ? "Este dispositivo ya está registrado."
+                : e.message,
+          ),
+      },
+    );
+  const removePasskey = (id) =>
+    run(async () => {
+      await passkeyRemove(id);
+      await loadMe();
+      notify("Llave de acceso quitada.");
+      return true;
+    });
+
   const staffLogin = (fields) =>
     run(async () => {
       const s = await post("/session/staff", fields);
@@ -586,6 +682,14 @@ export function StoreProvider({ children }) {
     repeat,
     checkout,
     login,
+    saveProfile,
+    emailLogin,
+    emailRegister,
+    googleLogin,
+    requestMagicLink,
+    loginWithPasskey,
+    addPasskey,
+    removePasskey,
     staffLogin,
     logout,
     update,
