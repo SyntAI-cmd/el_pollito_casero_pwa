@@ -9,7 +9,10 @@ export async function api(path, options = {}) {
       signal: AbortSignal.timeout(12000),
       credentials: "same-origin",
       ...options,
-      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers || {}),
+      },
     });
   } catch (cause) {
     // Failed to fetch / timeout: el servidor no responde o no hay red.

@@ -8,13 +8,19 @@ Estado: demostración funcional en local, lista para una etapa de publicación (
 
 Requiere Node.js 24 (usa `node:sqlite`).
 
+**En la PC del negocio (Windows)**: doble clic en **`Iniciar Pollito Casero.cmd`**. Instala dependencias y compila si hace falta, deja el servidor corriendo y abre http://localhost:5173. Para que arranque solo al encender la PC, ejecutá una vez **`Instalar inicio automatico.cmd`** (crea un acceso directo en la carpeta Inicio de Windows). `Detener servidor.cmd` lo apaga.
+
+Si la app dice **"No se pudo conectar con el servidor de Pollito Casero"**, el servidor local no está corriendo: volvé a abrir `Iniciar Pollito Casero.cmd`. No tiene que ver con tu conexión a internet.
+
+**Desde la terminal:**
+
 ```sh
 npm install
 npm run build
 npm start
 ```
 
-Abrir http://localhost:5173. Desarrollo con recarga: `npm run dev`.
+Desarrollo con recarga: `npm run dev`.
 
 ## Cómo se usa
 

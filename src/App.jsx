@@ -266,8 +266,8 @@ export default function App() {
         <main id="contenido" tabIndex="-1">
           {!online && (
             <div className="notice offline">
-              <WifiOff size={18} /> Estás sin conexión a internet. Podés consultar el
-              catálogo cargado; los pedidos requieren conexión.
+              <WifiOff size={18} /> Estás sin conexión a internet. Podés
+              consultar el catálogo cargado; los pedidos requieren conexión.
             </div>
           )}
           {error && (

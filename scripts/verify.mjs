@@ -967,9 +967,10 @@ try {
   await expect(mobile.locator(".product").first()).toBeVisible({
     timeout: 8000,
   });
-  await expect(mobile.locator(".notice.offline")).toBeVisible({
-    timeout: 8000,
-  });
+  // Sin red: aviso de "sin conexión" (navigator.onLine=false) o de servidor inalcanzable (emulación de Playwright).
+  await expect(
+    mobile.locator(".notice.offline, .notice.error").first(),
+  ).toBeVisible({ timeout: 8000 });
   await mobile.context().setOffline(false);
   step("PWA: catálogo disponible sin conexión y pedido bloqueado.");
 

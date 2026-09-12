@@ -27,7 +27,9 @@ for (const [id, region] of Object.entries(crops))
     .toFile(`public/images/${id}.webp`);
 // Fotos aportadas por el negocio sobre fondo blanco: se encuadran completas (contain) en 3:2.
 for (const id of ["menudos", "rancho", "garras"]) {
-  const src = ["jpg", "jpeg", "png", "webp"].map((ext) => `source-images/${id}.${ext}`).find((p) => existsSync(p));
+  const src = ["jpg", "jpeg", "png", "webp"]
+    .map((ext) => `source-images/${id}.${ext}`)
+    .find((p) => existsSync(p));
   if (!src) continue;
   await sharp(src)
     .flatten({ background: "#ffffff" })

@@ -7,7 +7,16 @@ import React, {
   useState,
   useCallback,
 } from "react";
-import { api, post, patch, del, subscribe, stored, persist, serverDownMessage } from "./api.js";
+import {
+  api,
+  post,
+  patch,
+  del,
+  subscribe,
+  stored,
+  persist,
+  serverDownMessage,
+} from "./api.js";
 import {
   labels,
   productPrice,
