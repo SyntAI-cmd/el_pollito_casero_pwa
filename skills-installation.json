@@ -1,0 +1,664 @@
+{
+  "scope": "project",
+  "destination": "C:\\Users\\mauro\\OneDrive\\Documentos\\ChatGPT\\PWA Pollito Casero\\.agents\\skills",
+  "installed": true,
+  "skills": [
+    {
+      "name": "frontend-design-jakkusakura",
+      "source": "jakkusakura-skills-frontend-design-1.0.1.zip",
+      "source_path": "SKILL.md",
+      "original_name": "frontend-design",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "5de73b70dbfa4781469a9280ad248d4da2db977bebf523226faadeb5bf877fa0"
+      }
+    },
+    {
+      "name": "adobe-fonts-skill",
+      "source": "alexh-adobe-fonts-skill-1.0.1.zip",
+      "source_path": "SKILL.md",
+      "original_name": "adobe-fonts-skill",
+      "files": 14,
+      "sha256": {
+        "SKILL.md": "1c7e30b8d89ec306a58a0949194331965a75e8e7235cd0872406c5a16a86801e",
+        ".github/workflows/ci.yml": "9166478cc796d9234a2109b59836eef08314cdd30cb7cdccad7eb4cd3c29d7b2",
+        ".gitignore": "5bc115ce6e5dad003704ae388a1a499e805d658731506d816e5dc5bf49d80451",
+        "LICENSE": "81deb8d7ac1dd77b768e04ad6a42279a53375ae56bdad1389ec534f148f01ecf",
+        "README.md": "89960eadebf913fee897fbd885ee3ff25e359f5d14bd486740d9a9353d5bff13",
+        "package.json": "05e9c0a23010642137583bb34f0ff4d9b686b0f3276d1e747c146c79f09768d8",
+        "references/api-notes.md": "06d2f6152d58c68d9729a69ed42e59c8d9d55f7e88c55b924348228dc050036d",
+        "references/example-summary.md": "178d0324eb48cd6c72537c23fea1fffec105ecce9d116c8c56d4b3270dae8931",
+        "references/output-schema.md": "8d50d4368e01caf7086c4ad4c046d4d93bc96888e852aa5b45d631cc3eaba15d",
+        "references/troubleshooting.md": "6eb50bcd2213e59ad46c84f99875094cc40f476d7ad1aafa1c82cc3323c0b5d4",
+        "scripts/afont": "b53b94b765b253532e59e6bbcbd82c776be880c8400a91d54c0a3655da3ef228",
+        "scripts/afont.js": "ae1b603e9fa56f9068976f80333a4bc0810dbc0aefca218f13fc70be058a6089",
+        "tests/afont.test.js": "dd3d888dd262bd82f26e7fa6bafe137c1a6846f454deb698c279df0f6f0ad65a",
+        "tests/smoke.sh": "6576f9321073a918219616ab82c0394142b28372eecedc208e472609d1438965"
+      }
+    },
+    {
+      "name": "web-design-guidelines-fcakyon",
+      "source": "fcakyon-claude-codex-settings-web-design-guidelines-1.0.1.zip",
+      "source_path": "SKILL.md",
+      "original_name": "web-design-guidelines",
+      "files": 2,
+      "sha256": {
+        "SKILL.md": "ec93a8a42f6018d752701fa7237a42e217fca6a876d67ee8b93c3032147f2381",
+        "references/web-interface-guidelines.md": "551a320891eaf60fa96707091273339211d469d8a8a5b0d8f53feb1204f0d0a1"
+      }
+    },
+    {
+      "name": "fuck-slop",
+      "source": "juliusbrussee-skills-fuck-slop.zip",
+      "source_path": "SKILL.md",
+      "original_name": "fuck-slop",
+      "files": 3,
+      "sha256": {
+        "references/tells.md": "2d7e581fc3a3135256c5d145b6b7e945b439c86bd67d28081d657c78214d2cc3",
+        "references/voices.md": "1b640d749ba18f0b77da1e66f2bc4a14f2b8213b095e0510a3829b5c36d5706c",
+        "SKILL.md": "83291768f4aa9ec4c84eb1a2f74f0658427c523970bed86e568fb9fa6998e900"
+      }
+    },
+    {
+      "name": "codex-myclaude",
+      "source": "myclaude-skills-codex.zip",
+      "source_path": "SKILL.md",
+      "original_name": "codex",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "6e1f96b9a26987e2555b721e059f68c759319e833947f1cfd7f35f4784da39e5"
+      }
+    },
+    {
+      "name": "frontend-design",
+      "source": "claude-code-frontend-design.zip",
+      "source_path": "SKILL.md",
+      "original_name": "frontend-design",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "d39adf3a983de7dafc75991590d54f091755f7e4163d5a5ed085ecd719157184"
+      }
+    },
+    {
+      "name": "familybudget-frontend-development",
+      "source": "familybudget-frontend-development.zip",
+      "source_path": "SKILL.md",
+      "original_name": "Frontend Development",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "8506280d913250bb90b2ce4c7207c52bc8999c2b0b26df660f56a2dc47a8c478"
+      }
+    },
+    {
+      "name": "react-best-practices",
+      "source": "agent-skills-react-best-practices.zip",
+      "source_path": "SKILL.md",
+      "original_name": "react-best-practices",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "f6e6e80abc3cd857cb51a5601ef44649b65f6b74434fbde0cf478878a5917b50"
+      }
+    },
+    {
+      "name": "seo-review",
+      "source": "33-js-concepts-seo-review.zip",
+      "source_path": "SKILL.md",
+      "original_name": "seo-review",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "78d1f882ce814fd72c1b6e40f6cc194cd74eaf330916d670b9668d47ad7db794"
+      }
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "source": "ui-ux-pro-max-skill-ui-ux-pro-max.zip",
+      "source_path": "SKILL.md",
+      "original_name": "ui-ux-pro-max",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "53fe0111887f895f0f1da80466802c5155fe7fc51c765b634f2b20639cf397a3"
+      }
+    },
+    {
+      "name": "find-skills",
+      "source": "vercel-labs-skills-find-skills.zip",
+      "source_path": "SKILL.md",
+      "original_name": "find-skills",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "1e85f6f9686e145aca4a124e3b704b9bbea9aa87e08515c1e352eee70f6e6e7a"
+      }
+    },
+    {
+      "name": "web-design-guidelines",
+      "source": "vercel-labs-agent-skills-web-design-guidelines.zip",
+      "source_path": "SKILL.md",
+      "original_name": "web-design-guidelines",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "f4647ca866a3accf763777f83e7682954f0187cd6bea7eea0399796652414e8f"
+      }
+    },
+    {
+      "name": "open-design-apple-hig",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/apple-hig/SKILL.md",
+      "original_name": "apple-hig",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "6b59b8db3077a7e1821e2777fbefe2ca840e9d4e8346bed7285b3bc321cf927f"
+      }
+    },
+    {
+      "name": "open-design-artifacts-builder",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/artifacts-builder/SKILL.md",
+      "original_name": "artifacts-builder",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "83ce985b83626fd7887e29c6554fce87efa8e7ec6698fc4f4526fd6642743f0d"
+      }
+    },
+    {
+      "name": "open-design-brand-extract",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/brand-extract/SKILL.md",
+      "original_name": "brand-extract",
+      "files": 2,
+      "sha256": {
+        "SKILL.md": "cd6b48fd633c21ea552b4dfbab5ef126c6573b105c8b5b78860f5179c4f21ffa",
+        "templates/brand-kit.html": "8de5fc435d4f63e886a3d1570f9e91f55094b22a8c39ea5955a6e029c217a8ca"
+      }
+    },
+    {
+      "name": "open-design-brandkit",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/brandkit/SKILL.md",
+      "original_name": "brandkit",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "9c56fe905395a90517918c29c2c41b0b1f34ccfdb88a8ef4e4460aae10d899b1"
+      }
+    },
+    {
+      "name": "open-design-brutalist-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/brutalist-skill/SKILL.md",
+      "original_name": "industrial-brutalist-ui",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "2c3ab9763a6f537e2101cce18b31fc6456dc50fa74782f2536a117607666651b"
+      }
+    },
+    {
+      "name": "open-design-color-expert",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/color-expert/SKILL.md",
+      "original_name": "color-expert",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "c7030887baafd770607187e8e9c32a202d0ff7a382c3ac33d87d5162c8363752"
+      }
+    },
+    {
+      "name": "open-design-copywriting",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/copywriting/SKILL.md",
+      "original_name": "copywriting",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "30b2e07803073c1276c08d7c6919ad524a47c6dee2ba0f86b7f30c8e26baa393"
+      }
+    },
+    {
+      "name": "open-design-creative-director",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/creative-director/SKILL.md",
+      "original_name": "creative-director",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "47523f53c861f721a34919bb5a26a32e0455a16f581e72245015241360376e30"
+      }
+    },
+    {
+      "name": "open-design-design-brief",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/design-brief/SKILL.md",
+      "original_name": "design-brief",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "64eb6b7903c97afaa966f5ab1b9c2c508d21aff287681696f370622335119557"
+      }
+    },
+    {
+      "name": "open-design-design-consultation",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/design-consultation/SKILL.md",
+      "original_name": "design-consultation",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "a4ecb4a3ae8e297fc5ef1c992689db6d06fef6fbc8689d31183fce73ec853d0f"
+      }
+    },
+    {
+      "name": "open-design-design-md",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/design-md/SKILL.md",
+      "original_name": "design-md",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "b33fb50edee134330eaa4a2d9f4c3bd062e317d6f7d67e5c58a2f8176168c682"
+      }
+    },
+    {
+      "name": "open-design-design-review",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/design-review/SKILL.md",
+      "original_name": "design-review",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "e6a0edbff6dd06eb21eaaf05ecdebc015616d34934b621ec76459e4c6d6b28d6"
+      }
+    },
+    {
+      "name": "open-design-emil-design-eng",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/emil-design-eng/SKILL.md",
+      "original_name": "emil-design-eng",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+        "SKILL.md": "e537b6b91c80f41c6d6aecec5f8ff75e11c5f8834e7f378ddb1b79b89a796309"
+      }
+    },
+    {
+      "name": "open-design-emilkowalski-motion",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/emilkowalski-motion/SKILL.md",
+      "original_name": "emilkowalski-motion",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "998d97a92da5cbbfff74ddfee0806508c012e3ff70c3eee14cee093b3c6a988a"
+      }
+    },
+    {
+      "name": "open-design-frontend-dev",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/frontend-dev/SKILL.md",
+      "original_name": "frontend-dev",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "c13c890f1da157d7f64a51aafb930e59582fad22ed51b0db0687f796f16623fb"
+      }
+    },
+    {
+      "name": "open-design-frontend-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/frontend-skill/SKILL.md",
+      "original_name": "frontend-skill",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "99cfda8b2f94ce240ff9980108d7ae949e77afe1b8b5acba1b82414f5ba2eca0"
+      }
+    },
+    {
+      "name": "open-design-gpt-tasteskill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/gpt-tasteskill/SKILL.md",
+      "original_name": "gpt-taste",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "7b5edb3820f343712109ec950cc29e48511f926b0795b1edb6d870f438e4ddd7"
+      }
+    },
+    {
+      "name": "open-design-image-to-code-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/image-to-code-skill/SKILL.md",
+      "original_name": "image-to-code",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "6b84ab1c89ac6dc878c2d328b5533eb84509638249f8a8f0f60f94a3fdeb99b6"
+      }
+    },
+    {
+      "name": "open-design-impeccable-design-polish",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/impeccable-design-polish/SKILL.md",
+      "original_name": "impeccable-design-polish",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "22cd2db458e15d39dc1957d4d667da00938a126325535440a0db115410d1f9de"
+      }
+    },
+    {
+      "name": "open-design-minimalist-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/minimalist-skill/SKILL.md",
+      "original_name": "minimalist-ui",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "6c845fa734ab9939121dc42ad2e2fe7367e2c030809133e8193b132e2f97ffcb"
+      }
+    },
+    {
+      "name": "open-design-plan-design-review",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/plan-design-review/SKILL.md",
+      "original_name": "plan-design-review",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "18f112abce94a8160a47bef2bde33f9e5afb37da64ec115b11063b5b5d7f4312"
+      }
+    },
+    {
+      "name": "open-design-platform-design",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/platform-design/SKILL.md",
+      "original_name": "platform-design",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "3299d5b03e8eca2a7b4a034a9587d1c1fa194d6e6653c38d04ff08dbbfdffbbe"
+      }
+    },
+    {
+      "name": "open-design-redesign-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/redesign-skill/SKILL.md",
+      "original_name": "redesign-existing-projects",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "ecafaf4bff40350473212afeb1752e5bbc99b03cb3967b0d2aad73bb849c2eb8"
+      }
+    },
+    {
+      "name": "open-design-reference-design-contract",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/reference-design-contract/SKILL.md",
+      "original_name": "reference-design-contract",
+      "files": 3,
+      "sha256": {
+        "SKILL.md": "36eef4e8da6dec9717a91e47291dea8688e98dd86f7658c591ef8c7cf42fbda7",
+        "example.html": "f0dd9db227e079d9f435d8c8e83c07980ff5756153f184ecb4ff5b4a2993b26b",
+        "references/checklist.md": "45b0fb2dc33a82c192f37e2454f049f08729e5abe04cf7c3bc978acc6048b599"
+      }
+    },
+    {
+      "name": "open-design-review-animations",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/review-animations/SKILL.md",
+      "original_name": "review-animations",
+      "files": 3,
+      "sha256": {
+        "LICENSE": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5",
+        "SKILL.md": "7a0eb8f2e7b83d272e8864781c3967a8d757fd06651f33691d670ec4e40ae213",
+        "STANDARDS.md": "72b1235ea4d7cf64123719d569c0726129b3772713d480369c28f6a5f9f7278c"
+      }
+    },
+    {
+      "name": "open-design-shadcn-ui",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/shadcn-ui/SKILL.md",
+      "original_name": "shadcn-ui",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "cce5a57ac55cb5513c6708d9af0b4f8a52419305e279ba27a6a75d6446ca21b3"
+      }
+    },
+    {
+      "name": "open-design-taste-skill",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/taste-skill/SKILL.md",
+      "original_name": "design-taste-frontend",
+      "files": 2,
+      "sha256": {
+        "LICENSE": "4575a543ab88dad12ccea7d97e563d0bce5b448b06072e65d3264497dad326df",
+        "SKILL.md": "ece517881483de3bde16671d3b56ec84d4623acd9bfc3ad6c9edaa367f4d399e"
+      }
+    },
+    {
+      "name": "open-design-theme-factory",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/theme-factory/SKILL.md",
+      "original_name": "theme-factory",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "54f3481cfa1dae688a4cf1dbf457f4f3bdb6582a8220b3ecf618baa18ec35b68"
+      }
+    },
+    {
+      "name": "open-design-threejs",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/threejs/SKILL.md",
+      "original_name": "threejs",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "009fdebff19c7ed306bc37a5219d9383e010ae48a3c501955feea4a128a20b2b"
+      }
+    },
+    {
+      "name": "open-design-ui-skills",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/ui-skills/SKILL.md",
+      "original_name": "ui-skills",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "4f67bee61f0e04976bf54645fb28a1b7e4514067bdd4973c12cb0bef0191e650"
+      }
+    },
+    {
+      "name": "open-design-web-artifacts-builder",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/web-artifacts-builder/SKILL.md",
+      "original_name": "web-artifacts-builder",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "f386f0ae5d25caedcaa716dfc733c47ba682d1976f14ae8f24d881bf9d526357"
+      }
+    },
+    {
+      "name": "open-design-web-clone",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/web-clone/SKILL.md",
+      "original_name": "web-clone",
+      "files": 25,
+      "sha256": {
+        "LICENSE": "c503556db0db95e79c947d3ff5077119be858aae23e08c2242124130f4a191bb",
+        "SKILL.md": "1754567f8eaf65ba3d5bbc022731465db366bcafb0dd41cc96f7bada23ce1428",
+        "references/assessment.md": "5d6fd209ec3f7d4d30fe97b226d05b342b57c4eaddd14a468389a6417319e3ec",
+        "references/complex-playbooks.md": "e64446a440cdcda2323840beeab29108305296a0089d2318bba810b5a208e87a",
+        "references/deliverables.md": "ad4cbac4df77755de2bc4d37fcabe455039ac2ebe713d6408bff90d91ad5b65d",
+        "references/design-dna.md": "3d8bdd4ec5cca44e728164999bfb360c59b0d1f9e7dbf1d15dcafd6fc156fa1a",
+        "references/effect-extraction.md": "f99ac47084fb0f8efee224c69f25a2780f9a7f57fa0a604244091fa79025834b",
+        "references/marbles-case.md": "4c937888ba038476d91075bd56dd4edbbb1a7fa7eacd721bf62e6a7e319a7d9e",
+        "references/reverse-engineering.md": "cec9a62d71b6e598dfbd43f353282aa490dd156875da7e614728ab3c59c4a68b",
+        "references/static-mirror.md": "d14bbc5e07ab2a708307cdb310e6aa7af8b7c9721322fac45e100e31f47d5839",
+        "scripts/asset-harvest.mjs": "857c151ef56f3affcb519fbbd57623d6179cd0c986ac0a6ee0b64064e64d1b95",
+        "scripts/audit-clone.mjs": "43e3df9c7f29daaa7855b75d188065701b9886300f7a57558d00aa8787c88fb7",
+        "scripts/compare-recon.mjs": "c6426aec84ae5dbc3d113687791a2bc4b316b1b0693004cfd8f2ec0d4b4d8088",
+        "scripts/dna-scaffold.mjs": "dc1515b7ee2e48fa2a1f6279d461c7183b51b375aefca793660fdf23f46eb128",
+        "scripts/init-clone.mjs": "2e8020d09961d0362fa44d21a6257448f19857cb5233db523a5d1afdbaffeb5b",
+        "scripts/interaction-probe.mjs": "e4e4b9df93d5780c598adebdff9026ba18f5e9b3914a54c538384da1760d73a1",
+        "scripts/lib/playwright-loader.mjs": "6ed746e0a1a3288cbc033b9d5eed6565d3e8802182aa77e66d481d989fdf1acd",
+        "scripts/lib/system-browser.mjs": "b741c6e33a0850f5e2690fa40164f8a27a151f584eeaa37a97969153d71e85a8",
+        "scripts/mirror-site.mjs": "997ec107feca2867a857602824f271cc5486a8500b1ce12238d5b98f96a9208d",
+        "scripts/network-capture.mjs": "994cbdfc0d9849e0cd9794ff381e87c6bc8e0ed3e4548141d803c055bf0dde82",
+        "scripts/od-preview-rewrite.mjs": "f5e95fb06a9a8ffaf0c967489f7d21156089ade5fd719537fc0ee29ef485b146",
+        "scripts/recon-site.mjs": "616fd99a81f5a17be3f286d26cac058554d02bf2b0a0cbb406f0760e030331d8",
+        "scripts/route-crawl.mjs": "7fff5c984f20283d53f438146f904282b319faba2b43d4bdd10f9826d7c20b37",
+        "scripts/sourcemap-hunt.mjs": "1d53ffffc1ce887d7abe1f6513979ee43bf6e5993064f3cdf046d35ae0e05737",
+        "scripts/visual-diff.mjs": "6d825bc2a43510f647118d258c48563adc2803ba6c165e054c8a4b98f4580adf"
+      }
+    },
+    {
+      "name": "open-design-wpds",
+      "source": "open-design-main.zip",
+      "source_path": "open-design-main/skills/wpds/SKILL.md",
+      "original_name": "wpds",
+      "files": 1,
+      "sha256": {
+        "SKILL.md": "d810215d4657ce129b9f0735fdd5b254b27eb4170594d4c5eb55f485b66d6abe"
+      }
+    },
+    {
+      "name": "awesome-brand-guidelines",
+      "source": "awesome-codex-skills-master.zip",
+      "source_path": "awesome-codex-skills-master/brand-guidelines/SKILL.md",
+      "original_name": "brand-guidelines",
+      "files": 2,
+      "sha256": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "a88d06813e02c8f2ba9861577381fff0a2776a73eb6640620e97609b41cf4e5f"
+      }
+    },
+    {
+      "name": "awesome-canvas-design",
+      "source": "awesome-codex-skills-master.zip",
+      "source_path": "awesome-codex-skills-master/canvas-design/SKILL.md",
+      "original_name": "canvas-design",
+      "files": 83,
+      "sha256": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "7dcb893ff67ba0395646beaca58baece5b2872c66e63b21a60b0b72b38447bb9",
+        "canvas-fonts/ArsenalSC-OFL.txt": "8ddd61b18ba2c0d0dbe4a691cf5f1a0673f473d02fa0546e67ee88c006aeff6e",
+        "canvas-fonts/ArsenalSC-Regular.ttf": "65e6f89df58f68fd905b3add34a79dd6106aa3b3044df0dad9676fff53d504b9",
+        "canvas-fonts/BigShoulders-Bold.ttf": "b43bcd198b9fdf717dd42aa61a34dba32e01aceaeae659d689afd0ca52c37ea2",
+        "canvas-fonts/BigShoulders-OFL.txt": "fbc746aabf0eb1847dfd92e2efc4596d79fa897d60b8e64062a22f585508fb3f",
+        "canvas-fonts/BigShoulders-Regular.ttf": "18a879fc71978a4447150705caf880a9da3860083c259fd29e6dc03057b6842a",
+        "canvas-fonts/Boldonse-OFL.txt": "45cc82ab4032273c0924025ffcf8f0665a68e1a5955e3f7247e5daf1deeb1326",
+        "canvas-fonts/Boldonse-Regular.ttf": "cc2e540604565c0f90a7d8d46194a2f42fc9c45512cd2e39bf03b50eb68c35a4",
+        "canvas-fonts/BricolageGrotesque-Bold.ttf": "a737b146fe0d77ffe8a86e3cd16700dd431d3b1e420d4fd80e142cd68a1cb50d",
+        "canvas-fonts/BricolageGrotesque-OFL.txt": "0e4f4eb8534bc66a76aca13dd19c1f9731b2008866b29ccff182b764649df9b4",
+        "canvas-fonts/BricolageGrotesque-Regular.ttf": "972a6d098c9867ae131d0ea99e221e63976b11a19d4b931c2c7ace525674e4f6",
+        "canvas-fonts/CrimsonPro-Bold.ttf": "48f191e38355c8db100eb3ce157c20f9302a3b9a37b44a660f77ecfce3986609",
+        "canvas-fonts/CrimsonPro-Italic.ttf": "52318db3526b644e6efa60be0b3ca5a50e40fbe8bd026c261e0aa206f0772267",
+        "canvas-fonts/CrimsonPro-OFL.txt": "35680d14547b6748b6f362a052a46d22764ce5eccf96e18b74f567bb2ee58114",
+        "canvas-fonts/CrimsonPro-Regular.ttf": "48fad08cb1917a7b2f2c6fe5135d6c07743a6663cf7631ec4481108aaf081422",
+        "canvas-fonts/DMMono-OFL.txt": "bfe7842fcb88323e2981e24710c25202677385a8c75fb6a87217b275a0247ae3",
+        "canvas-fonts/DMMono-Regular.ttf": "f98ada968dc3b6b2c08d3f5caaf266977df0bfe0929372b93df5a06cf2ace450",
+        "canvas-fonts/EricaOne-OFL.txt": "e0de629968b52255548d5fafcf30b24ff9edae0eda362380755a75816404d0fa",
+        "canvas-fonts/EricaOne-Regular.ttf": "db1d89e80e33a8a01beaaac7a85df582857d24a43f1e181461aa7ff5d701476a",
+        "canvas-fonts/GeistMono-Bold.ttf": "75c0828d5c1ee44b9ef9f4df577bf41595ec362e2ea3f1e558590c9e92c7949d",
+        "canvas-fonts/GeistMono-OFL.txt": "6a873c900f584109b13ae0aaf81d6e3cf0a68751a216b03f7b6c68d547057bb4",
+        "canvas-fonts/GeistMono-Regular.ttf": "a55c1b51cda4afeab9e471e7947b85a20f7c8831d7e6b1470c1b7fbdc0f0f15e",
+        "canvas-fonts/Gloock-OFL.txt": "c0a3f3125ac491ef3d1f09f401be4834c646562f647e44f2bcbc49f0466c656d",
+        "canvas-fonts/Gloock-Regular.ttf": "e86b4ce66dbd3f1f83eee8db99ec96e0da1128c3f53df0e9b3b7472025dfe960",
+        "canvas-fonts/IBMPlexMono-Bold.ttf": "dbd2a2fb024579438d6400a84e57579bfd2dbe67c306c8fd9fde92a61e4f2eea",
+        "canvas-fonts/IBMPlexMono-OFL.txt": "5294ce778857e1eb02e830b6ab06435537d38f43055327e73d03a2d4d57d5123",
+        "canvas-fonts/IBMPlexMono-Regular.ttf": "ab08018ccd276b79fb2c636bb95b9c543598f9d50505fe92506fcb4dae7810cd",
+        "canvas-fonts/IBMPlexSerif-Bold.ttf": "b8d294e9b5c5a0940f167c3ced0f7ef2e3f57082ca3ff096ef30e86e26c1c159",
+        "canvas-fonts/IBMPlexSerif-BoldItalic.ttf": "da64b75f4284f53e7b5c71fa190a35b8bf3494fe19f1804c81c3a53340bca570",
+        "canvas-fonts/IBMPlexSerif-Italic.ttf": "b11f1048745e715a55c9d837b3f10226ca3d78867b7db7251ddad8f98dcf0f38",
+        "canvas-fonts/IBMPlexSerif-Regular.ttf": "77cd233a2af8dc6b1022faea3bb3b01f3c75af68bcf530cb6aeb15982ff3dbb7",
+        "canvas-fonts/InstrumentSans-Bold.ttf": "444f85bf1c4b0e1ce1ca624f6be54bcd832207714ccaf4ea99ee531341683bdf",
+        "canvas-fonts/InstrumentSans-BoldItalic.ttf": "3762f6cef95d6039489ad5ba5787d4c30f17a1ad01e9ac3c816ed69692722a68",
+        "canvas-fonts/InstrumentSans-Italic.ttf": "78e85858e371b2cb4e18f617c10f0f937c0e12a0887ffee98555b24ed305b3a7",
+        "canvas-fonts/InstrumentSans-OFL.txt": "bf4dc6d13a8cccd4807133c77a1ee9619a16b92cb23322258725ab6731c2f6e5",
+        "canvas-fonts/InstrumentSans-Regular.ttf": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
+        "canvas-fonts/InstrumentSerif-Italic.ttf": "9c86e4d5a47b50224a2463a9eca8535835257c8e85c470c2c6b454b1af6f046e",
+        "canvas-fonts/InstrumentSerif-Regular.ttf": "56ac3be03ac3ba283196b3e77850ab2ffcf56cfb6fd3212c5620109a972f8c99",
+        "canvas-fonts/Italiana-OFL.txt": "8373b11312ace78c4cec2e8f9f6aa9f2330601107dac7bcf899c6f2dbd40c5a5",
+        "canvas-fonts/Italiana-Regular.ttf": "15c4dd6ab8cf4a29ba8826f65edcbe2f6c266c557d34d081f25072dfd5605fd2",
+        "canvas-fonts/JetBrainsMono-Bold.ttf": "a2349098b9e45419e7bf0e2958d6c4937a049dded37387b08be725be4c7615f3",
+        "canvas-fonts/JetBrainsMono-OFL.txt": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697",
+        "canvas-fonts/JetBrainsMono-Regular.ttf": "b6b1ff4ddefe36d7f2a6174e1d001cab374e594519ee9049af028d577b64c5f5",
+        "canvas-fonts/Jura-Light.ttf": "c891a381df056b2c4dfe85841e911bf45da0890fa21a7b2692cbe5ea1f505e1e",
+        "canvas-fonts/Jura-Medium.ttf": "c72965cb732a92872643819fd1734128238583cc36b116313859137a51d3368a",
+        "canvas-fonts/Jura-OFL.txt": "eaf9bdb675f6d87e5feb88199ab3ea581d3bd2082f426e384fa9c394576d7260",
+        "canvas-fonts/LibreBaskerville-OFL.txt": "55959eef5b0c3b2e3c1c7631b8ff0f9447d75de20f29cfa7db5bcfb026763343",
+        "canvas-fonts/LibreBaskerville-Regular.ttf": "2101302538d9e88adb679031c04623e4578b5745e89566284fd2c508d79acae0",
+        "canvas-fonts/Lora-Bold.ttf": "7d74015e950c2fb66519c7295b8155621d22200ae2ca2a4c6b43ce3c490cac87",
+        "canvas-fonts/Lora-BoldItalic.ttf": "152f87e71f5ddb60d5c57ecd9132807c947e65c42977193c9164e7c5a6690081",
+        "canvas-fonts/Lora-Italic.ttf": "be627e595184e8afe521f08da0607eee613f1997d423bc8dadc5798995581377",
+        "canvas-fonts/Lora-OFL.txt": "62e37a82d3f1ef2a70712885fa8b3144b65fd144d8e748d6196b690a354d792c",
+        "canvas-fonts/Lora-Regular.ttf": "7ed00e7c9cdf16ab7e2fd2361fe45d4f0b61263cd60aae398b27b7ee08108827",
+        "canvas-fonts/NationalPark-Bold.ttf": "69ac4c301c4a7233c6e602d12a92c54d7967b575f4449951c45ce773f7acff53",
+        "canvas-fonts/NationalPark-OFL.txt": "81c6c71d83b5b45d7344f96df12bb4a2477a5b092a9144757ee1d0f50f855175",
+        "canvas-fonts/NationalPark-Regular.ttf": "a477338b7e18308d476650dfe31235ef86a883572665e56ffb5fb80f82009b58",
+        "canvas-fonts/NothingYouCouldDo-OFL.txt": "7c2a6970584ddad04919816163746f83b378078015899b18468b40f05e9ce128",
+        "canvas-fonts/NothingYouCouldDo-Regular.ttf": "d866f985896d3280f4fce72db7e17302c24a0c1fdb0699b6b5ed3af14f944d57",
+        "canvas-fonts/Outfit-Bold.ttf": "6654b93d21301ec61887d3cedd6c11d9df1b1dfb63f9cf45ac7995f6e2235ab1",
+        "canvas-fonts/Outfit-OFL.txt": "1945b62cd76da9a3051a1660dde72afaa64ffc2666d30e7a78356d651653ba2f",
+        "canvas-fonts/Outfit-Regular.ttf": "f24945365147c9e783e91d8649959b59be6b00c9ee4ecd2f6b33afbb2dd871fe",
+        "canvas-fonts/PixelifySans-Medium.ttf": "38397504f71c122b03d234ea6f55118e3d5bdbddffd82bedddbd7755d3b3be82",
+        "canvas-fonts/PixelifySans-OFL.txt": "7f54d1d9f1ae1ba9f2722f978145f90324fea34ca3c2304b3a29cfa96ac6037e",
+        "canvas-fonts/PoiretOne-OFL.txt": "2eaf541f7eb8b512e4c757a5212060abf5b6edfef230e9d7640bf736b315c33a",
+        "canvas-fonts/PoiretOne-Regular.ttf": "9cf265b139648b36b6c0afdfeb0bf27f7e66db9a16094bc40f644d8da05bc318",
+        "canvas-fonts/RedHatMono-Bold.ttf": "7ef48353f4be5ddb90f000f6fad48f2b62b3e8c27d9818d8d45ff46c201065e0",
+        "canvas-fonts/RedHatMono-OFL.txt": "435fbfb7e66988b2a06686a4cb966faec733f35d8fe100a1601573c27f3e0bb8",
+        "canvas-fonts/RedHatMono-Regular.ttf": "452fe826871b37539f5212b20c87cf30f82f58dd2741f1c96edd1dcbdc0db6b4",
+        "canvas-fonts/Silkscreen-OFL.txt": "6b849745119bbe85ec01fd080c9cd50234da9f52ac6e48b55d1a424a0c4d7ca9",
+        "canvas-fonts/Silkscreen-Regular.ttf": "49567408600809e25147e9225ac4f37f410e2df45a750696c45027531fb65f1b",
+        "canvas-fonts/SmoochSans-Medium.ttf": "dd76e6e77cce82f827a8654cd906e9ce58f3aaf78adda63c4a7f655b8ecb41f0",
+        "canvas-fonts/SmoochSans-OFL.txt": "74c9c4eb88e891483e1b7bc54780b452cbf4f4df66d4e71881d7569aa2130749",
+        "canvas-fonts/Tektur-Medium.ttf": "52bbe8c9b057b3d2da4eeace31a524b1ea26a1375ae34319cf6900ccc57a4c82",
+        "canvas-fonts/Tektur-OFL.txt": "3f1466cb5438f31782eeb6e895f3a655bc4d090e24263e331f555357d1cb734e",
+        "canvas-fonts/Tektur-Regular.ttf": "162e1b36c4718c5b051b36c971ad7e50d341944f35618f480422ebbe72988f98",
+        "canvas-fonts/WorkSans-Bold.ttf": "240d125fc9f8561363dc1ea3f513501253bd70942f41468f48f0b0cafb0c82e2",
+        "canvas-fonts/WorkSans-BoldItalic.ttf": "a5b2cad813df0aaa7d16621f2e93b5117c25e9bc788bc9a3ad218e9d6348ce34",
+        "canvas-fonts/WorkSans-Italic.ttf": "6b7f7002e0b0c8b261fe878658ef5551e3e59d9f6b609b04efb90dde1e2c1ada",
+        "canvas-fonts/WorkSans-OFL.txt": "ace8c22a3326318b54e67c3691857929634205533f454a70ef5a3473ddb2e2ba",
+        "canvas-fonts/WorkSans-Regular.ttf": "e67985a843df0d3cdee51a3d0f329eb1774a344ad9ff0c9ab923751f1577e2a4",
+        "canvas-fonts/YoungSerif-OFL.txt": "cdcb8039606b40a027a6d24586ec62d5fe29c701343d82a048c829cb28a3dd28",
+        "canvas-fonts/YoungSerif-Regular.ttf": "f8dc08f77abad753a00670af70756a8ace938e5c3f0b770f4f4c2071c4bd8fc6"
+      }
+    },
+    {
+      "name": "awesome-theme-factory",
+      "source": "awesome-codex-skills-master.zip",
+      "source_path": "awesome-codex-skills-master/theme-factory/SKILL.md",
+      "original_name": "theme-factory",
+      "files": 13,
+      "sha256": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "51fbd0c1e30f8847d0a1d1e5d5c365dacd468589b6ef984e6f3d78d09cf52424",
+        "theme-showcase.pdf": "3e126eca9fe99088051f7cb984c97cedb31c7d9e09ce0ba5d61bd01e70a0d253",
+        "themes/arctic-frost.md": "868a75a8fb5b2a61d0f0ab87c437fe632d3cbab6371c418f06aa2816ac109ae0",
+        "themes/botanical-garden.md": "222cb8e7496abc9b75b29453c809fb9839e7e4b01fa45deecdd896b38d087765",
+        "themes/desert-rose.md": "bd065b8629be3b64655183927e248e3d892a27b8d184b009cfba89c96102744f",
+        "themes/forest-canopy.md": "ecb722efa24688e808b5bf323c334ca2349e989cfddd72ce8400ce5d4c4bd3e7",
+        "themes/golden-hour.md": "3444a00df971d3c2f06b665e21a2e9eb5d7d7d6f6281f2758773b8345776a139",
+        "themes/midnight-galaxy.md": "0e134c4c0324df41e34ac314269aa6829cd378cf3c304b31858d0cd158d2f944",
+        "themes/modern-minimalist.md": "b8bc572b75948d4df69c401af703b9262ed6820a3ceb270da30a529e92763614",
+        "themes/ocean-depths.md": "a7ad8eec85341dbfcb2665da827a4b6a4baee08ab3335ac02421f18e6b46b2e2",
+        "themes/sunset-boulevard.md": "658af11ab04be4923692571081ffb42a428141ae537703117b9236d9f8ee22a3",
+        "themes/tech-innovation.md": "183648163026dd5eeba3df5effa335b55ba333c3ee1fe215278605e55f40a52a"
+      }
+    },
+    {
+      "name": "awesome-webapp-testing",
+      "source": "awesome-codex-skills-master.zip",
+      "source_path": "awesome-codex-skills-master/webapp-testing/SKILL.md",
+      "original_name": "webapp-testing",
+      "files": 6,
+      "sha256": {
+        "LICENSE.txt": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "SKILL.md": "954ae9f4a911b288cbcaff2e25e052a12838a9c3c0e72bd72f073f109b7b9933",
+        "examples/console_logging.py": "ea46877289acb82da7e7ce59d0bc37c8977cd57e2a006d0c88d7a1c625bf95da",
+        "examples/element_discovery.py": "d63c89604a22f8845d724e95dda45db49b1bf57c25ce0a83afbb7b8da3d402f0",
+        "examples/static_html_automation.py": "9d533aafb875ee3ab8b8ebf8f5b9003ac8d999da3d09b285cce252e623140064",
+        "scripts/with_server.py": "b0dcf4918935b795f4eda9821579b9902119235ff4447f687a30286e7d0925fd"
+      }
+    }
+  ],
+  "excluded": {
+    "awesome-agent-skills-main.zip": "Catalogo de enlaces sin SKILL.md; no es una skill instalable.",
+    "codex-main.zip": "Codigo fuente de Codex; skills internas de desarrollo del repositorio y ejemplos de skills de sistema. No se instala el programa ni se reemplazan skills de sistema.",
+    "awesome-codex-skills-master.zip": "Seleccionadas 4 skills de diseno y pruebas web; excluidas automatizaciones de servicios y otras tareas ajenas al proyecto.",
+    "open-design-main.zip": "Seleccionadas 33 skills de diseno web; excluidos el programa, plantillas de video/documentos, fixtures y otras integraciones."
+  },
+  "limitations": [
+    "UI UX Pro Max: el ZIP solo contiene SKILL.md; faltan scripts/search.py y la base de datos. Instalada como guia, busqueda no operativa.",
+    "React Best Practices: el ZIP no incluye references/react-performance-guidelines.md ni references/rules/. La guia resumida esta disponible.",
+    "FamilyBudget: referencias y dependencias propias del repositorio original ausentes. Su uso requiere adaptacion al proyecto.",
+    "Adobe Fonts: usar Node y scripts/afont.js en Windows; para API se requiere ADOBE_FONTS_API_TOKEN. No se configuraron credenciales.",
+    "Las skills de colecciones pueden requerir herramientas, servicios o archivos externos propios de sus autores; instalacion no equivale a configurar esas integraciones.",
+    "No se ejecutaron scripts, comandos ni instrucciones de los ZIP. Nombres normalizados y variantes renombradas para evitar colisiones."
+  ]
+}
