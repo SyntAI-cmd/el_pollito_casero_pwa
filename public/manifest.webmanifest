@@ -1,0 +1,47 @@
+{
+  "id": "/",
+  "name": "Pollito Casero · Pedidos",
+  "short_name": "Pollito Casero",
+  "lang": "es-AR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f7f4",
+  "theme_color": "#cc242a",
+  "description": "Pedí pollo entero y por corte, por kilo, con entrega en San Martín, Mendoza. Seguí tu pedido en el mapa.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "food",
+    "shopping"
+  ],
+  "shortcuts": [
+    {
+      "name": "Hacer un pedido",
+      "url": "/",
+      "description": "Catálogo y carrito"
+    },
+    {
+      "name": "Seguir mi pedido",
+      "url": "/seguimiento",
+      "description": "Estado y mapa de entrega"
+    },
+    {
+      "name": "Mis entregas",
+      "url": "/reparto",
+      "description": "Para repartidores"
+    }
+  ]
+}

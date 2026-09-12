@@ -1,0 +1,31 @@
+{
+  "name": "pollito-casero",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs --dev",
+    "build": "vite build",
+    "start": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "node scripts/verify.mjs",
+    "test:a11y": "node scripts/accessibility.mjs",
+    "format": "prettier --write src server server.mjs domain.mjs vite.config.js scripts tests"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.468.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "sharp": "^0.35.4",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.55.0",
+    "@vitejs/plugin-react": "^4.7.0",
+    "prettier": "^3.9.6",
+    "vite": "^7.0.0"
+  }
+}

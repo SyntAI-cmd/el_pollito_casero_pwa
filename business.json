@@ -1,0 +1,407 @@
+{
+  "demo": true,
+  "adminName": "Mauro",
+  "adminPhone": "5492635037286",
+  "drivers": [
+    {
+      "name": "Franco",
+      "phone": "5492634953267"
+    },
+    {
+      "name": "Maxi",
+      "phone": "5492634547359"
+    }
+  ],
+  "prices": {
+    "entero": {
+      "wholesale": 3500,
+      "intermediate": 4000,
+      "retail": 4500
+    },
+    "cuarto-trasero": {
+      "wholesale": 3280,
+      "intermediate": 3690,
+      "retail": 4100
+    },
+    "alas": {
+      "wholesale": 2640,
+      "intermediate": 2970,
+      "retail": 3300
+    },
+    "pechuga": {
+      "wholesale": 5270,
+      "intermediate": 5930,
+      "retail": 6590
+    },
+    "suprema": {
+      "wholesale": 7440,
+      "intermediate": 8370,
+      "retail": 9300
+    },
+    "menudos": {
+      "wholesale": 1480,
+      "intermediate": 1670,
+      "retail": 1850
+    },
+    "rancho": {
+      "wholesale": 480,
+      "intermediate": 540,
+      "retail": 600
+    },
+    "pechuga-con-alas": {
+      "wholesale": 3870,
+      "intermediate": 4360,
+      "retail": 4840
+    },
+    "muslo": {
+      "wholesale": 3780,
+      "intermediate": 4260,
+      "retail": 4730
+    },
+    "garras": {
+      "wholesale": 480,
+      "intermediate": 540,
+      "retail": 600
+    }
+  },
+  "products": [
+    {
+      "id": "entero",
+      "code": 1,
+      "name": "Pollo entero",
+      "category": "entero",
+      "description": "Pollo entero fresco, con piel. El clásico para el horno o la parrilla.",
+      "image": "/images/pollo.webp"
+    },
+    {
+      "id": "cuarto-trasero",
+      "code": 2,
+      "name": "Cuarto trasero",
+      "category": "trozado",
+      "description": "Pata y muslo juntos, con piel. Rinde y aguanta bien la cocción larga.",
+      "image": "/images/cuarto-trasero.webp"
+    },
+    {
+      "id": "alas",
+      "code": 3,
+      "name": "Alas",
+      "category": "trozado",
+      "description": "Alas frescas enteras. Para el horno, la parrilla o la fritura.",
+      "image": "/images/alas.webp"
+    },
+    {
+      "id": "pechuga",
+      "code": 4,
+      "name": "Pechuga",
+      "category": "trozado",
+      "description": "Pechuga fresca con hueso y piel. Jugosa al horno o a la plancha.",
+      "image": "/images/pechuga.webp"
+    },
+    {
+      "id": "suprema",
+      "code": 5,
+      "name": "Suprema",
+      "category": "trozado",
+      "description": "Filete de pechuga sin hueso ni piel. Lista para milanesas o plancha.",
+      "image": "/images/suprema.webp"
+    },
+    {
+      "id": "menudos",
+      "code": 6,
+      "name": "Menudos",
+      "category": "trozado",
+      "description": "Hígado, corazón y molleja frescos. Venta por kilogramo.",
+      "image": null
+    },
+    {
+      "id": "rancho",
+      "code": 7,
+      "name": "Rancho",
+      "category": "trozado",
+      "description": "Carcasa y espinazo para caldos y fondos. Venta por kilogramo.",
+      "image": null
+    },
+    {
+      "id": "pechuga-con-alas",
+      "code": 8,
+      "name": "Pechuga con alas",
+      "category": "trozado",
+      "description": "Pechuga entera con las alas, con piel. Ideal para el horno.",
+      "image": "/images/pechuga-con-alas.webp"
+    },
+    {
+      "id": "muslo",
+      "code": 9,
+      "name": "Muslo",
+      "category": "trozado",
+      "description": "Muslos frescos con piel. Sabor y jugosidad garantizados.",
+      "image": "/images/muslo.webp"
+    },
+    {
+      "id": "garras",
+      "code": 10,
+      "name": "Garras del pollo",
+      "category": "trozado",
+      "description": "Patas de pollo frescas y limpias. Para caldos y gelatinas.",
+      "image": null
+    }
+  ],
+  "localities": [
+    {
+      "id": "san-martin",
+      "name": "San Martín",
+      "postalCode": "5570",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.081,
+      "lng": -68.469
+    },
+    {
+      "id": "rivadavia",
+      "name": "Rivadavia",
+      "postalCode": "5577",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.19,
+      "lng": -68.464
+    },
+    {
+      "id": "villanueva",
+      "name": "Villanueva",
+      "postalCode": "5521",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.899,
+      "lng": -68.797
+    },
+    {
+      "id": "tres-portenas",
+      "name": "Tres Porteñas",
+      "postalCode": "5589",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.953,
+      "lng": -68.349
+    },
+    {
+      "id": "lavalle",
+      "name": "Lavalle",
+      "postalCode": "5533",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.72,
+      "lng": -68.591
+    },
+    {
+      "id": "santa-rosa",
+      "name": "Santa Rosa",
+      "postalCode": "5596",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.256,
+      "lng": -68.15
+    },
+    {
+      "id": "junin",
+      "name": "Ciudad de Junín",
+      "postalCode": "5573",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.146,
+      "lng": -68.488
+    },
+    {
+      "id": "fray-luis-beltran",
+      "name": "Fray Luis Beltrán",
+      "postalCode": "5531",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.99,
+      "lng": -68.652
+    },
+    {
+      "id": "las-heras",
+      "name": "Las Heras",
+      "postalCode": "5539",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.851,
+      "lng": -68.828
+    },
+    {
+      "id": "coquimbito",
+      "name": "Coquimbito",
+      "postalCode": "5513",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.96,
+      "lng": -68.757
+    },
+    {
+      "id": "godoy-cruz",
+      "name": "Godoy Cruz",
+      "postalCode": "5501",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.926,
+      "lng": -68.845
+    },
+    {
+      "id": "los-barriales",
+      "name": "Los Barriales",
+      "postalCode": "5585",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.114,
+      "lng": -68.556
+    },
+    {
+      "id": "nueva-california",
+      "name": "Nueva California",
+      "postalCode": "5535",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.88,
+      "lng": -68.443
+    },
+    {
+      "id": "rodeo-de-la-cruz",
+      "name": "Rodeo de la Cruz",
+      "postalCode": "5525",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.918,
+      "lng": -68.703
+    },
+    {
+      "id": "la-dormida",
+      "name": "La Dormida",
+      "postalCode": "5592",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.35,
+      "lng": -67.925
+    },
+    {
+      "id": "maipu",
+      "name": "Maipú",
+      "postalCode": "5515",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.982,
+      "lng": -68.786
+    },
+    {
+      "id": "montecaseros",
+      "name": "Montecaseros",
+      "postalCode": "5571",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.024,
+      "lng": -68.404
+    },
+    {
+      "id": "perdriel",
+      "name": "Perdriel",
+      "postalCode": "5509",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.083,
+      "lng": -68.905
+    },
+    {
+      "id": "los-corralitos",
+      "name": "Los Corralitos",
+      "postalCode": "5527",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.955,
+      "lng": -68.681
+    },
+    {
+      "id": "la-colonia",
+      "name": "La Colonia",
+      "postalCode": "5572",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.135,
+      "lng": -68.503
+    },
+    {
+      "id": "las-catitas",
+      "name": "Las Catitas",
+      "postalCode": "5594",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.304,
+      "lng": -68.052
+    },
+    {
+      "id": "tres-de-mayo",
+      "name": "Tres de Mayo",
+      "postalCode": "5543",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.823,
+      "lng": -68.545
+    },
+    {
+      "id": "la-paz",
+      "name": "La Paz",
+      "postalCode": "5590",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.461,
+      "lng": -67.552
+    },
+    {
+      "id": "carrodilla",
+      "name": "Carrodilla",
+      "postalCode": "5505",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.973,
+      "lng": -68.861
+    },
+    {
+      "id": "rodeo-del-medio",
+      "name": "Rodeo del Medio",
+      "postalCode": "5529",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -32.983,
+      "lng": -68.673
+    },
+    {
+      "id": "palmira",
+      "name": "Palmira",
+      "postalCode": "5584",
+      "province": "Mendoza",
+      "country": "Argentina",
+      "lat": -33.045,
+      "lng": -68.565
+    }
+  ],
+  "priceSource": {
+    "file": "Precios.png",
+    "modified": "2026-09-03",
+    "plan": "minorista",
+    "planInferred": true,
+    "otherCutPlans": "Tarifas ficticias autorizadas: mayorista -20%, intermedio -10%, redondeo a $10."
+  },
+  "brand": "EL POLLITO CASERO",
+  "origin": {
+    "name": "Pollito Casero",
+    "address": "San Martín, Mendoza",
+    "lat": -33.081,
+    "lng": -68.469,
+    "approximate": true,
+    "note": "Punto aproximado del centro de San Martín. Reemplazar por la dirección real del local."
+  },
+  "shipping": {
+    "mayorista": 0,
+    "intermedio": 1500,
+    "minorista": 1500
+  },
+  "localitiesNote": "lat/lng: centro aproximado de cada localidad, para centrar el mapa. No son direcciones verificadas."
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+data/
+.env
+test-results/
+playwright-report/
+# Skills de agentes instaladas localmente: no forman parte de la app
+.agents/
+skills-installation.json
+install-local-skills.py
+SKILLS-INSTALADAS.md
