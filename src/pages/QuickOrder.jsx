@@ -393,9 +393,12 @@ export default function QuickOrder() {
                             if (e.key === "Enter" && !e.ctrlKey) {
                               e.preventDefault();
                               const inputs = [
-                                ...document.querySelectorAll(".qo-kg input"),
+                                ...document.querySelectorAll(
+                                  ".qo-kg input:not(:disabled)",
+                                ),
                               ];
-                              (inputs[i + 1] || inputs[0])?.focus();
+                              const at = inputs.indexOf(e.currentTarget);
+                              (inputs[at + 1] || inputs[0])?.focus();
                             }
                           }}
                         />

@@ -293,7 +293,8 @@ export function createApi({
   }
 
   function createOrder(b, session) {
-    const priced = priceOrder(b);
+    // Administración carga lo que el cliente pidió por teléfono; el mínimo por modalidad es para el autoservicio.
+    const priced = priceOrder(b, { enforceMin: session?.role !== "admin" });
     if (b.payment === "transferencia" && !config.transfer)
       fail(
         400,
@@ -338,7 +339,7 @@ export function createApi({
       // Un cliente con historial pide con la modalidad que administración le asignó.
       if (
         session?.role !== "admin" &&
-        b.plan !== customer.plan &&
+        plans.indexOf(b.plan) < plans.indexOf(customer.plan) &&
         store.orders.countFor(phone) > 0
       )
         fail(
@@ -519,6 +520,11 @@ export function createApi({
       }
     }
     if (b.paid === true && !o.paid) {
+      if (o.payment === "cuenta")
+        fail(
+          400,
+          "Los pedidos a cuenta se cobran desde la cuenta corriente del cliente (Registrar pago), así queda en el extracto.",
+        );
       Object.assign(o, { paid: true, paidAt: now(), paidBy: actorOf(session) });
       if (b.paidMethod)
         o.paidMethod = oneOf(
@@ -832,6 +838,11 @@ export function createApi({
       loginLimit(ip);
       const phone = normalizePhone(body.phone);
       const code = str(body.code, { min: 4, max: 8, name: "el código" });
+      if (isStaff(session))
+        fail(
+          400,
+          "Estás ingresado como equipo. Cerrá esa sesión antes de verificar un celular de cliente.",
+        );
       const pending = phone && store.tokens.peek("otp:" + phone, "otp");
       if (!pending) fail(400, "El código venció. Pedí uno nuevo.");
       if (pending.payload.attempts >= 5) {
@@ -1327,14 +1338,19 @@ export function createApi({
     }
     if (orderMatch && orderMatch[2] === "mp" && method === "POST") {
       if (!session) fail(401, "Ingresá para pagar.");
-      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
-      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
-      if (o.paid) fail(400, "El pedido ya está pagado.");
-      if (!config.mercadopago) fail(400, "El pago online no está habilitado.");
-      const pref = await createPreference(o, { base });
-      o.mp = { preferenceId: pref.id, createdAt: now() };
-      store.orders.save(o);
-      return json(200, { url: pref.initPoint });
+      const id = decodeURIComponent(orderMatch[1]);
+      return withOrderLock(id, async () => {
+        const o = store.orders.get(id);
+        if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+        if (o.paid) fail(400, "El pedido ya está pagado.");
+        if (!config.mercadopago)
+          fail(400, "El pago online no está habilitado.");
+        const pref = await createPreference(o, { base });
+        const current = store.orders.get(id);
+        current.mp = { preferenceId: pref.id, createdAt: now() };
+        store.orders.save(current);
+        return json(200, { url: pref.initPoint });
+      });
     }
     if (path === "/api/mp/webhook" && method === "POST") {
       const paymentId =
@@ -1343,23 +1359,30 @@ export function createApi({
         return json(200, { ignored: true });
       const pmt = await fetchPayment(paymentId).catch(() => null);
       if (!pmt?.orderId) return json(200, { ignored: true });
-      const o = store.orders.get(pmt.orderId);
-      if (o && pmt.approved && !o.paid && Math.abs(pmt.amount - o.total) < 1) {
-        Object.assign(o, {
-          paid: true,
-          paidAt: now(),
-          paidBy: "mercadopago",
-          paidMethod: "mercadopago",
-          paymentId: "MP-" + pmt.id,
-        });
-        store.orders.save(o);
-        store.audit.log(null, "payment.mercadopago", "order", o.id, pmt);
-        events.orderChanged(o);
-        notifyAdmins({
-          title: `Pago online acreditado · ${o.name}`,
-          body: `${o.id} · ${ars(o.total)} por Mercado Pago.`,
-        });
-      }
+      await withOrderLock(pmt.orderId, async () => {
+        const o = store.orders.get(pmt.orderId);
+        if (
+          o &&
+          pmt.approved &&
+          !o.paid &&
+          Math.abs(pmt.amount - o.total) < 1
+        ) {
+          Object.assign(o, {
+            paid: true,
+            paidAt: now(),
+            paidBy: "mercadopago",
+            paidMethod: "mercadopago",
+            paymentId: "MP-" + pmt.id,
+          });
+          store.orders.save(o);
+          store.audit.log(null, "payment.mercadopago", "order", o.id, pmt);
+          events.orderChanged(o);
+          notifyAdmins({
+            title: `Pago online acreditado · ${o.name}`,
+            body: `${o.id} · ${ars(o.total)} por Mercado Pago.`,
+          });
+        }
+      });
       return json(200, { ok: true });
     }
 

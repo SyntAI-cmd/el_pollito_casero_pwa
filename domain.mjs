@@ -58,7 +58,7 @@ export function normalizePhone(raw) {
   return "549" + d;
 }
 
-export function priceOrder(input) {
+export function priceOrder(input, { enforceMin = true } = {}) {
   if (!plans.includes(input.plan)) throw Error("Elegí una modalidad válida.");
   if (
     !Array.isArray(input.items) ||
@@ -91,7 +91,7 @@ export function priceOrder(input) {
     };
   });
   const kg = items.reduce((n, p) => n + p.kg, 0);
-  if (kg < (planMinKg[input.plan] || 0))
+  if (enforceMin && kg < (planMinKg[input.plan] || 0))
     throw Error(
       `La modalidad ${input.plan} es a partir de ${planMinKg[input.plan]} kg. Para menos, elegí minorista.`,
     );

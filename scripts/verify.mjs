@@ -308,8 +308,18 @@ try {
   assert.equal(me.summary.balance, 35000, "saldo a cuenta");
   assert.equal(me.summary.boxes, 1, "envases pendientes");
   assert.equal(
-    (await admin("/orders/" + id, { paid: true }, "PATCH")).data.paid,
-    true,
+    (await admin("/orders/" + id, { paid: true }, "PATCH")).status,
+    400,
+    "un pedido a cuenta no se marca pagado a mano: se registra el pago",
+  );
+  assert.equal(
+    (
+      await admin("/customers/5492635000000/payments", {
+        amount: 35000,
+        method: "efectivo",
+      })
+    ).status,
+    201,
   );
   assert.equal((await ana("/me")).data.summary.balance, 0);
 
@@ -662,7 +672,7 @@ try {
     400,
     "mayorista con menos de 10 kg se rechaza",
   );
-  assert.match(
+  assert.equal(
     (
       await ana("/orders", {
         ...sample,
@@ -671,9 +681,24 @@ try {
         payment: "entrega",
         items: [{ id: "entero", kg: 2 }],
       })
-    ).data.error,
-    /Tu modalidad es mayorista/,
-    "un cliente con historial no cambia de modalidad por su cuenta",
+    ).status,
+    201,
+    "bajar de modalidad (precio más alto) siempre se permite",
+  );
+  assert.equal(
+    (
+      await admin("/orders", {
+        ...sample,
+        key: "admin-chico",
+        phone: "263 455-1234",
+        name: "Ana Prueba",
+        plan: "mayorista",
+        payment: "entrega",
+        items: [{ id: "entero", kg: 3 }],
+      })
+    ).status,
+    201,
+    "administración carga pedidos chicos con cualquier modalidad",
   );
   // Dos cambios simultáneos sobre el mismo pedido no se pisan.
   const race = await ana("/orders", {
@@ -982,6 +1007,21 @@ try {
     (await eva("/session")).data.phone,
     "5492634778899",
     "verificado el código, la cuenta queda asociada al WhatsApp",
+  );
+  assert.match(
+    (
+      await eva("/orders", {
+        ...sample,
+        key: "eva-sube",
+        plan: "mayorista",
+        payment: "entrega",
+        name: "Eva Email",
+        phone: "263 477-8899",
+        items: [{ id: "entero", kg: 10 }],
+      })
+    ).data.error || "",
+    /Tu modalidad es minorista/,
+    "subir de modalidad requiere que administración cambie la ficha",
   );
   const eva2 = client();
   assert.equal(
