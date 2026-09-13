@@ -22,6 +22,7 @@ import PhoneVerify from "../components/PhoneVerify.jsx";
  */
 export default function Login() {
   const {
+    consumeMagicLink,
     emailLogin,
     emailRegister,
     googleLogin,
@@ -35,10 +36,13 @@ export default function Login() {
     setFormError,
   } = useStore();
   const { query, navigate } = useRoute();
+  const volver = query.get("volver") || "";
   const redirect =
-    query.get("volver") && query.get("volver").startsWith("/")
-      ? query.get("volver")
-      : "/pedidos";
+    volver.startsWith("/") && !volver.startsWith("//") ? volver : "/pedidos";
+  const magicToken =
+    query.get("enlace") && query.get("enlace") !== "vencido"
+      ? query.get("enlace")
+      : null;
   const [mode, setMode] = useState(null); // null | "email" | "celular"
   const [emailTab, setEmailTab] = useState("ingresar"); // ingresar | crear | enlace
   const [magic, setMagic] = useState(null);
@@ -99,7 +103,34 @@ export default function Login() {
           </p>
         )}
 
-        {!mode && (
+        {!mode && magicToken && (
+          <>
+            <h2>Un toque más y entrás</h2>
+            <p>
+              Confirmá que sos vos quien abrió el enlace. Vale 15 minutos y una
+              sola vez.
+            </p>
+            <div className="login-options">
+              <button
+                className="login-option primary-option"
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  consumeMagicLink(magicToken, { redirect: "/pedidos" })
+                }
+              >
+                <Link2 size={18} />{" "}
+                {busy ? "Ingresando…" : "Entrar a mi cuenta"}
+              </button>
+            </div>
+            {formError && (
+              <p className="form-error" role="alert">
+                {formError}
+              </p>
+            )}
+          </>
+        )}
+        {!mode && !magicToken && (
           <>
             <h2>Ingresá o registrate para continuar</h2>
             <p>

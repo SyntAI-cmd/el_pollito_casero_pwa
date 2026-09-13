@@ -91,6 +91,7 @@ ADMIN_PASSWORD=         # contraseña inicial de admin y repartidores (en demo, 
 WHATSAPP_TOKEN= / WHATSAPP_PHONE_ID=   # WhatsApp Business Cloud API: envía el código de verificación del celular
 WHATSAPP_OTP_TEMPLATE=codigo_de_acceso # plantilla de autenticación aprobada en Meta (WHATSAPP_OTP_LANG=es_AR)
 GEOCODER_URL=           # geocodificador compatible con la API de Nominatim (propio, LocationIQ…); por defecto el público de OSM
+# En business.json: planMinKg = { mayorista: 10, intermedio: 5 } (kilos mínimos por modalidad; la modalidad de un cliente con historial la fija administración)
 GOOGLE_CLIENT_ID=       # habilita "Continuar con Google" (Google Identity Services)
 SMTP_URL=               # smtps://usuario:clave@smtp.ejemplo.com:465 · envía los enlaces de acceso por email
 MAIL_FROM=              # remitente de los enlaces (por defecto Pollito Casero <no-reply@dominio>)
@@ -150,6 +151,13 @@ Los scripts de navegador usan Chromium de Playwright (`npx playwright install ch
 5. **Pagos online** (Mercado Pago) si se quiere cobrar antes de la entrega.
 6. Confirmar precios mayorista/intermedio, zona y horarios de reparto, y las coordenadas exactas del local.
 7. **Geocodificador propio o con licencia** (`GEOCODER_URL`): la búsqueda de direcciones es a pedido (botón Buscar / Enter, nunca mientras se escribe) para respetar la política del Nominatim público, pero con volumen conviene un servicio propio.
+
+## Seguridad (resumen)
+
+- Cookies `HttpOnly; SameSite=Lax` (+ `Secure` con HTTPS); origen verificado en toda escritura; Host permitido; `Content-Security-Policy` estricta en producción (solo OpenFreeMap/OSM, OSRM y Google Identity), `X-Frame-Options: DENY`, `nosniff`, HSTS con HTTPS.
+- Contraseñas y códigos con scrypt; enlaces de acceso de un solo uso confirmados con un botón (los escáneres de correo no los consumen); códigos por WhatsApp con 5 intentos y 3 envíos por teléfono cada 15 min; límites por IP en ingresos, pedidos anónimos y geocodificación; ingreso del equipo con tiempo constante.
+- Cada consulta se filtra por rol en el servidor; las sesiones del equipo se validan contra `staff_users` en cada solicitud; auditoría en `audit_log`.
+- Precios: los calcula el servidor; mínimos de kilos por modalidad y modalidad ligada a la ficha del cliente.
 
 ## Diseño y activos
 

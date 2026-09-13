@@ -436,6 +436,10 @@ export function StoreProvider({ children }) {
     run(async () =>
       adoptSession(await post("/auth/google", { credential }), opts),
     );
+  const consumeMagicLink = (token, opts) =>
+    run(async () =>
+      adoptSession(await post("/auth/magic/consume", { token }), opts),
+    );
   const requestMagicLink = (fields) =>
     run(async () => {
       const r = await post("/auth/magic", fields);
@@ -753,6 +757,7 @@ export function StoreProvider({ children }) {
     emailRegister,
     googleLogin,
     requestMagicLink,
+    consumeMagicLink,
     loginWithPasskey,
     addPasskey,
     removePasskey,

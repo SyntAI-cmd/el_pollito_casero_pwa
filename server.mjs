@@ -199,13 +199,36 @@ const vite = dev
     ).createServer({ server: { middlewareMode: true }, appType: "custom" })
   : null;
 
-const cookies = (req) =>
-  Object.fromEntries(
-    (req.headers.cookie || "")
-      .split(/; */)
-      .filter(Boolean)
-      .map((c) => c.split("=").map(decodeURIComponent)),
-  );
+const cookies = (req) => {
+  const out = {};
+  for (const part of (req.headers.cookie || "").split(/; */)) {
+    const i = part.indexOf("=");
+    if (i < 1) continue;
+    try {
+      out[decodeURIComponent(part.slice(0, i))] = decodeURIComponent(
+        part.slice(i + 1),
+      );
+    } catch {}
+  }
+  return out;
+};
+// Política de contenido: solo lo que la app usa (mapa de OpenFreeMap/OSM, OSRM, Google Identity).
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' https://accounts.google.com",
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+  "img-src 'self' data: blob: https://tiles.openfreemap.org https://tile.openstreetmap.org",
+  "font-src 'self' data:",
+  "connect-src 'self' https://tiles.openfreemap.org https://tile.openstreetmap.org https://router.project-osrm.org https://accounts.google.com",
+  "worker-src 'self' blob:",
+  "child-src 'self' blob:",
+  "frame-src https://accounts.google.com",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "manifest-src 'self'",
+].join("; ");
 const sessionCookie = (id) =>
   `pc_session=${id || ""}; Path=/; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}; Max-Age=${id ? 60 * 60 * 24 * 90 : 0}`;
 const json = (res, status, value, headers = {}) => {
@@ -260,6 +283,7 @@ const server = http.createServer(async (req, res) => {
         "Strict-Transport-Security",
         "max-age=31536000; includeSubDomains",
       );
+    if (!dev) res.setHeader("Content-Security-Policy", csp);
     if (path.startsWith("/api/")) {
       const allowedOrigins = [
         base,

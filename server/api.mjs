@@ -6,6 +6,7 @@ import {
   origin,
   statuses,
   plans,
+  planMinKg,
   shippingByPlan,
   priceOrder,
   normalizePhone,
@@ -59,6 +60,8 @@ const ars = (n) =>
     maximumFractionDigits: 0,
   }).format(n);
 const isStaff = (s) => s && (s.role === "admin" || s.role === "repartidor");
+// Hash de relleno para que un usuario inexistente tarde lo mismo que una contraseña incorrecta.
+const DUMMY_HASH = await hashPassword("relleno-" + Math.random());
 const actorOf = (s) =>
   s?.role === "repartidor"
     ? s.driver
@@ -76,6 +79,10 @@ export function createApi({
   const attempts = Number(process.env.LOGIN_LIMIT) || 0;
   const loginLimit = rateLimiter({ limit: attempts || 10, windowMs: 60000 });
   const staffLimit = rateLimiter({ limit: attempts || 6, windowMs: 60000 });
+  // Escrituras anónimas y consultas al geocodificador: tope por IP para que nadie agote la cola ni cree pedidos en masa.
+  const orderLimit = rateLimiter({ limit: attempts || 20, windowMs: 60000 });
+  const geoLimit = rateLimiter({ limit: attempts || 30, windowMs: 60000 });
+  const OTP_SENDS = 3; // códigos por teléfono cada 15 minutos
   const passkeys = createPasskeys({ base });
   const config = {
     products,
@@ -83,6 +90,7 @@ export function createApi({
     drivers: drivers.map((d) => d.name),
     origin,
     shipping: shippingByPlan,
+    planMinKg,
     demo: !!business.demo,
     adminName: business.adminName,
     adminPhone: process.env.ADMIN_WHATSAPP || business.adminPhone,
@@ -326,6 +334,16 @@ export function createApi({
         fail(
           400,
           "Tu cuenta corriente todavía no fue habilitada por administración. Elegí otro medio de pago.",
+        );
+      // Un cliente con historial pide con la modalidad que administración le asignó.
+      if (
+        session?.role !== "admin" &&
+        b.plan !== customer.plan &&
+        store.orders.countFor(phone) > 0
+      )
+        fail(
+          400,
+          `Tu modalidad es ${customer.plan}. Si querés pasar a ${b.plan}, escribinos por WhatsApp y la habilitamos.`,
         );
       // Sin teléfono verificado la sesión queda sin teléfono: solo ve los pedidos que creó.
       let nextSession = session;
@@ -779,13 +797,26 @@ export function createApi({
         name: "el nombre",
         optional: true,
       });
+      const previous = store.tokens.peek("otp:" + phone, "otp");
+      const sends = previous?.payload?.sends || [];
+      const recent = sends.filter((t) => Date.now() - t < 15 * 60000);
+      if (recent.length >= OTP_SENDS)
+        fail(
+          429,
+          "Ya te mandamos varios códigos. Revisá WhatsApp o esperá 15 minutos.",
+        );
       const code = newOtpCode();
       const result = await sendOtp(phone, code);
       store.tokens.put(
         "otp:" + phone,
         "otp",
         phone,
-        { hash: await hashPassword(code), name, attempts: 0 },
+        {
+          hash: await hashPassword(code),
+          name,
+          attempts: 0,
+          sends: [...recent, Date.now()],
+        },
         10 * 60000,
       );
       store.audit.log(session, "auth.otp_sent", "customer", phone, {
@@ -854,11 +885,11 @@ export function createApi({
         name: "la contraseña",
       });
       const user = store.staff.byUsername(username);
-      if (
-        !user ||
-        !user.active ||
-        !(await verifyPassword(password, user.password_hash))
-      ) {
+      const ok = await verifyPassword(
+        password,
+        user?.password_hash || DUMMY_HASH,
+      );
+      if (!user || !user.active || !ok) {
         store.audit.log(null, "session.staff_denied", "staff", username, {
           ip,
         });
@@ -993,17 +1024,29 @@ export function createApi({
       });
     }
     if (path.startsWith("/api/auth/magic/") && method === "GET") {
+      // Los antivirus y previsualizadores de correo abren los enlaces: acá solo se mira el token.
+      const token = path.slice("/api/auth/magic/".length);
+      if (!store.tokens.peek(token, "magic"))
+        return { status: 302, redirect: "/ingresar?enlace=vencido" };
+      return {
+        status: 302,
+        redirect: "/ingresar?enlace=" + encodeURIComponent(token),
+      };
+    }
+    if (path === "/api/auth/magic/consume" && method === "POST") {
+      loginLimit(ip);
       const t = store.tokens.consume(
-        path.slice("/api/auth/magic/".length),
+        str(body.token, { min: 20, max: 200, name: "el enlace" }),
         "magic",
       );
-      if (!t) return { status: 302, redirect: "/ingresar?enlace=vencido" };
+      if (!t)
+        fail(400, "El enlace de acceso venció o ya se usó. Pedí uno nuevo.");
       const account = findOrCreateAccount({
         email: t.subject,
         name: t.payload?.name || t.subject.split("@")[0],
       });
       const s = sessionForAccount(account, session);
-      return { status: 302, redirect: "/pedidos", session: s };
+      return json(200, publicSession(s), { session: s });
     }
     if (path === "/api/auth/google" && method === "POST") {
       loginLimit(ip);
@@ -1169,7 +1212,11 @@ export function createApi({
         ...body,
         name: body.name || current.name,
       });
-      if (plans.includes(body.plan)) {
+      if (
+        plans.includes(body.plan) &&
+        body.plan !== c.plan &&
+        store.orders.countFor(c.phone) === 0
+      ) {
         c.plan = body.plan;
         store.customers.save(c);
       }
@@ -1180,6 +1227,7 @@ export function createApi({
       );
     }
     if (path === "/api/geo/reverse" && method === "GET") {
+      geoLimit(ip);
       const point = {
         lat: Number(query.get("lat")),
         lng: Number(query.get("lng")),
@@ -1197,6 +1245,7 @@ export function createApi({
       );
     }
     if (path === "/api/geo/search" && method === "GET") {
+      geoLimit(ip);
       const q = str(query.get("q"), { min: 3, max: 120, name: "la búsqueda" });
       return json(200, await search(store, q, localities).catch(() => []));
     }
@@ -1229,6 +1278,7 @@ export function createApi({
     if (path === "/api/orders" && method === "POST") {
       if (session?.role === "repartidor")
         fail(403, "Los repartidores no crean pedidos.");
+      if (session?.role !== "admin") orderLimit(ip);
       const { order, session: s, created } = createOrder(body, session);
       if (created) afterCreate(order);
       const sessionChanged =

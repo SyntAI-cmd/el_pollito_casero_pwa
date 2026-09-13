@@ -66,12 +66,38 @@ test("acepta medios kilos y suma varios cortes", () => {
   const priced = priceOrder({
     ...base,
     items: [
-      { id: "entero", kg: 1.5 },
+      { id: "entero", kg: 8.5 },
       { id: "suprema", kg: 2 },
     ],
   });
-  assert.equal(priced.total, 1.5 * 3500 + 2 * 7440);
+  assert.equal(priced.total, 8.5 * 3500 + 2 * 7440);
   assert.equal(priced.shipping, 0);
+});
+
+test("las modalidades mayorista e intermedio tienen un mínimo de kilos", () => {
+  assert.throws(
+    () => priceOrder({ ...base, items: [{ id: "entero", kg: 3 }] }),
+    /a partir de 10 kg/,
+  );
+  assert.throws(
+    () =>
+      priceOrder({
+        ...base,
+        plan: "intermedio",
+        payment: "entrega",
+        items: [{ id: "entero", kg: 4.5 }],
+      }),
+    /a partir de 5 kg/,
+  );
+  assert.equal(
+    priceOrder({
+      ...base,
+      plan: "minorista",
+      payment: "entrega",
+      items: [{ id: "entero", kg: 1 }],
+    }).subtotal,
+    4500,
+  );
 });
 
 test("requiere datos de entrega válidos y localidad de Mendoza", () => {

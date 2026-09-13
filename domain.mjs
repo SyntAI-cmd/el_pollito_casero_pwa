@@ -19,6 +19,12 @@ export const products = business.products.map((p) => ({
 export const localities = business.localities;
 export const drivers = business.drivers;
 export const origin = business.origin;
+/** Kilos mínimos por modalidad: los precios mayorista/intermedio no son para una compra chica. */
+export const planMinKg = business.planMinKg || {
+  mayorista: 10,
+  intermedio: 5,
+  minorista: 0,
+};
 export const shippingByPlan = business.shipping || {
   mayorista: 0,
   intermedio: 1500,
@@ -84,6 +90,11 @@ export function priceOrder(input) {
       lineTotal: lineAmount(price, item.kg),
     };
   });
+  const kg = items.reduce((n, p) => n + p.kg, 0);
+  if (kg < (planMinKg[input.plan] || 0))
+    throw Error(
+      `La modalidad ${input.plan} es a partir de ${planMinKg[input.plan]} kg. Para menos, elegí minorista.`,
+    );
   const allowed = paymentMethods(input.plan);
   if (!allowed.includes(input.payment))
     throw Error("Medio de pago no disponible para esta modalidad.");

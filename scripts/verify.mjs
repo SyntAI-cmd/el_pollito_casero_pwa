@@ -589,7 +589,7 @@ try {
     "el cliente no registra pagos",
   );
   const pay = await admin("/customers/" + almacen.phone + "/payments", {
-    amount: owedBefore + 5000,
+    amount: owedBefore + 8000,
     method: "efectivo",
     note: "prueba",
   });
@@ -601,37 +601,37 @@ try {
   );
   assert.equal(
     pay.data.customer.summary.creditBalance,
-    5000,
+    8000,
     "sobrante como saldo a favor",
   );
-  assert.equal(pay.data.customer.summary.balance, -5000);
+  assert.equal(pay.data.customer.summary.balance, -8000);
   assert.ok(pay.data.payment.applied.length >= 2, "aplicado a varios pedidos");
   const small = await ana("/orders", {
     ...sample,
     key: "credit-use",
-    items: [{ id: "rancho", kg: 5 }],
+    items: [{ id: "rancho", kg: 10 }],
   });
   assert.equal(small.status, 201, JSON.stringify(small.data));
-  assert.equal(small.data.total, 2400);
+  assert.equal(small.data.total, 4800);
   assert.equal(
     small.data.paid,
     true,
     "pedido chico a cuenta pagado con saldo a favor",
   );
   assert.equal(small.data.paidBy, "saldo a favor");
-  assert.equal((await ana("/me")).data.creditBalance, 2600);
+  assert.equal((await ana("/me")).data.creditBalance, 3200);
   // Pesar un pedido a cuenta ya saldado: la diferencia se descuenta del saldo a favor, no se pierde.
   const reweigh = await admin(
     "/orders/" + small.data.id,
-    { weights: { rancho: 6 } },
+    { weights: { rancho: 11 } },
     "PATCH",
   );
   assert.equal(reweigh.status, 200);
-  assert.equal(reweigh.data.total, 2880);
+  assert.equal(reweigh.data.total, 5280);
   assert.equal(reweigh.data.paid, true);
   assert.equal(
     (await ana("/me")).data.creditBalance,
-    2120,
+    2720,
     "la diferencia de peso de un pedido pagado ajusta el saldo",
   );
   // Cancelar un pedido pagado con saldo a favor lo repone, una sola vez.
@@ -642,7 +642,7 @@ try {
   );
   assert.equal(
     (await ana("/me")).data.creditBalance,
-    5000,
+    8000,
     "al cancelar vuelve lo pagado",
   );
   assert.equal(
@@ -650,12 +650,37 @@ try {
     400,
     "no se repone dos veces",
   );
+  // Mínimo de kilos por modalidad y modalidad ligada a la ficha del cliente.
+  assert.equal(
+    (
+      await ana("/orders", {
+        ...sample,
+        key: "chico-mayorista",
+        items: [{ id: "entero", kg: 2 }],
+      })
+    ).status,
+    400,
+    "mayorista con menos de 10 kg se rechaza",
+  );
+  assert.match(
+    (
+      await ana("/orders", {
+        ...sample,
+        key: "cambio-plan",
+        plan: "minorista",
+        payment: "entrega",
+        items: [{ id: "entero", kg: 2 }],
+      })
+    ).data.error,
+    /Tu modalidad es mayorista/,
+    "un cliente con historial no cambia de modalidad por su cuenta",
+  );
   // Dos cambios simultáneos sobre el mismo pedido no se pisan.
   const race = await ana("/orders", {
     ...sample,
     key: "race-1",
     payment: "entrega",
-    items: [{ id: "entero", kg: 2 }],
+    items: [{ id: "entero", kg: 10 }],
   });
   assert.equal(race.status, 201);
   const [r1, r2] = await Promise.all([
@@ -812,7 +837,7 @@ try {
     ...sample,
     key: "transfer-1",
     payment: "transferencia",
-    items: [{ id: "alas", kg: 2 }],
+    items: [{ id: "alas", kg: 10 }],
   });
   assert.equal(tr.status, 201);
   assert.equal(
@@ -986,10 +1011,26 @@ try {
   });
   assert.equal(magic.status, 200);
   assert.ok(magic.data.demoLink, "en demo el enlace se devuelve para probarlo");
+  // Abrir el enlace (como haría un escáner de correo) no consume el token: solo lleva a confirmar.
   const magicRes = await fetch(magic.data.demoLink, { redirect: "manual" });
   assert.equal(magicRes.status, 302);
-  assert.match(magicRes.headers.get("location"), /[\/]pedidos$/);
-  const magicCookie = magicRes.headers.get("set-cookie").split(";")[0];
+  assert.match(magicRes.headers.get("location"), /[\/]ingresar[?]enlace=/);
+  assert.equal(
+    magicRes.headers.get("set-cookie"),
+    null,
+    "el GET no abre sesión",
+  );
+  const magicToken = new URL(
+    magicRes.headers.get("location"),
+    base,
+  ).searchParams.get("enlace");
+  const magicConsume = await fetch(base + "/api/auth/magic/consume", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: magicToken }),
+  });
+  assert.equal(magicConsume.status, 200, "confirmar el enlace abre sesión");
+  const magicCookie = magicConsume.headers.get("set-cookie").split(";")[0];
   const magicSession = await (
     await fetch(base + "/api/session", { headers: { Cookie: magicCookie } })
   ).json();
@@ -1001,6 +1042,17 @@ try {
     ),
     /vencido/,
     "el enlace es de un solo uso",
+  );
+  assert.equal(
+    (
+      await fetch(base + "/api/auth/magic/consume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: magicToken }),
+      })
+    ).status,
+    400,
+    "confirmarlo dos veces no abre otra sesión",
   );
   assert.equal(
     (
@@ -1621,6 +1673,8 @@ try {
   await magicPage
     .getByRole("link", { name: /Abrir el enlace de demostración/ })
     .click();
+  await expect(magicPage).toHaveURL(/[/]ingresar[?]enlace=/);
+  await magicPage.getByRole("button", { name: "Entrar a mi cuenta" }).click();
   await expect(magicPage).toHaveURL(/[/]pedidos$/);
   await expect(
     magicPage.locator(".sidebar .profile"),
