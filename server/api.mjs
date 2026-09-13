@@ -567,7 +567,7 @@ export function createApi({
         after.push(() =>
           notifyCustomer(o, {
             title: "Pedido entregado",
-            body: `¡Gracias! ${o.id} llegó a destino.`,
+            body: `Gracias. ${o.id} llegó a destino.`,
           }),
         );
     }

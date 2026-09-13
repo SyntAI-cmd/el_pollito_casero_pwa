@@ -294,7 +294,19 @@ function ClientShell({ Page, path }) {
         <main id="contenido" tabIndex="-1">
           <Notices />
           {!config && !loaded ? (
-            <div className="loading">Preparando el catálogo…</div>
+            <div
+              className="skeleton"
+              aria-busy="true"
+              aria-label="Cargando el catálogo"
+            >
+              <div className="skeleton-hero" />
+              <div className="skeleton-grid">
+                <div className="skeleton-card" />
+                <div className="skeleton-card" />
+                <div className="skeleton-card" />
+                <div className="skeleton-card" />
+              </div>
+            </div>
           ) : Page ? (
             <Page />
           ) : (

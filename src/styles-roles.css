@@ -51,7 +51,8 @@
   letter-spacing: -2px;
 }
 .login-visual-copy h1 em {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--serif);
+  font-size: 1.12em;
   font-weight: 400;
   font-style: italic;
 }

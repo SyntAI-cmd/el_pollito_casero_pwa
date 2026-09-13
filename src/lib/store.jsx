@@ -355,7 +355,7 @@ export function StoreProvider({ children }) {
       notify(
         config?.demo
           ? "Pedido creado. Avanzalo desde Operación para ver el seguimiento."
-          : "¡Pedido confirmado!",
+          : "Pedido confirmado.",
       );
       return order;
     });
@@ -429,7 +429,7 @@ export function StoreProvider({ children }) {
     run(async () =>
       adoptSession(await post("/auth/register", fields), {
         ...opts,
-        message: "¡Cuenta creada! Bienvenido.",
+        message: "Cuenta creada. Bienvenido.",
       }),
     );
   const googleLogin = (credential, opts) =>
