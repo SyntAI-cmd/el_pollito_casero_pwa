@@ -303,7 +303,7 @@ main:focus {
 }
 .profile small {
   color: #b0b0a6;
-  font-size: 11px;
+  font-size: 12px;
   display: block;
   margin-top: 3px;
 }
@@ -517,7 +517,7 @@ main:focus {
 .primary:hover,
 .add-button:hover {
   background: #a61a23;
-  box-shadow: 0 6px 16px -6px #c9262e66;
+  box-shadow: var(--shadow-md);
 }
 .hero-button,
 .primary,
@@ -531,6 +531,10 @@ main:focus {
 .primary:not(:disabled):active,
 .add-button:active {
   box-shadow: none;
+}
+.operation-order {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 .hero-stamp {
   position: absolute;
@@ -642,7 +646,7 @@ main:focus {
   padding: 8px;
 }
 .plan-switch > button span {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: #626258;
   margin-left: 2px;
@@ -682,6 +686,11 @@ main:focus {
   font-size: 13px;
   color: var(--black);
   outline: none;
+}
+.catalog-search:focus-within {
+  outline: 3px solid #a71825;
+  outline-offset: 3px;
+  border-color: var(--black);
 }
 .catalog-search input::-webkit-search-cancel-button {
   appearance: none;
@@ -733,7 +742,7 @@ main:focus {
   gap: 10px;
 }
 .catalog-toolbar > span {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .filters {
@@ -894,7 +903,7 @@ main:focus {
   appearance: none;
 }
 .quantity > span {
-  font-size: 11px;
+  font-size: 12px;
   margin: 0 2px 0 3px;
 }
 .add-button {
@@ -925,7 +934,7 @@ main:focus {
   font-size: 12px;
 }
 .wholesale-note p {
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 3px;
 }
 .wholesale-note a {
@@ -959,7 +968,7 @@ main:focus {
   gap: 6px;
   padding: 15px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 11px;
+  font-size: 12px;
   color: #6b6b5e;
 }
 .cart-plan svg {
@@ -967,7 +976,7 @@ main:focus {
 }
 .cart-plan > span {
   margin-left: auto;
-  font-size: 11px;
+  font-size: 12px;
   color: #818078;
 }
 .empty-cart {
@@ -1033,8 +1042,8 @@ main:focus {
   margin-top: 5px;
 }
 .cart-panel > .primary:disabled {
-  background: #d7c9c2;
-  color: #fff;
+  background: #ece7df;
+  color: #5c5951;
   opacity: 1;
 }
 .cart-foot {
@@ -1042,7 +1051,7 @@ main:focus {
   justify-content: center;
   align-items: center;
   gap: 4px;
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 12px;
 }
 .cart-delivery {
@@ -1057,15 +1066,15 @@ main:focus {
   color: #686e56;
 }
 .cart-delivery strong {
-  font-size: 11px;
+  font-size: 12px;
   display: block;
 }
 .cart-delivery p {
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 3px;
 }
 .demo-note {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   color: #665f54;
   margin-top: 12px;
@@ -1088,7 +1097,7 @@ main:focus {
   margin-top: 11px;
 }
 .tracking-preview > p {
-  font-size: 11px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .mini-map {
@@ -1123,7 +1132,7 @@ main:focus {
   display: block;
   color: #77776e;
   margin-top: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .cart-quantity {
   display: flex;
@@ -1141,7 +1150,7 @@ main:focus {
 .cart-quantity span {
   min-width: 34px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
 }
 .remove {
   display: block;
@@ -1161,7 +1170,7 @@ footer {
   align-items: center;
   padding: 18px 38px;
   gap: 20px;
-  font-size: 11px;
+  font-size: 12px;
   color: #68665d;
 }
 footer > span {
@@ -1179,7 +1188,7 @@ footer > div {
 footer button {
   background: none;
   color: inherit;
-  font-size: 11px;
+  font-size: 12px;
   padding: 8px 0;
   display: flex;
   align-items: center;
@@ -1571,7 +1580,7 @@ td {
   font-variant-numeric: tabular-nums;
 }
 .plan-prices small {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
@@ -1740,7 +1749,7 @@ details p {
 }
 dialog {
   width: min(480px, calc(100vw - 32px));
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: 16px;
   padding: 34px;
   box-shadow: 0 20px 100px #0003;
@@ -1935,8 +1944,8 @@ dialog .primary {
     height: 43px;
   }
   .brand-caption {
-    font-size: 10px;
-    letter-spacing: 1.25px;
+    font-size: 11px;
+    letter-spacing: 1.2px;
   }
   .nav-link {
     font-size: 12px;
@@ -2098,7 +2107,7 @@ dialog .primary {
     display: none;
   }
   .benefits span {
-    font-size: 11px;
+    font-size: 12px;
     gap: 5px;
   }
   .topbar-right {
@@ -2186,7 +2195,7 @@ dialog .primary {
     font-size: 12px;
   }
   .address-button small {
-    font-size: 10px;
+    font-size: 11px;
   }
   .topbar-right {
     gap: 4px;
@@ -2224,7 +2233,7 @@ dialog .primary {
     font-size: 29px;
   }
   .hero-copy .eyebrow {
-    font-size: 10px;
+    font-size: 11px;
   }
   .hero-copy p {
     font-size: 12px;
@@ -2244,7 +2253,7 @@ dialog .primary {
     margin-bottom: 25px;
   }
   .benefits span {
-    font-size: 11px;
+    font-size: 12px;
     gap: 5px;
   }
   .benefits svg {
@@ -2313,19 +2322,19 @@ dialog .primary {
     font-size: 12px;
   }
   .cart-plan {
-    font-size: 11px;
+    font-size: 12px;
   }
   .cart-plan > span {
     display: none;
   }
   .cart-foot {
-    font-size: 11px;
+    font-size: 12px;
   }
   .cart-delivery strong {
-    font-size: 11px;
+    font-size: 12px;
   }
   .cart-delivery p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .wholesale-note {
     padding: 18px 15px;
@@ -2365,7 +2374,7 @@ dialog .primary {
     padding: 20px;
     align-items: flex-start;
     line-height: 1.6;
-    font-size: 11px;
+    font-size: 12px;
   }
   footer > div {
     gap: 12px;
@@ -2396,7 +2405,7 @@ dialog .primary {
     gap: 9px;
   }
   .tracking-title > span {
-    font-size: 11px;
+    font-size: 12px;
     max-width: 120px;
     text-align: right;
   }
@@ -2459,6 +2468,10 @@ dialog .primary {
   }
 }
 @media (max-width: 440px) {
+  /* La ubicación ya está en la cabecera: el título respira. */
+  .welcome .fresh-label {
+    display: none;
+  }
   .app-shell main {
     padding: 22px 16px 26px;
   }
@@ -2477,8 +2490,8 @@ dialog .primary {
     font-size: 12px;
   }
   .demo-pill {
-    font-size: 10px;
-    padding: 4px;
+    font-size: 11px;
+    padding: 4px 6px;
   }
   .hero {
     height: 255px;
@@ -2497,15 +2510,15 @@ dialog .primary {
     object-position: 61% 50%;
   }
   .hero-copy .eyebrow {
-    font-size: 9px;
-    letter-spacing: 1.4px;
+    font-size: 11px;
+    letter-spacing: 1.2px;
   }
   .benefits {
     gap: 8px;
   }
   .benefits span {
-    font-size: 10px;
-    gap: 4px;
+    font-size: 12px;
+    gap: 5px;
   }
   .benefits svg {
     width: 13px;
@@ -2517,7 +2530,7 @@ dialog .primary {
     height: 132px;
   }
   .product-tag {
-    font-size: 9px;
+    font-size: 11px;
     left: 8px;
     top: 9px;
     padding: 4px 5px;
@@ -2530,7 +2543,7 @@ dialog .primary {
     padding: 13px 11px;
   }
   .product p {
-    font-size: 11px;
+    font-size: 12px;
     min-height: 46px;
     line-height: 1.65;
   }
@@ -2637,13 +2650,13 @@ dialog .primary {
     padding: 8px 4px;
   }
   .catalog-toolbar > span {
-    font-size: 11px;
+    font-size: 12px;
   }
   .filters button {
     padding: 7px 10px;
   }
   .wholesale-note p {
-    font-size: 11px;
+    font-size: 12px;
   }
   .plan-card {
     display: flex;
@@ -2694,7 +2707,7 @@ dialog .primary {
     height: 300px;
   }
   .map-caption {
-    font-size: 11px;
+    font-size: 12px;
   }
   .total {
     font-size: 14px !important;
@@ -2783,7 +2796,7 @@ dialog .primary {
     font-size: 12px;
   }
   .cart-foot {
-    font-size: 11px;
+    font-size: 12px;
   }
   .cart-delivery strong {
     font-size: 12px;

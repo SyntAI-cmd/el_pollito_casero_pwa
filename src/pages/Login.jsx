@@ -234,6 +234,7 @@ export default function Login() {
                     name="email"
                     type="email"
                     autoComplete="email"
+                    spellCheck={false}
                     required
                     maxLength="160"
                     placeholder="vos@ejemplo.com"
@@ -301,6 +302,7 @@ export default function Login() {
                     name="email"
                     type="email"
                     autoComplete="email"
+                    spellCheck={false}
                     required
                     maxLength="160"
                     placeholder="vos@ejemplo.com"

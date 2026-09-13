@@ -43,9 +43,8 @@ export default function Catalog() {
     <>
       <div className="welcome">
         <div>
-          <span className="eyebrow">BUEN POLLO. BUENA COMPAÑÍA.</span>
           <h1>{greeting}</h1>
-          <p>Para tu negocio o para tu mesa. Siempre casero.</p>
+          <p>Buen pollo, buena compañía. Para tu negocio o para tu mesa.</p>
         </div>
         <span className="fresh-label">
           <MapPin size={13} />{" "}

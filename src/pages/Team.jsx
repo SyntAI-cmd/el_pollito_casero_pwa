@@ -280,6 +280,8 @@ export default function Team() {
               maxLength="40"
               pattern="[A-Za-z0-9._-]+"
               autoCapitalize="none"
+              autoComplete="off"
+              spellCheck={false}
               placeholder="ej. lucas"
             />
           </label>
@@ -287,6 +289,7 @@ export default function Team() {
             Nombre
             <input
               name="name"
+              autoComplete="off"
               required
               minLength="2"
               maxLength="80"

@@ -13,7 +13,7 @@ export function RouterProvider({ children }) {
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
   }, []);
-  const navigate = (to, { replace = false } = {}) => {
+  const navigate = (to, { replace = false, scroll = true } = {}) => {
     const url = new URL(to, location.origin);
     if (
       url.pathname + url.search === location.pathname + location.search &&
@@ -31,7 +31,7 @@ export function RouterProvider({ children }) {
       requestAnimationFrame(() =>
         document.getElementById(url.hash.slice(1))?.scrollIntoView(),
       );
-    } else window.scrollTo({ top: 0, behavior: "instant" });
+    } else if (scroll) window.scrollTo({ top: 0, behavior: "instant" });
   };
   return (
     <RouteContext.Provider value={{ ...route, navigate }}>

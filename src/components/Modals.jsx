@@ -336,7 +336,14 @@ function Profile() {
                   <button
                     type="button"
                     className="link-button"
-                    onClick={() => removePasskey(k.id)}
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `¿Quitar la llave de ${k.device || "este dispositivo"}? No vas a poder entrar con la huella desde ahí hasta volver a activarla.`,
+                        )
+                      )
+                        removePasskey(k.id);
+                    }}
                     disabled={busy}
                   >
                     quitar

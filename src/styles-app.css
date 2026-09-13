@@ -696,7 +696,7 @@ dialog.sheet {
     min-height: 54px;
     padding: 0 18px;
     border-radius: 14px;
-    box-shadow: 0 12px 30px #cc242a44;
+    box-shadow: var(--shadow-lg);
     font-size: 14px;
   }
   .mobile-cart-bar .count {
@@ -752,7 +752,7 @@ dialog.sheet {
   transform: translateY(-6px);
   border-color: var(--red);
   box-shadow:
-    0 22px 44px -22px #cc242a66,
+    0 22px 44px -22px #28241c33,
     0 8px 20px -12px #20201e2e;
 }
 .plan-card.chosen:hover {
@@ -804,7 +804,7 @@ dialog.sheet {
     box-shadow 0.3s,
     color 0.3s;
   box-shadow:
-    0 4px 14px #cc242a22,
+    0 4px 14px #28241c1a,
     0 1px 3px #20201e14;
 }
 .plan-switch > button:hover svg {

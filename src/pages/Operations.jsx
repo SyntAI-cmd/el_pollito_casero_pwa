@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Settings2,
   Users,
@@ -46,16 +46,30 @@ export default function Operations() {
     live,
     setModal,
   } = useStore();
-  const { path } = useRoute();
+  const { path, query, navigate } = useRoute();
   const tab =
     {
       "/operacion/reparto": "reparto",
       "/operacion/clientes": "clientes",
       "/operacion/equipo": "equipo",
     }[path] || "pedidos";
-  const [showAll, setShowAll] = useState(false);
-  const [search, setSearch] = useState("");
-  const [driverFilter, setDriverFilter] = useState("");
+  // Filtros del tablero en la URL: se comparten y sobreviven al botón atrás.
+  const [showAll, setShowAll] = useState(query.get("todo") === "1");
+  const [search, setSearch] = useState(query.get("q") || "");
+  const [driverFilter, setDriverFilter] = useState(query.get("rep") || "");
+  useEffect(() => {
+    if (path !== "/operacion") return;
+    const params = new URLSearchParams();
+    if (search.trim()) params.set("q", search.trim());
+    if (driverFilter) params.set("rep", driverFilter);
+    if (showAll) params.set("todo", "1");
+    const next = params.toString();
+    if (next !== location.search.replace(/^\?/, ""))
+      navigate("/operacion" + (next ? "?" + next : ""), {
+        replace: true,
+        scroll: false,
+      });
+  }, [search, driverFilter, showAll, path]);
   const [date, setDate] = useState(today());
   const [driver, setDriver] = useState("");
   if (session?.role !== "admin")
