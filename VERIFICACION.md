@@ -81,6 +81,14 @@ Estado de cada hallazgo. "Prueba" indica qué lo cubre en `scripts/verify.mjs` (
 | Prod | Semilla de ejemplo fuera de demo | **Corregido** | Solo con `business.demo: true`. |
 | A11y | Chat sin región de anuncios; listbox incompleto | **Corregido** | `role="log" aria-live="polite"` en el chat; las sugerencias son una lista de botones. Axe: 16 rutas sin violaciones (incluye `/operacion/nuevo`, `/operacion/reparto`, `/operacion/clientes`, `/operacion/equipo`). |
 
-Pendiente (fuera de esta etapa): libro mayor de movimientos para cortes históricos de saldo y cierre de caja auditable; paginación de listados; validación en teléfonos reales (GPS en segundo plano, offline, Mercado Pago sandbox, WhatsApp Cloud API real).
+Pendiente (fuera de esta etapa): paginación de listados; validación en teléfonos reales (GPS en segundo plano, offline, Mercado Pago sandbox, WhatsApp Cloud API real).
 
 Resultados: unit 14/14; E2E completo correcto; axe 16 rutas sin violaciones.
+
+## Etapa 8 · 13 de septiembre de 2026
+
+- **Libro de movimientos** de cuenta corriente (`src/lib/ledger.js`), reconstruido siempre desde pedidos y pagos: cargo (importe pedido, fecha de creación), ajuste de balanza, anulación, pago y reintegro, con saldo acumulado. Usado por el extracto del cliente (Mi cuenta), el extracto por cliente en Operación → Clientes y el "saldo anterior" de la hoja de ruta como corte al inicio del día.
+- **Cierre de caja** por repartidor y día (`cash_closures`, `GET/POST /api/closures`, solo administración): esperado según la hoja, recibido, diferencia, nota, quién y cuándo; corregible; auditado (`cash.close`).
+- **Búsqueda operativa** en Pedidos (número, cliente, teléfono, dirección, localidad) y filtro por repartidor.
+- **Equipo**: edición de nombre, rol y repartidor (tocar el nombre); cambiar rol cierra las sesiones.
+- Unit 15/15 (ledger + rendición). E2E correcto con nuevas comprobaciones: cierre de caja por API (403 repartidor, 201, corrección, fecha inválida) y en navegador; extracto en Clientes y en Mi cuenta; búsqueda de pedidos; edición de usuario. Axe: 16 rutas sin violaciones.

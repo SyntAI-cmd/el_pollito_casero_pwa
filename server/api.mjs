@@ -1385,6 +1385,42 @@ export function createApi({
       }
     }
 
+    // ---- Cierre de caja (solo administración) ----
+    if (path === "/api/closures" && method === "GET") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const date = query.get("date");
+      return json(
+        200,
+        date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+          ? store.closures.forDate(date)
+          : store.closures.recent(),
+      );
+    }
+    if (path === "/api/closures" && method === "POST") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const date = str(body.date, { min: 10, max: 10, name: "la fecha" });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) fail(400, "Fecha inválida.");
+      const driver = oneOf(body.driver, config.drivers, "repartidor");
+      const money = (v, name) => num(v ?? 0, { min: 0, max: 100000000, name });
+      const closure = store.closures.save({
+        date,
+        driver,
+        expected: money(body.expected, "esperado"),
+        received: money(body.received, "recibido"),
+        transfers: money(body.transfers, "transferencias"),
+        accountCash: money(body.accountCash, "cobros a cuenta"),
+        note: str(body.note, { max: 300, name: "nota", optional: true }),
+        by: actorOf(session),
+      });
+      store.audit.log(session, "cash.close", "closure", `${date}/${driver}`, {
+        expected: closure.expected,
+        received: closure.received,
+        difference:
+          Math.round((closure.received - closure.expected) * 100) / 100,
+      });
+      return json(201, closure);
+    }
+
     // ---- Usuarios del equipo (solo administración) ----
     if (path === "/api/staff" && method === "GET") {
       if (session?.role !== "admin") fail(403, "Solo administración.");

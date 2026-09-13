@@ -10,7 +10,8 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
-import { money, dateText, kgText, totalKg, planNames } from "../lib/format.js";
+import { money, dateText, planNames } from "../lib/format.js";
+import { ledger } from "../lib/ledger.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 
 export default function Account() {
@@ -49,12 +50,11 @@ export default function Account() {
       </>
     );
   const summary = me?.summary || { balance: 0, boxes: 0, pendingOrders: 0 };
-  const movements = [
-    ...orders
-      .filter((o) => o.payment === "cuenta" || o.boxes > 0)
-      .map((o) => ({ kind: "order", at: o.created, o })),
-    ...(me?.payments || []).map((p) => ({ kind: "payment", at: p.at, p })),
-  ].sort((x, y) => y.at.localeCompare(x.at));
+  // Extracto: cargos, ajustes, pagos y anulaciones con saldo acumulado (del más nuevo al más viejo).
+  const statement = ledger(orders, me?.payments || []).reverse();
+  const boxOrders = orders
+    .filter((o) => o.boxes > 0)
+    .sort((x, y) => y.created.localeCompare(x.created));
   const locality = localities.find((l) => l.id === me?.localityId);
   return (
     <>
@@ -129,69 +129,78 @@ export default function Account() {
       </div>
       <section className="panel">
         <div className="section-line">
-          <h2>Movimientos</h2>
-          <span className="muted">Cuenta corriente y envases</span>
+          <h2>Extracto de cuenta corriente</h2>
+          <span className="muted">
+            Cargos, ajustes de balanza, pagos y saldo después de cada movimiento
+          </span>
         </div>
-        {movements.length === 0 ? (
+        {statement.length === 0 ? (
           <p className="muted">Todavía no hay movimientos a cuenta.</p>
         ) : (
+          <div className="table-scroll">
+            <table className="statement">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Concepto</th>
+                  <th className="num">Cargo</th>
+                  <th className="num">Pago</th>
+                  <th className="num">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statement.map((r, i) => (
+                  <tr key={r.ref + r.kind + i} className={"kind-" + r.kind}>
+                    <td>{dateText(r.at)}</td>
+                    <td>{r.label}</td>
+                    <td className="num">
+                      {r.amount > 0 ? money(r.amount) : ""}
+                    </td>
+                    <td className="num green">
+                      {r.amount < 0 ? money(-r.amount) : ""}
+                    </td>
+                    <td className={"num " + (r.balance > 0 ? "red" : "")}>
+                      {r.balance < 0
+                        ? `${money(-r.balance)} a favor`
+                        : money(r.balance)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+      {boxOrders.length > 0 && (
+        <section className="panel">
+          <div className="section-line">
+            <h2>Envases</h2>
+            <span className="muted">Dejados y devueltos por pedido</span>
+          </div>
           <div className="table-scroll">
             <table>
               <thead>
                 <tr>
                   <th>Pedido</th>
                   <th>Fecha</th>
-                  <th>Concepto</th>
-                  <th>Importe</th>
-                  <th>Envases</th>
-                  <th>Estado</th>
+                  <th className="num">Pendientes</th>
                 </tr>
               </thead>
               <tbody>
-                {movements.map((m) =>
-                  m.kind === "payment" ? (
-                    <tr key={m.p.id} className="payment-row">
-                      <td>{m.p.id}</td>
-                      <td>{dateText(m.p.at)}</td>
-                      <td>
-                        Pago recibido · {m.p.method}
-                        {m.p.by && m.p.by !== "admin" ? ` · ${m.p.by}` : ""}
-                      </td>
-                      <td className="green">− {money(m.p.amount)}</td>
-                      <td>—</td>
-                      <td>Acreditado</td>
-                    </tr>
-                  ) : (
-                    <tr key={m.o.id}>
-                      <td>{m.o.id}</td>
-                      <td>{dateText(m.o.created)}</td>
-                      <td>
-                        {kgText(totalKg(m.o))} de pollo
-                        {m.o.weighed ? " · pesado en balanza" : ""}
-                      </td>
-                      <td>
-                        {m.o.payment === "cuenta" ? money(m.o.total) : "—"}
-                      </td>
-                      <td>
-                        {m.o.boxes
-                          ? `${m.o.boxes - m.o.returned} / ${m.o.boxes}`
-                          : "—"}
-                      </td>
-                      <td>
-                        {m.o.status === "cancelado"
-                          ? "Cancelado"
-                          : m.o.paid || m.o.payment !== "cuenta"
-                            ? "Pagado"
-                            : "Pendiente"}
-                      </td>
-                    </tr>
-                  ),
-                )}
+                {boxOrders.map((o) => (
+                  <tr key={o.id}>
+                    <td>{o.id}</td>
+                    <td>{dateText(o.created)}</td>
+                    <td className="num">
+                      {o.boxes - o.returned} de {o.boxes}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </>
   );
 }

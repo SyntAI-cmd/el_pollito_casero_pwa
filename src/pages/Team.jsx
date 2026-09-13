@@ -12,6 +12,7 @@ export default function Team() {
   const [busy, setBusy] = useState(false);
   const [role, setRole] = useState("repartidor");
   const [resetting, setResetting] = useState(null);
+  const [editing, setEditing] = useState(null);
   const load = () =>
     api("/staff")
       .then(setUsers)
@@ -67,18 +68,102 @@ export default function Team() {
                     <code>{u.username}</code>
                     {u.id === session.staffId ? <small> · vos</small> : ""}
                   </td>
-                  <td>{u.name}</td>
-                  <td>
-                    {u.role === "admin" ? (
-                      <span className="role-pill admin">
-                        <ShieldCheck size={13} /> Administración
-                      </span>
-                    ) : (
-                      <span className="role-pill">
-                        <Truck size={13} /> Repartidor · {u.driver}
-                      </span>
-                    )}
-                  </td>
+                  {editing === u.id ? (
+                    <td colSpan="2">
+                      <form
+                        className="inline-form edit-user"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const f = Object.fromEntries(new FormData(e.target));
+                          if (
+                            await run(
+                              () =>
+                                patch("/staff/" + u.id, {
+                                  name: f.name,
+                                  role: f.role,
+                                  driver:
+                                    f.role === "repartidor"
+                                      ? f.driver
+                                      : undefined,
+                                }),
+                              "Usuario actualizado; si cambió el rol, sus sesiones se cerraron.",
+                            )
+                          )
+                            setEditing(null);
+                        }}
+                      >
+                        <input
+                          name="name"
+                          defaultValue={u.name}
+                          required
+                          minLength="2"
+                          maxLength="80"
+                          aria-label="Nombre"
+                        />
+                        <select
+                          name="role"
+                          defaultValue={u.role}
+                          aria-label="Rol"
+                          disabled={u.id === session.staffId}
+                          onChange={(e) => {
+                            const d = e.target.form.elements.driver;
+                            if (d) d.disabled = e.target.value !== "repartidor";
+                          }}
+                        >
+                          <option value="admin">Administración</option>
+                          <option value="repartidor">Repartidor</option>
+                        </select>
+                        <select
+                          name="driver"
+                          defaultValue={u.driver || ""}
+                          aria-label="Repartidor que representa"
+                          disabled={u.role !== "repartidor"}
+                          required
+                        >
+                          <option value="" disabled>
+                            Repartidor…
+                          </option>
+                          {(config?.drivers || []).map((d) => (
+                            <option key={d}>{d}</option>
+                          ))}
+                        </select>
+                        <button className="primary small" disabled={busy}>
+                          <Check size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button small"
+                          onClick={() => setEditing(null)}
+                        >
+                          Cancelar
+                        </button>
+                      </form>
+                    </td>
+                  ) : (
+                    <>
+                      <td>
+                        <button
+                          type="button"
+                          className="link-button edit-link"
+                          title="Editar nombre, rol o repartidor"
+                          onClick={() => setEditing(u.id)}
+                        >
+                          {u.name}
+                        </button>
+                      </td>
+                      <td>
+                        {u.role === "admin" ? (
+                          <span className="role-pill admin">
+                            <ShieldCheck size={13} /> Administración
+                          </span>
+                        ) : (
+                          <span className="role-pill">
+                            <Truck size={13} /> Repartidor · {u.driver}
+                          </span>
+                        )}
+                      </td>
+                    </>
+                  )}
                   <td>
                     {u.last_login
                       ? `${dateText(u.last_login)} ${timeText(u.last_login)}`
@@ -238,9 +323,10 @@ export default function Team() {
           </button>
         </form>
         <p className="demo-note">
+          Tocá el nombre de un usuario para editar su nombre, rol o repartidor.
+          Cambiar el rol o desactivar a alguien cierra sus sesiones al instante.
           Los repartidores disponibles se definen en la configuración del
-          negocio (lista de repartidores). Un usuario desactivado pierde el
-          acceso al instante.
+          negocio.
         </p>
       </section>
     </div>

@@ -19,8 +19,16 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
-import { money, labels, kgText, planNames, lineAmount } from "../lib/format.js";
+import {
+  money,
+  labels,
+  kgText,
+  planNames,
+  lineAmount,
+  dateText,
+} from "../lib/format.js";
 import { CartLines, CartTotals } from "./Cart.jsx";
+import { ledger } from "../lib/ledger.js";
 
 const phonePattern = "[+0-9 \\(\\)\\-]{8,25}";
 
@@ -417,6 +425,62 @@ function Profile() {
         </button>
       )}
     </form>
+  );
+}
+
+/** Extracto de cuenta corriente de un cliente (administración). */
+function Statement({ customer }) {
+  const { orders } = useStore();
+  const rows = ledger(
+    orders.filter((o) => o.customer === customer.phone),
+    customer.payments || [],
+  ).reverse();
+  const balance = rows[0]?.balance || 0;
+  return (
+    <>
+      <span className="eyebrow">CUENTA CORRIENTE</span>
+      <h2>{customer.name}</h2>
+      <p>
+        Saldo actual:{" "}
+        <strong className={balance > 0 ? "red" : balance < 0 ? "green" : ""}>
+          {balance < 0 ? `${money(-balance)} a favor` : money(balance)}
+        </strong>
+      </p>
+      {rows.length === 0 ? (
+        <p className="muted">Sin movimientos a cuenta.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="statement">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Concepto</th>
+                <th className="num">Cargo</th>
+                <th className="num">Pago</th>
+                <th className="num">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.ref + r.kind + i} className={"kind-" + r.kind}>
+                  <td>{dateText(r.at)}</td>
+                  <td>{r.label}</td>
+                  <td className="num">{r.amount > 0 ? money(r.amount) : ""}</td>
+                  <td className="num green">
+                    {r.amount < 0 ? money(-r.amount) : ""}
+                  </td>
+                  <td className={"num " + (r.balance > 0 ? "red" : "")}>
+                    {r.balance < 0
+                      ? `${money(-r.balance)} a favor`
+                      : money(r.balance)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -906,6 +970,8 @@ export default function Modals() {
         <AccountPayment customer={modal.customer} />
       ) : type === "cancel" ? (
         <Cancel order={modal.order} />
+      ) : type === "statement" ? (
+        <Statement customer={modal.customer} />
       ) : type === "contact" ? (
         <>
           <MessageCircle size={32} />

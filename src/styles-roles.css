@@ -1384,3 +1384,104 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Búsqueda operativa, extracto y cierre de caja ---- */
+.board-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.board-filters input[type="search"] {
+  min-width: 260px;
+  min-height: 38px;
+}
+.board-filters select {
+  min-height: 38px;
+}
+.statement .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.statement tr.kind-pago td,
+.statement tr.kind-reintegro td {
+  background: #f3faf4;
+}
+.statement tr.kind-anulación td {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.row-actions {
+  white-space: nowrap;
+}
+.row-actions > * + * {
+  margin-left: 8px;
+}
+.cash-closure {
+  margin-top: 16px;
+}
+.closure-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+  gap: 14px;
+  align-items: end;
+}
+.closure-figure {
+  display: grid;
+  gap: 4px;
+}
+.closure-figure span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4842;
+}
+.closure-figure strong {
+  font-size: 20px;
+  font-weight: 700;
+}
+.closure-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4842;
+}
+.closure-form .wide {
+  grid-column: 1 / -1;
+}
+.closure-form button {
+  min-height: 40px;
+}
+.closure-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #1c6b34;
+}
+.closure-state.warn {
+  color: #a91b25;
+}
+.muted.small {
+  font-size: 12px;
+}
+.edit-link {
+  font-weight: 600;
+  color: var(--black);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.edit-user {
+  flex-wrap: wrap;
+}
+.edit-user input,
+.edit-user select {
+  min-height: 34px;
+}
+@media (max-width: 720px) {
+  .closure-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}

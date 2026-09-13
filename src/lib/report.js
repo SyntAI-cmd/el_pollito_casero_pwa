@@ -1,4 +1,5 @@
 import { totalKg } from "./format.js";
+import { ledger, balanceBefore } from "./ledger.js";
 
 /** Fecha local YYYY-MM-DD. */
 export const dayKey = (iso) => {
@@ -110,23 +111,16 @@ export function routeSheet(orders, customers, { driver, date }) {
         boxesPending: customer?.summary?.boxes || 0,
       };
     });
-  // Saldo de cada cliente antes de este reparto: su saldo actual menos lo que aún debe de estas paradas,
+  // Saldo de cada cliente al inicio de ese día, desde el libro de movimientos (corte histórico real),
   // calculado una sola vez por cliente aunque tenga varias paradas.
   const previousByCustomer = new Map();
   for (const s of stops) {
     if (!s.customer || previousByCustomer.has(s.customer.phone)) continue;
-    const pendingToday = stops
-      .filter(
-        (x) =>
-          x.customer?.phone === s.customer.phone &&
-          x.order.payment === "cuenta" &&
-          !x.order.paid,
-      )
-      .reduce((sum, x) => sum + x.order.total, 0);
-    previousByCustomer.set(
-      s.customer.phone,
-      round((s.customer.summary?.balance || 0) - pendingToday),
+    const rows = ledger(
+      orders.filter((o) => o.customer === s.customer.phone),
+      s.customer.payments || [],
     );
+    previousByCustomer.set(s.customer.phone, round(balanceBefore(rows, date)));
   }
   for (const s of stops)
     s.previousBalance = s.customer

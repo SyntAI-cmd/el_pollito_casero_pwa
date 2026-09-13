@@ -88,6 +88,10 @@ CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY AUTOINCREMENT, thread TEXT NOT NULL, from_role TEXT NOT NULL, from_name TEXT NOT NULL,
   text TEXT NOT NULL, at TEXT NOT NULL, read_at TEXT);
 CREATE INDEX IF NOT EXISTS messages_thread ON messages(thread, id);
+CREATE TABLE IF NOT EXISTS cash_closures(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, driver TEXT NOT NULL,
+  expected REAL NOT NULL, received REAL NOT NULL, transfers REAL NOT NULL DEFAULT 0, account_cash REAL NOT NULL DEFAULT 0,
+  note TEXT, by_actor TEXT NOT NULL, at TEXT NOT NULL, UNIQUE(date, driver));
 CREATE TABLE IF NOT EXISTS audit_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor_role TEXT, actor TEXT,
   action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, detail TEXT);
@@ -354,6 +358,17 @@ export async function openStore(path, { log = console } = {}) {
     audit: db.prepare(
       "INSERT INTO audit_log(at, actor_role, actor, action, entity, entity_id, detail) VALUES(?,?,?,?,?,?,?)",
     ),
+    closuresFor: db.prepare(
+      "SELECT id, date, driver, expected, received, transfers, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures WHERE date = ? ORDER BY driver",
+    ),
+    closuresRecent: db.prepare(
+      "SELECT id, date, driver, expected, received, transfers, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures ORDER BY date DESC, driver LIMIT ?",
+    ),
+    upsertClosure:
+      db.prepare(`INSERT INTO cash_closures(date, driver, expected, received, transfers, account_cash, note, by_actor, at)
+      VALUES(?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(date, driver) DO UPDATE SET expected=excluded.expected, received=excluded.received, transfers=excluded.transfers,
+        account_cash=excluded.account_cash, note=excluded.note, by_actor=excluded.by_actor, at=excluded.at`),
     auditFor: db.prepare(
       "SELECT * FROM audit_log WHERE entity = ? AND entity_id = ? ORDER BY id DESC LIMIT 100",
     ),
@@ -860,6 +875,25 @@ export async function openStore(path, { log = console } = {}) {
         ),
       used: (id, counter) => q.usePasskey.run(counter, now(), id),
       remove: (id, accountId) => q.deletePasskey.run(id, accountId).changes,
+    },
+    /** Cierres de caja por repartidor y día: efectivo esperado vs. recibido, con quién y cuándo. */
+    closures: {
+      forDate: (date) => q.closuresFor.all(date),
+      recent: (n = 60) => q.closuresRecent.all(n),
+      save: (c) => {
+        q.upsertClosure.run(
+          c.date,
+          c.driver,
+          c.expected,
+          c.received,
+          c.transfers || 0,
+          c.accountCash || 0,
+          c.note || null,
+          c.by,
+          now(),
+        );
+        return q.closuresFor.all(c.date).find((x) => x.driver === c.driver);
+      },
     },
     staff: {
       all: () => q.staffAll.all().map((r) => ({ ...r, active: !!r.active })),

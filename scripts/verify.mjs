@@ -740,6 +740,36 @@ try {
     403,
     "la sesión vieja ya no tiene permisos",
   );
+  // Cierre de caja: solo administración, queda guardado con diferencia y se puede corregir.
+  const todayKey = new Date().toLocaleDateString("sv-SE");
+  assert.equal((await franco("/closures?date=" + todayKey)).status, 403);
+  const closing = await admin("/closures", {
+    date: todayKey,
+    driver: "Franco",
+    expected: 1500,
+    received: 1400,
+    note: "faltó vuelto",
+  });
+  assert.equal(closing.status, 201, JSON.stringify(closing.data));
+  assert.equal(closing.data.received, 1400);
+  assert.equal(closing.data.by, "Mauro");
+  assert.equal(
+    (await admin("/closures", { ...closing.data, received: 1500 })).data
+      .received,
+    1500,
+    "volver a cerrar corrige el cierre",
+  );
+  assert.equal(
+    (await admin("/closures?date=" + todayKey)).data.filter(
+      (c) => c.driver === "Franco",
+    ).length,
+    1,
+    "un cierre por repartidor y día",
+  );
+  assert.equal(
+    (await admin("/closures", { date: "ayer", driver: "Franco" })).status,
+    400,
+  );
   assert.equal(
     (await maxi("/customers/" + almacen.phone + "/payments", { amount: 100 }))
       .status,
@@ -1313,6 +1343,13 @@ try {
     card.getByRole("button", { name: "Iniciar reparto" }),
   ).toBeEnabled();
   // Cargar pedido: pantalla rápida en un solo paso, con cliente buscado y kilos en la tabla.
+  await ops.getByLabel("Buscar pedidos").fill("no-existe-nadie");
+  await expect(ops.locator(".operation-order")).toHaveCount(0);
+  await ops.getByLabel("Buscar pedidos").fill("navegador");
+  await expect(ops.locator(".operation-order").first()).toContainText(
+    "Cliente Navegador",
+  );
+  await ops.getByLabel("Buscar pedidos").fill("");
   await ops
     .locator(".staff-bar nav")
     .getByRole("link", { name: "Cargar pedido" })
@@ -1349,6 +1386,30 @@ try {
   await expect(ops.locator("table.customers")).toContainText(
     "Cliente Navegador",
   );
+  await ops
+    .locator("table.customers tr", { hasText: "Almacén de prueba" })
+    .getByRole("button", { name: "Extracto" })
+    .click();
+  await expect(ops.locator("dialog .statement")).toBeVisible();
+  await expect(ops.locator("dialog .statement")).toContainText("Pago PG-");
+  await ops
+    .locator("dialog")
+    .getByRole("button", { name: "Cerrar ventana" })
+    .click();
+  // Equipo: editar nombre desde la tabla.
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Equipo" })
+    .click();
+  await ops
+    .locator(".team-table")
+    .getByRole("button", { name: "Maxi" })
+    .click();
+  await ops.locator(".edit-user").getByLabel("Nombre").fill("Maxi Reparto");
+  await ops.locator(".edit-user button.primary").click();
+  await expect(ops.locator(".team-table")).toContainText("Maxi Reparto", {
+    timeout: 8000,
+  });
   await ops.screenshot({
     path: "test-results/operacion-clientes.png",
     fullPage: true,
@@ -1362,8 +1423,20 @@ try {
     .getByRole("link", { name: "Reparto y rendición" })
     .click();
   await expect(ops.locator(".sheet")).toContainText("Efectivo a rendir");
+  await expect(ops.locator(".sheet")).toContainText("al inicio del día");
   await ops.locator(".route-controls select").selectOption("Maxi");
   await expect(ops.locator(".sheet")).toContainText("Maxi");
+  // Cierre de caja desde la pantalla: efectivo recibido, diferencia y registro de quién cerró.
+  await ops.getByLabel("Efectivo recibido de Maxi").fill("0");
+  await ops
+    .getByRole("button", { name: /Cerrar caja|Corregir cierre/ })
+    .click();
+  await expect(ops.locator(".closure-state")).toContainText(
+    "Cerrada por Mauro",
+    {
+      timeout: 8000,
+    },
+  );
   await ops.screenshot({
     path: "test-results/operacion-reparto.png",
     fullPage: true,
@@ -1580,6 +1653,9 @@ try {
   await expect(page.locator(".profile-card")).toContainText(
     "Cliente Navegador",
   );
+  await expect(
+    page.locator("h2", { hasText: "Extracto de cuenta corriente" }),
+  ).toBeVisible();
   const other = await newPage();
   await other.goto(base + "/pedidos");
   await expect(other, "anónimo en /pedidos → página de ingreso").toHaveURL(

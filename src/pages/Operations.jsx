@@ -14,11 +14,18 @@ import {
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
-import { money, planNames, dateText, waLink } from "../lib/format.js";
+import {
+  money,
+  planNames,
+  dateText,
+  waLink,
+  normalize,
+} from "../lib/format.js";
 import { routeSheet, receivables, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
+import CashClosure from "../components/CashClosure.jsx";
 
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
@@ -47,6 +54,8 @@ export default function Operations() {
       "/operacion/equipo": "equipo",
     }[path] || "pedidos";
   const [showAll, setShowAll] = useState(false);
+  const [search, setSearch] = useState("");
+  const [driverFilter, setDriverFilter] = useState("");
   const [date, setDate] = useState(today());
   const [driver, setDriver] = useState("");
   if (session?.role !== "admin")
@@ -67,9 +76,17 @@ export default function Operations() {
   const drivers = config?.drivers || [];
   const selectedDriver = driver || drivers[0] || "";
   const cancelled = orders.filter((o) => o.status === "cancelado");
+  // Búsqueda operativa: número de pedido, cliente, teléfono, dirección o localidad; y por repartidor.
+  const q = normalize(search.trim());
+  const matches = (o) =>
+    (!driverFilter || o.driver === driverFilter) &&
+    (!q ||
+      normalize(
+        `${o.id} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,
+      ).includes(q));
   // Los pedidos abiertos se ven siempre; el filtro de antigüedad solo recorta los entregados.
   const recent = (list, status) =>
-    showAll || status !== "entregado"
+    showAll || status !== "entregado" || q
       ? list
       : list.filter(
           (o) =>
@@ -160,21 +177,40 @@ export default function Operations() {
             <strong>Iniciar reparto</strong>; el repartidor cobra y completa la
             entrega desde su app.
           </p>
-          <label className="toggle">
+          <div className="board-filters">
             <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-            />{" "}
-            Ver historial completo
-          </label>
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar pedido, cliente, teléfono o dirección…"
+              aria-label="Buscar pedidos"
+            />
+            <select
+              value={driverFilter}
+              onChange={(e) => setDriverFilter(e.target.value)}
+              aria-label="Filtrar por repartidor"
+            >
+              <option value="">Todos los repartidores</option>
+              {drivers.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />{" "}
+              Historial completo
+            </label>
+          </div>
         </div>
       )}
       {tab === "pedidos" && (
         <div className="board">
           {columns.map(([status, title, hint]) => {
             const list = recent(
-              orders.filter((o) => o.status === status),
+              orders.filter((o) => o.status === status && matches(o)),
               status,
             );
             return (
@@ -254,6 +290,7 @@ export default function Operations() {
             </Link>
           </div>
           <RouteSheet sheet={sheet} />
+          <CashClosure sheet={sheet} date={date} driver={selectedDriver} />
         </section>
       )}
 
@@ -365,7 +402,7 @@ export default function Operations() {
                         {c.summary.balance < 0 ? <small> a favor</small> : ""}
                       </td>
                       <td>{c.summary.boxes}</td>
-                      <td>
+                      <td className="row-actions">
                         {c.summary.balance > 0 && (
                           <button
                             className="secondary small"
@@ -377,6 +414,14 @@ export default function Operations() {
                             Cobrar
                           </button>
                         )}
+                        <button
+                          className="link-button small"
+                          onClick={() =>
+                            setModal({ type: "statement", customer: c })
+                          }
+                        >
+                          Extracto
+                        </button>
                       </td>
                     </tr>
                   ))}

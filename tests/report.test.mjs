@@ -11,8 +11,9 @@ const order = (id, extra) => ({
   address: "Calle 1",
   locality: { name: "San Martín" },
   plan: "mayorista",
-  items: [{ id: "entero", name: "Pollo entero", kg: 10 }],
+  items: [{ id: "entero", name: "Pollo entero", kg: 10, price: 900 }],
   total: 9000,
+  shipping: 0,
   status: "en_camino",
   driver: "Franco",
   created: at,
@@ -79,9 +80,20 @@ test("un cobro en efectivo registrado por administración no lo rinde el reparti
   assert.equal(sheet.toSettle, 0);
 });
 
-test("entregado a cuenta cuenta solo lo entregado; el saldo anterior no se repite por parada", () => {
+test("entregado a cuenta cuenta solo lo entregado; el saldo anterior es el corte histórico, una vez por cliente", () => {
+  const yesterday = new Date(Date.now() - 86400000).toISOString();
   const sheet = routeSheet(
     [
+      order("Z", {
+        payment: "cuenta",
+        paid: false,
+        status: "entregado",
+        created: yesterday,
+        departedAt: yesterday,
+        deliveredAt: yesterday,
+        items: [{ id: "entero", name: "Pollo entero", kg: 10, price: 200 }],
+        total: 2000,
+      }),
       order("A", { payment: "cuenta", paid: false }),
       order("B", {
         payment: "cuenta",
@@ -95,7 +107,7 @@ test("entregado a cuenta cuenta solo lo entregado; el saldo anterior no se repit
   );
   assert.equal(sheet.accountPlanned, 18000);
   assert.equal(sheet.account, 9000, "solo B fue entregado");
-  // Debe 20000 en total, 18000 son de estas dos paradas: 2000 anteriores, una sola vez.
+  // Ayer quedó debiendo 2000; hoy se suman A y B, pero el corte al inicio del día es 2000, una sola vez.
   assert.equal(sheet.previousBalance, 2000);
   assert.equal(sheet.stops[0].previousBalance, 2000);
   assert.equal(sheet.stops[1].previousBalance, 2000);

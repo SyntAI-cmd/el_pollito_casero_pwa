@@ -205,7 +205,7 @@ export default function RouteSheet({ sheet }) {
               <dd>{money(sheet.account)}</dd>
             </div>
             <div>
-              <dt>Saldo anterior de clientes (estado actual)</dt>
+              <dt>Saldo anterior de clientes (al inicio del día)</dt>
               <dd>{money(sheet.previousBalance)}</dd>
             </div>
             <div>
