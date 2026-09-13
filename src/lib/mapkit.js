@@ -26,7 +26,12 @@ export const DEFAULT_CENTER = [-68.4686, -33.0806];
 /** Crea el mapa con el estilo vectorial y cae al raster si falla. */
 export function createMap(
   container,
-  { center = DEFAULT_CENTER, zoom = 13, interactive = true } = {},
+  {
+    center = DEFAULT_CENTER,
+    zoom = 13,
+    interactive = true,
+    cooperative = false,
+  } = {},
 ) {
   const map = new maplibregl.Map({
     container,
@@ -35,7 +40,7 @@ export function createMap(
     zoom,
     attributionControl: { compact: true },
     interactive,
-    cooperativeGestures: false,
+    cooperativeGestures: cooperative,
     dragRotate: false,
     pitchWithRotate: false,
     touchPitch: false,

@@ -92,22 +92,40 @@ export default function QuickOrder() {
     setTimeout(() => searchRef.current?.focus(), 0);
   }
 
-  const lines = products
-    .map((p) => ({
+  // Kilos escritos con coma o punto; solo las líneas válidas (1–1000 kg, pasos de 0,5) suman dinero.
+  const parseKg = (v) =>
+    Number(
+      String(v ?? "")
+        .trim()
+        .replace(",", "."),
+    );
+  const validKg = (n) =>
+    Number.isFinite(n) && n >= 1 && n <= 1000 && Number.isInteger(n * 2);
+  const rows = products.map((p) => {
+    const raw = kg[p.id] ?? "";
+    const n = parseKg(raw);
+    const price = productPrice(p, form.plan);
+    const filled = String(raw).trim() !== "";
+    return {
       p,
-      kg: Number(kg[p.id]) || 0,
-      price: productPrice(p, form.plan),
-    }))
-    .filter((l) => l.kg > 0);
+      raw,
+      kg: n,
+      price,
+      filled,
+      valid: filled && validKg(n) && Number.isFinite(price),
+    };
+  });
+  const lines = rows.filter((l) => l.valid);
+  const invalid = rows.filter((l) => l.filled && !l.valid);
   const totalKg = lines.reduce((s, l) => s + l.kg, 0);
   const subtotal =
     lines.reduce((s, l) => s + Math.round(lineAmount(l.price, l.kg) * 100), 0) /
     100;
   const shipping = totalKg ? (config?.shipping?.[form.plan] ?? 0) : 0;
   const total = subtotal + shipping;
-  const badKg = lines.some(
-    (l) => l.kg < 1 || l.kg > 1000 || !Number.isInteger(l.kg * 2) || !l.price,
-  );
+  const badKg = invalid.length > 0;
+  const minKg = config?.planMinKg?.[form.plan] || 0;
+  const underMin = totalKg > 0 && totalKg < minKg;
   const methods = (
     form.plan === "mayorista"
       ? ["cuenta", "entrega", "transferencia", "mercadopago"]
@@ -121,7 +139,7 @@ export default function QuickOrder() {
 
   async function submit(e) {
     e?.preventDefault();
-    if (!lines.length || badKg) return;
+    if (!lines.length || badKg || underMin) return;
     const order = await createStaffOrder({
       ...form,
       payment: methods.includes(form.payment) ? form.payment : methods[0],
@@ -216,7 +234,9 @@ export default function QuickOrder() {
           {picked && (
             <p className="qo-picked">
               <Check size={14} /> {picked.name} · {planNames[picked.plan]}
-              {picked.credit ? " · cuenta corriente" : ""}
+              {picked.credit && picked.plan === "mayorista"
+                ? " · cuenta corriente"
+                : ""}
               {picked.summary?.balance > 0
                 ? ` · saldo ${money(picked.summary.balance)}`
                 : ""}
@@ -225,7 +245,15 @@ export default function QuickOrder() {
                 className="link-button"
                 onClick={() => {
                   setPicked(null);
-                  set({ credit: false });
+                  set({
+                    name: "",
+                    phone: "",
+                    address: "",
+                    localityId: "",
+                    driver: "",
+                    credit: false,
+                  });
+                  setTimeout(() => searchRef.current?.focus(), 0);
                 }}
               >
                 cambiar
@@ -327,31 +355,37 @@ export default function QuickOrder() {
               <thead>
                 <tr>
                   <th>Producto</th>
-                  <th className="num">$/kg</th>
+                  <th className="num qo-price">$/kg</th>
                   <th className="num qo-kg">Kilos</th>
                   <th className="num">Importe</th>
                 </tr>
               </thead>
               <tbody>
-                {products.map((p, i) => {
-                  const price = productPrice(p, form.plan);
-                  const q = Number(kg[p.id]) || 0;
+                {rows.map(({ p, price, raw, kg: q, valid, filled }, i) => {
+                  const bad = filled && !valid;
                   return (
-                    <tr key={p.id} className={q ? "on" : ""}>
-                      <td>{p.name}</td>
-                      <td className="num">
+                    <tr
+                      key={p.id}
+                      className={(valid ? "on" : "") + (bad ? " bad" : "")}
+                    >
+                      <td>
+                        {p.name}
+                        <small className="qo-price-mobile">
+                          {Number.isFinite(price) ? money(price) + " / kg" : ""}
+                        </small>
+                      </td>
+                      <td className="num qo-price">
                         {Number.isFinite(price) ? money(price) : "—"}
                       </td>
                       <td className="num qo-kg">
                         <input
-                          type="number"
+                          type="text"
                           inputMode="decimal"
-                          min="0"
-                          max="1000"
-                          step="0.5"
-                          value={kg[p.id] ?? ""}
+                          autoComplete="off"
+                          value={raw}
                           disabled={!Number.isFinite(price)}
                           aria-label={`Kilos de ${p.name}`}
+                          aria-invalid={bad || undefined}
                           onChange={(e) =>
                             setKg({ ...kg, [p.id]: e.target.value })
                           }
@@ -367,9 +401,13 @@ export default function QuickOrder() {
                         />
                       </td>
                       <td className="num">
-                        {q && Number.isFinite(price)
-                          ? money(lineAmount(price, q))
-                          : ""}
+                        {valid ? (
+                          money(lineAmount(price, q))
+                        ) : bad ? (
+                          <em className="qo-bad">1 a 1000 kg, de a 0,5</em>
+                        ) : (
+                          ""
+                        )}
                       </td>
                     </tr>
                   );
@@ -379,7 +417,14 @@ export default function QuickOrder() {
           </div>
           {badKg && (
             <p className="form-error" role="alert">
-              Los kilos van de 1 a 1000, en pasos de 0,5.
+              Revisá {invalid.map((l) => l.p.name.toLowerCase()).join(", ")}:
+              los kilos van de 1 a 1000, en pasos de 0,5.
+            </p>
+          )}
+          {underMin && (
+            <p className="form-error" role="alert">
+              La modalidad {form.plan} es a partir de {minKg} kg (llevás{" "}
+              {kgText(totalKg)}). Sumá kilos o pasá a minorista.
             </p>
           )}
         </section>
@@ -436,14 +481,39 @@ export default function QuickOrder() {
               {formError}
             </p>
           )}
+          {lines.length > 0 && form.name && (
+            <p className="qo-confirm">
+              Para <strong>{form.name}</strong> · {kgText(totalKg)} ·{" "}
+              {money(total)} ·{" "}
+              {paymentNames[
+                methods.includes(form.payment) ? form.payment : methods[0]
+              ]?.toLowerCase()}
+              {form.driver ? ` · ${form.driver}` : ""}
+            </p>
+          )}
           <button
             className="primary full"
-            disabled={busy || !lines.length || badKg}
+            disabled={busy || !lines.length || badKg || underMin}
           >
             {busy ? "Cargando…" : "Cargar pedido"} <ArrowRight size={16} />
           </button>
           <small className="muted">Ctrl + Enter también confirma.</small>
         </aside>
+        {lines.length > 0 && (
+          <div className="qo-bar" aria-hidden="true">
+            <span>
+              {kgText(totalKg)} · <strong>{money(total)}</strong>
+            </span>
+            <button
+              type="submit"
+              className="primary"
+              tabIndex={-1}
+              disabled={busy || badKg || underMin}
+            >
+              Cargar pedido <ArrowRight size={15} />
+            </button>
+          </div>
+        )}
       </form>
     </>
   );

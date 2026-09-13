@@ -1203,7 +1203,7 @@
 .search-field .search-button {
   position: absolute;
   right: 6px;
-  min-height: 30px;
+  min-height: 36px;
   padding: 0 12px;
   border-radius: 8px;
   background: var(--black);
@@ -1344,9 +1344,40 @@
 .qo-table .qo-kg input {
   width: 92px;
   text-align: right;
-  min-height: 34px;
+  min-height: 40px;
   padding: 4px 8px;
   font-weight: 600;
+}
+.qo-table tr.bad td {
+  background: #fff4f2;
+}
+.qo-table tr.bad input {
+  border-color: #c9262e;
+}
+.qo-bad {
+  font-style: normal;
+  font-size: 11px;
+  color: #a91b25;
+  white-space: nowrap;
+}
+.qo-price-mobile {
+  display: none;
+  color: var(--muted);
+  font-weight: 400;
+}
+.qo-confirm {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6f4ef;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.qo-summary dl .total {
+  font-size: 18px;
+}
+.qo-bar {
+  display: none;
 }
 .qo-summary {
   position: sticky;
@@ -1386,19 +1417,71 @@
 }
 @media (max-width: 1100px) {
   .quick-order {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding-bottom: 84px;
+  }
+  .quick-order .panel {
+    min-width: 0;
   }
   .qo-summary {
     grid-column: 1 / -1;
     position: static;
   }
+  /* Total y acción siempre a mano mientras se cargan kilos. */
+  .qo-bar {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 10px 10px 16px;
+    border-radius: 14px;
+    background: var(--black);
+    color: #fff;
+    box-shadow: var(--shadow-lg);
+    font-size: 14px;
+  }
+  .qo-bar .primary {
+    min-height: 42px;
+    padding: 0 16px;
+  }
+  /* El chat sube para no tapar la barra de carga. */
+  .staff-app:has(.qo-bar) .chat-fab {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
 }
 @media (max-width: 720px) {
   .quick-order {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .qo-grid {
     grid-template-columns: 1fr;
+  }
+  .qo-table .qo-price {
+    display: none;
+  }
+  .qo-price-mobile {
+    display: block;
+    font-size: 12px;
+  }
+  .qo-table .qo-kg {
+    width: 96px;
+  }
+  .qo-table .qo-kg input {
+    width: 84px;
+    min-height: 44px;
+  }
+  .qo-table td,
+  .qo-table th {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .qo-bad {
+    white-space: normal;
   }
 }
 

@@ -17,6 +17,7 @@ export default function LocationPicker({ value, center, onChange }) {
     const m = createMap(ref.current, {
       center: [start.lng, start.lat],
       zoom: value ? 17 : 14,
+      cooperative: true, // dentro del formulario: el scroll con un dedo sigue siendo scroll
     });
     map.current = m;
     m.on("click", (e) =>

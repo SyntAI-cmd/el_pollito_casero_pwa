@@ -56,6 +56,8 @@ function Checkout() {
     plan,
     totals,
     items,
+    cart,
+    price,
     profile,
     session,
     me,
@@ -121,28 +123,46 @@ function Checkout() {
         </small>
       </label>
       <DeliveryPoint known={known} />
-      <label>
-        Forma de pago
-        <select name="payment" defaultValue={canCredit ? "cuenta" : "entrega"}>
-          {canCredit && (
-            <option value="cuenta">Cuenta corriente · cliente habitual</option>
-          )}
-          <option value="entrega">Efectivo al recibir</option>
-          {config?.transfer && (
-            <option value="transferencia">
-              Transferencia a Mercado Pago / banco (alias)
-            </option>
-          )}
-          {config?.mercadopago && (
-            <option value="mercadopago">Pagar online con Mercado Pago</option>
-          )}
-        </select>
-        <small>
-          {config?.transfer
-            ? "Si elegís transferencia, al confirmar te mostramos el alias y avisás cuando la hiciste."
-            : "Pagás al recibir el pedido. La transferencia se habilita cuando el negocio cargue su alias."}
-        </small>
-      </label>
+      {(() => {
+        const options = [
+          canCredit && ["cuenta", "Cuenta corriente · cliente habitual"],
+          ["entrega", "Efectivo al recibir"],
+          config?.transfer && [
+            "transferencia",
+            "Transferencia a Mercado Pago / banco (alias)",
+          ],
+          config?.mercadopago && [
+            "mercadopago",
+            "Pagar online con Mercado Pago",
+          ],
+        ].filter(Boolean);
+        if (options.length === 1)
+          return (
+            <p className="checkout-payment">
+              <span>Forma de pago</span>
+              <strong>{options[0][1]}</strong>
+              <input type="hidden" name="payment" value={options[0][0]} />
+            </p>
+          );
+        return (
+          <label>
+            Forma de pago
+            <select name="payment" defaultValue={options[0][0]}>
+              {options.map(([v, n]) => (
+                <option key={v} value={v}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            {config?.transfer && (
+              <small>
+                Si elegís transferencia, al confirmar te mostramos el alias y
+                avisás cuando la hiciste.
+              </small>
+            )}
+          </label>
+        );
+      })()}
       <label>
         Indicaciones para el reparto <small>(opcional)</small>
         <textarea
@@ -151,9 +171,27 @@ function Checkout() {
           placeholder="Piso, timbre, horario o una referencia…"
         />
       </label>
-      <div className="checkout-total">
-        <span>Total estimado</span>
-        <strong>{money(totals.total)}</strong>
+      <div className="checkout-summary">
+        <ul>
+          {items.map((p) => (
+            <li key={p.id}>
+              <span>
+                {p.name} · {kgText(cart[p.id])}
+              </span>
+              <span>{money(lineAmount(price(p), cart[p.id]))}</span>
+            </li>
+          ))}
+          <li>
+            <span>Envío</span>
+            <span>
+              {totals.shipping ? money(totals.shipping) : "Sin cargo"}
+            </span>
+          </li>
+        </ul>
+        <div className="checkout-total">
+          <span>Total estimado</span>
+          <strong>{money(totals.total)}</strong>
+        </div>
       </div>
       <p className="demo-note">
         El peso final se ajusta en la balanza al preparar. El horario se
@@ -938,7 +976,12 @@ export default function Modals() {
         setModal(null);
       }}
       onClick={(e) => {
-        if (e.target === dialog.current) setModal(null);
+        // El checkout y el perfil se cierran con la X o Esc: tocar el borde en móvil no debe borrar lo tipeado.
+        if (
+          e.target === dialog.current &&
+          !["checkout", "profile"].includes(type)
+        )
+          setModal(null);
       }}
     >
       <button

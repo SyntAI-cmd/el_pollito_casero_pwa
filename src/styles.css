@@ -1014,7 +1014,7 @@ main:focus {
 .green {
   color: #326d41;
 }
-.total {
+.cart-totals .total {
   border-top: 1px dashed #dcdad3;
   padding-top: 15px;
   margin-top: 16px !important;
@@ -1767,8 +1767,55 @@ dialog h2 {
   margin: 8px 25px 13px 0;
 }
 dialog p {
-  font-size: 12px;
+  font-size: 13px;
   margin: 12px 0 22px;
+}
+dialog label {
+  font-size: 13px;
+}
+dialog input:not([type="hidden"]),
+dialog select,
+dialog textarea {
+  font-size: 16px;
+  min-height: 46px;
+}
+dialog .inline-form input,
+dialog .quantity input {
+  min-height: 38px;
+  font-size: 15px;
+}
+.checkout-payment {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 15px 0 0 !important;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px !important;
+}
+.checkout-summary {
+  margin-top: 20px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.checkout-summary ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.checkout-summary li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #4a4842;
+}
+.checkout-summary .checkout-total {
+  margin-top: 12px;
+  padding-top: 12px;
 }
 .modal-close {
   position: absolute;

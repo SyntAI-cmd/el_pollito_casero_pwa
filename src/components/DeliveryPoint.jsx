@@ -60,13 +60,19 @@ export default function DeliveryPoint({ known }) {
 
   function choose(s) {
     setAddress(s.address || s.label);
+    const changed =
+      s.localityId && localityId && s.localityId !== localityId
+        ? localities.find((l) => l.id === s.localityId)?.name
+        : null;
     if (s.localityId) setLocalityId(s.localityId);
     setLocation({ lat: s.lat, lng: s.lng });
     setShowMap(true);
     setSuggestions([]);
     setWarning(
       s.precise
-        ? ""
+        ? changed
+          ? `Esa dirección es de ${changed}: cambiamos la localidad. Si no es así, elegí la tuya en la lista.`
+          : ""
         : "Encontramos la calle pero no la altura: arrastrá el pin hasta tu puerta.",
     );
     setStatus(`Punto marcado en ${s.label}.`);
@@ -150,11 +156,10 @@ export default function DeliveryPoint({ known }) {
                 search();
               }
             }}
-            placeholder="Calle y número, ej. Pergamino 120"
+            placeholder="Calle y número"
             required
             minLength="8"
             maxLength="250"
-            aria-describedby="address-help"
           />
           <button
             type="button"
@@ -170,9 +175,6 @@ export default function DeliveryPoint({ known }) {
             )}
           </button>
         </div>
-        <small id="address-help">
-          Tocá Buscar para ubicarla en el mapa, o marcá el punto a mano.
-        </small>
         {suggestions.length > 0 && (
           <ul className="suggestions" aria-label="Direcciones encontradas">
             {suggestions.map((s) => (
