@@ -9,3 +9,7 @@ playwright-report/
 skills-installation.json
 install-local-skills.py
 SKILLS-INSTALADAS.md
+# Agentes y skills instalados por herramientas de IA (Impeccable, taste-skill): no forman parte de la app
+.claude/agents/
+.claude/skills/
+.claude/settings.local.json
