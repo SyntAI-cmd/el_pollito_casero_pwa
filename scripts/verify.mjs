@@ -57,6 +57,27 @@ try {
     await pause(250);
   }
   // ---------- API ----------
+  /** Verifica un celular con el código de demostración y devuelve la sesión. */
+  const verifyPhone = async (c, phone, name) => {
+    const sent = await c("/auth/phone", { phone, name });
+    assert.equal(sent.status, 200, "código solicitado");
+    assert.ok(
+      sent.data.demoCode,
+      "en demo el código se devuelve para probarlo",
+    );
+    assert.equal(
+      (await c("/auth/phone/verify", { phone, code: "000000" })).status,
+      sent.data.demoCode === "000000" ? 200 : 401,
+      "código incorrecto rechazado",
+    );
+    const ok = await c("/auth/phone/verify", {
+      phone,
+      code: sent.data.demoCode,
+    });
+    assert.equal(ok.status, 200, "código correcto");
+    assert.equal(ok.data.verified, true);
+    return ok.data;
+  };
   const ana = client();
   const admin = client();
   const franco = client();
@@ -91,7 +112,80 @@ try {
     "cliente",
     "el pedido crea la sesión del cliente",
   );
-  assert.equal((await ana("/orders")).data.length, 1);
+  assert.equal(
+    (await ana("/session")).data.verified,
+    false,
+    "el teléfono del pedido todavía no está verificado",
+  );
+  assert.equal(
+    (await ana("/orders")).data.length,
+    1,
+    "sin verificar ve el pedido que creó en esta sesión",
+  );
+  assert.equal(
+    (await ana("/me")).data.summary.pendingOrders,
+    0,
+    "sin verificar no ve la cuenta corriente del teléfono",
+  );
+  assert.equal(
+    (await anon("/orders", sample)).status,
+    409,
+    "otra sesión con la misma clave de idempotencia no recibe el pedido",
+  );
+  const impostor = client();
+  assert.equal(
+    (await impostor("/session", { name: "X", phone: "263 500-0000" })).status,
+    410,
+    "ya no se entra solo con el número",
+  );
+  assert.equal(
+    (
+      await impostor("/orders", {
+        ...sample,
+        key: "impostor-1",
+        name: "Otro nombre",
+        address: "Otra dirección 999",
+      })
+    ).status,
+    201,
+  );
+  assert.equal(
+    (await impostor("/orders")).data.length,
+    1,
+    "un teléfono conocido no da acceso al historial ajeno",
+  );
+  const impostorId = (await impostor("/orders")).data[0].id;
+  assert.equal(
+    (await impostor("/orders/" + impostorId, { cancel: true }, "PATCH")).data
+      .status,
+    "cancelado",
+    "la sesión que creó el pedido puede cancelarlo",
+  );
+  assert.equal(
+    (
+      await admin("/session/staff", {
+        username: "admin",
+        password: "clave-de-prueba-1",
+      })
+    ).status,
+    200,
+  );
+  const almacenFicha = (await admin("/customers")).data.find(
+    (c) => c.phone === "5492635000000",
+  );
+  assert.equal(
+    almacenFicha.address,
+    "Belgrano 1200",
+    "un pedido sin verificar no pisa la ficha del cliente",
+  );
+  assert.equal(almacenFicha.name, "Almacén de prueba");
+  await verifyPhone(ana, "263 500-0000", "Almacén de prueba");
+  assert.equal(
+    (await ana("/orders")).data.length,
+    2,
+    "verificado ve todos los pedidos del teléfono",
+  );
+  assert.equal((await ana("/orders")).data.length, 2);
   const id = created.data.id;
   assert.equal(
     (await ana("/orders/" + id, { status: "preparando" }, "PATCH")).status,
@@ -134,7 +228,11 @@ try {
     0,
     "el repartidor no ve pedidos sin asignar",
   );
-  assert.equal((await admin("/orders")).data.length, 1);
+  assert.equal(
+    (await admin("/orders")).data.filter((o) => o.status !== "cancelado")
+      .length,
+    1,
+  );
   assert.equal(
     (await admin("/orders/" + id, { status: "en_camino" }, "PATCH")).status,
     400,
@@ -522,11 +620,126 @@ try {
   );
   assert.equal(small.data.paidBy, "saldo a favor");
   assert.equal((await ana("/me")).data.creditBalance, 2600);
+  // Pesar un pedido a cuenta ya saldado: la diferencia se descuenta del saldo a favor, no se pierde.
+  const reweigh = await admin(
+    "/orders/" + small.data.id,
+    { weights: { rancho: 6 } },
+    "PATCH",
+  );
+  assert.equal(reweigh.status, 200);
+  assert.equal(reweigh.data.total, 2880);
+  assert.equal(reweigh.data.paid, true);
+  assert.equal(
+    (await ana("/me")).data.creditBalance,
+    2120,
+    "la diferencia de peso de un pedido pagado ajusta el saldo",
+  );
+  // Cancelar un pedido pagado con saldo a favor lo repone, una sola vez.
+  assert.equal(
+    (await ana("/orders/" + small.data.id, { cancel: true }, "PATCH")).data
+      .status,
+    "cancelado",
+  );
+  assert.equal(
+    (await ana("/me")).data.creditBalance,
+    5000,
+    "al cancelar vuelve lo pagado",
+  );
+  assert.equal(
+    (await ana("/orders/" + small.data.id, { cancel: true }, "PATCH")).status,
+    400,
+    "no se repone dos veces",
+  );
+  // Dos cambios simultáneos sobre el mismo pedido no se pisan.
+  const race = await ana("/orders", {
+    ...sample,
+    key: "race-1",
+    payment: "entrega",
+    items: [{ id: "entero", kg: 2 }],
+  });
+  assert.equal(race.status, 201);
+  const [r1, r2] = await Promise.all([
+    admin("/orders/" + race.data.id, { status: "preparando" }, "PATCH"),
+    admin(
+      "/orders/" + race.data.id,
+      { paid: true, paidMethod: "transferencia" },
+      "PATCH",
+    ),
+  ]);
+  assert.equal(r1.status, 200);
+  assert.equal(r2.status, 200);
+  const raced = (await admin("/orders")).data.find(
+    (o) => o.id === race.data.id,
+  );
+  assert.equal(raced.status, "preparando", "se conservó el cambio de estado");
+  assert.equal(raced.paid, true, "y también el cobro");
+  assert.equal(
+    raced.history.filter((h) => h.status === "preparando").length,
+    1,
+    "sin historial duplicado",
+  );
+  // El recorrido GPS sigue creciendo pasados los 200 puntos (ventana deslizante).
+  await admin("/orders/" + race.data.id, { driver: "Franco" }, "PATCH");
+  await admin("/orders/" + race.data.id, { status: "en_camino" }, "PATCH");
+  for (let i = 0; i < 205; i++)
+    await franco(
+      "/orders/" + race.data.id,
+      { location: { lat: -33.07 - i * 0.0001, lng: -68.49 } },
+      "PATCH",
+    );
+  const tracked = (await franco("/orders")).data.find(
+    (o) => o.id === race.data.id,
+  );
+  assert.equal(tracked.track.length, 200, "se conservan los últimos 200");
+  assert.equal(
+    tracked.track.at(-1)[0],
+    tracked.location.lat,
+    "el último punto del recorrido es la última ubicación",
+  );
   const maxi = client();
   await maxi("/session/staff", {
     username: "maxi",
     password: "clave-de-prueba-1",
   });
+  const temp = (
+    await admin("/staff", {
+      username: "temporal",
+      name: "Temporal",
+      role: "admin",
+      password: "clave-temporal-1",
+    })
+  ).data;
+  const tempClient = client();
+  assert.equal(
+    (
+      await tempClient("/session/staff", {
+        username: "temporal",
+        password: "clave-temporal-1",
+      })
+    ).data.role,
+    "admin",
+  );
+  assert.equal((await tempClient("/staff")).status, 200);
+  assert.equal(
+    (
+      await admin(
+        "/staff/" + temp.id,
+        { role: "repartidor", driver: "Maxi" },
+        "PATCH",
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await tempClient("/session")).data,
+    null,
+    "degradar a repartidor cierra la sesión de administrador",
+  );
+  assert.equal(
+    (await tempClient("/staff")).status,
+    403,
+    "la sesión vieja ya no tiene permisos",
+  );
   assert.equal(
     (await maxi("/customers/" + almacen.phone + "/payments", { amount: 100 }))
       .status,
@@ -674,8 +887,46 @@ try {
   assert.equal(evaOrder.status, 201);
   assert.equal(
     (await eva("/session")).data.phone,
+    null,
+    "el WhatsApp del pedido no se asocia a la cuenta sin verificarlo",
+  );
+  assert.equal(
+    (await eva("/orders")).data.length,
+    1,
+    "la cuenta ve el pedido que creó",
+  );
+  const mallory = client();
+  assert.equal(
+    (
+      await mallory("/auth/register", {
+        name: "Mallory",
+        email: "mallory@example.com",
+        password: "clave-mallory-1",
+      })
+    ).status,
+    201,
+  );
+  const claim = await mallory(
+    "/me",
+    { name: "Mallory", phone: "263 477-8899" },
+    "PATCH",
+  );
+  assert.equal(claim.data.phone, null, "no se vincula un teléfono sin código");
+  assert.deepEqual(
+    (await mallory("/orders")).data,
+    [],
+    "declarar un teléfono ajeno no trae su historial",
+  );
+  assert.equal(
+    (await mallory("/auth/passkey/register/options", {})).status,
+    200,
+    "la cuenta autenticada sí puede registrar una llave",
+  );
+  await verifyPhone(eva, "263 477-8899");
+  assert.equal(
+    (await eva("/session")).data.phone,
     "5492634778899",
-    "la cuenta quedó asociada al WhatsApp del pedido",
+    "verificado el código, la cuenta queda asociada al WhatsApp",
   );
   const eva2 = client();
   assert.equal(
@@ -697,6 +948,7 @@ try {
     1,
     "desde otro dispositivo ve su pedido",
   );
+  assert.equal((await eva2("/session")).data.verified, true);
   assert.equal((await eva2("/me")).data.account.email, "eva@example.com");
   const magic = await anon("/auth/magic", {
     email: "link@example.com",
@@ -720,6 +972,32 @@ try {
     /vencido/,
     "el enlace es de un solo uso",
   );
+  assert.equal(
+    (
+      await anon("/auth/register", {
+        name: "Ladrón",
+        email: "link@example.com",
+        password: "clave-robada-1",
+      })
+    ).status,
+    409,
+    "registrarse con el email de una cuenta sin contraseña no la toma",
+  );
+  const linkPw = await fetch(base + "/api/auth/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: magicCookie },
+    body: JSON.stringify({ password: "clave-de-link-1" }),
+  });
+  assert.equal(linkPw.status, 200, "con sesión se puede crear la contraseña");
+  assert.equal(
+    (
+      await anon("/auth/login", {
+        email: "link@example.com",
+        password: "clave-de-link-1",
+      })
+    ).status,
+    200,
+  );
   const pk = await eva2("/auth/passkey/register/options", {});
   assert.equal(pk.status, 200);
   assert.equal(pk.data.options.rp.id, "localhost");
@@ -739,7 +1017,11 @@ try {
   // Usuarios del equipo: solo administración los gestiona; un usuario desactivado pierde el acceso.
   assert.equal((await franco("/staff")).status, 403);
   const staffList = (await admin("/staff")).data;
-  assert.equal(staffList.length, 3, "admin, franco y maxi creados al inicio");
+  assert.equal(
+    staffList.filter((u) => u.username !== "temporal").length,
+    3,
+    "admin, franco y maxi creados al inicio",
+  );
   const newUser = await admin("/staff", {
     username: "lucas",
     name: "Lucas Prueba",
@@ -793,14 +1075,18 @@ try {
   assert.equal((await anon("/geo/search?q=Pergamino")).status, 200);
 
   // SSE: el cliente recibe la novedad cuando administración cambia el estado.
-  const sseCookie = (
-    await fetch(base + "/api/session", {
+  const sseCode = await (
+    await fetch(base + "/api/auth/phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "Almacén de prueba",
-        phone: "263 500-0000",
-      }),
+      body: JSON.stringify({ phone: "263 500-0000" }),
+    })
+  ).json();
+  const sseCookie = (
+    await fetch(base + "/api/auth/phone/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: "263 500-0000", code: sseCode.demoCode }),
     })
   ).headers
     .get("set-cookie")
@@ -1026,6 +1312,36 @@ try {
   await expect(
     card.getByRole("button", { name: "Iniciar reparto" }),
   ).toBeEnabled();
+  // Cargar pedido: pantalla rápida en un solo paso, con cliente buscado y kilos en la tabla.
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Cargar pedido" })
+    .click();
+  await expect(ops).toHaveURL(/[\/]operacion[\/]nuevo$/);
+  await ops.getByLabel("Buscar cliente por nombre o WhatsApp").fill("naveg");
+  await ops.locator(".qo-search .suggestions button").first().click();
+  await expect(ops.locator(".qo-picked")).toContainText("Cliente Navegador");
+  await expect(ops.getByLabel("WhatsApp", { exact: true })).toHaveValue(
+    /2634667788/,
+  );
+  await ops.getByLabel("Kilos de Pollo entero").fill("3");
+  await ops.getByLabel("Kilos de Suprema").fill("1.5");
+  await expect(ops.locator(".qo-summary .total dd")).not.toHaveText("$ 0");
+  await ops.getByLabel(/Repartidor/).selectOption("Franco");
+  await ops.screenshot({
+    path: "test-results/operacion-cargar.png",
+    fullPage: true,
+  });
+  await ops.getByRole("button", { name: "Cargar pedido" }).click();
+  await expect(ops.locator(".qo-created")).toContainText(
+    "cargado para Cliente Navegador",
+    {
+      timeout: 8000,
+    },
+  );
+  await expect(ops.locator(".qo-created")).toContainText("asignado a Franco");
+  await ops.getByRole("button", { name: "Otro pedido" }).click();
+  await expect(ops.locator(".qo-created")).toHaveCount(0);
   await ops
     .locator(".staff-bar nav")
     .getByRole("link", { name: "Clientes" })
@@ -1045,7 +1361,7 @@ try {
     .locator(".staff-bar nav")
     .getByRole("link", { name: "Reparto y rendición" })
     .click();
-  await expect(ops.locator(".sheet")).toContainText("Saldo a rendir");
+  await expect(ops.locator(".sheet")).toContainText("Efectivo a rendir");
   await ops.locator(".route-controls select").selectOption("Maxi");
   await expect(ops.locator(".sheet")).toContainText("Maxi");
   await ops.screenshot({
@@ -1170,12 +1486,15 @@ try {
     0,
     "sin enlaces al panel en la app del cliente",
   );
-  await expect(
-    page.locator(
-      '.sidebar a[href="/admin"], nav a[href="/admin"], .topbar a[href="/admin"], a[href="/acceso"]',
-    ),
-  ).toHaveCount(0, "solo el enlace discreto del pie lleva al equipo");
+  await expect(page.locator('.topbar a[href="/admin"]')).toHaveCount(
+    1,
+    "el acceso del equipo se ve en la cabecera sin conocer la URL",
+  );
   await expect(page.locator('footer a[href="/admin"]')).toHaveCount(1);
+  await expect(page.locator(".staff-bar, .board")).toHaveCount(
+    0,
+    "sin controles de gestión antes de autenticar",
+  );
   await page.goto(base + "/reparto");
   await expect(page).toHaveURL(base + "/");
   step(
@@ -1269,11 +1588,15 @@ try {
   await other.getByRole("button", { name: "Continuar con celular" }).click();
   await other.getByLabel("Nombre y apellido").fill("Cliente Navegador");
   await other.getByLabel("WhatsApp").fill("+54 9 263 466 7788");
-  await other.getByRole("button", { name: "Continuar con mi celular" }).click();
+  await other
+    .getByRole("button", { name: "Recibir código por WhatsApp" })
+    .click();
+  await expect(other.locator(".demo-code")).toBeVisible();
+  await other.getByRole("button", { name: "Confirmar código" }).click();
   await expect(other).toHaveURL(/[\/]pedidos$/);
   await expect(other.locator(".order-row")).toHaveCount(
-    2,
-    "mismo teléfono, mismos pedidos",
+    3,
+    "mismo teléfono verificado: sus pedidos y el que cargó administración",
   );
   step(
     "Navegador cliente: historial, repetición, cancelación y recuperación de pedidos desde otro dispositivo.",

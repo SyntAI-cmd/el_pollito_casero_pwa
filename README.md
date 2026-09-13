@@ -26,7 +26,7 @@ Desarrollo con recarga: `npm run dev`.
 
 | Rol | Entra por | Ve | No ve |
 |---|---|---|---|
-| **Cliente** | `/ingresar`: Google, email (contraseña o **enlace temporal** por correo), **huella / Face ID / PIN del dispositivo** (passkeys) o celular; o directamente al confirmar un pedido | catálogo, sus pedidos, seguimiento en el mapa con ETA, su cuenta y envases | ningún enlace ni pantalla del equipo |
+| **Cliente** | `/ingresar`: Google, email (contraseña o **enlace temporal** por correo), **huella / Face ID / PIN del dispositivo** (passkeys) o **celular con código por WhatsApp**; o directamente al confirmar un pedido | catálogo, sus pedidos, seguimiento en el mapa con ETA, su cuenta y envases | pantallas del equipo (solo el acceso "Equipo" de la cabecera) |
 | **Administración** | `/admin` → usuario y contraseña (rol administración) | tablero de pedidos, cargar pedido telefónico, pesaje, clientes (cuenta corriente, repartidor habitual), reparto y rendición, impresión, **chat interno** con cada repartidor | catálogo público, seguimiento del cliente |
 | **Repartidor** | `/admin` → su usuario y contraseña (rol repartidor) | solo sus entregas: salir, GPS, navegar, cobrar, pesar, entregar con envases; clientes de su reparto para **cobrar saldos** y **recibir envases**; chat con administración | pedidos ajenos, catálogo, panel de administración |
 
@@ -34,9 +34,9 @@ El servidor filtra los datos por rol en cada consulta (no solo la interfaz): un 
 
 ## Cómo se usa
 
-**Cliente** · entra al catálogo, elige modalidad (mayorista, intermedio o minorista), agrega kilos y confirma con nombre, WhatsApp y dirección. Puede marcar el punto exacto de entrega con **"Usar mi ubicación actual"** (GPS del dispositivo) o arrastrando el pin en el mapa; la dirección y la localidad se completan solas. Con ese teléfono queda identificado: ve sus pedidos, los sigue en el mapa con **hora estimada de llegada**, recibe **avisos** (repartidor asignado, camioneta en camino con la hora, entregado) aunque cierre la app, puede cancelar mientras estén "recibidos", repetirlos y consultar su cuenta corriente y envases. Desde otro dispositivo recupera todo ingresando con su cuenta (Google, email, enlace por correo, huella/Face ID o celular); el primer pedido vincula el WhatsApp a la cuenta. En **Mi cuenta** puede activar la huella o el Face ID del dispositivo y ver sus llaves.
+**Cliente** · entra al catálogo, elige modalidad (mayorista, intermedio o minorista), agrega kilos y confirma con nombre, WhatsApp y dirección. Puede marcar el punto exacto de entrega con **"Usar mi ubicación actual"** (GPS del dispositivo) o arrastrando el pin en el mapa; la dirección y la localidad se completan solas. Ve ese pedido, lo sigue en el mapa con **hora estimada de llegada**, recibe **avisos** (repartidor asignado, camioneta en camino con la hora, entregado) aunque cierre la app, puede cancelarlo mientras esté "recibido" y repetirlo. **El historial completo del teléfono, la cuenta corriente y los envases se ven solo con el WhatsApp verificado**: un código de un solo uso (10 minutos, 5 intentos) que se pide desde Ingresar → celular o desde Mi cuenta → "Verificar con un código". Sin verificar, una sesión (invitado o cuenta de email/Google) solo ve los pedidos que ella misma creó; conocer un número no da acceso a nada ajeno ni modifica la ficha del cliente. En **Mi cuenta** puede además crear o cambiar su contraseña y activar la huella o el Face ID del dispositivo.
 
-**Administración** (`/admin` → usuario y contraseña; el único acceso desde la app del cliente es el enlace discreto "Equipo" del pie) · recibe un aviso por cada pedido nuevo, tablero por estado (recibidos, en preparación, en camino, entregados), asigna repartidor, registra cobros, envases y devoluciones, carga pedidos telefónicos desde el catálogo y administra clientes (modalidad, cuenta corriente y **repartidor habitual**, que deja los pedidos nuevos preasignados). Pestaña **Reparto y rendición**: hoja de ruta por repartidor y día (salida, paradas en orden, zonas, kilos, cobros, envases dejados/devueltos, saldo anterior de cada cliente habitual y **saldo a rendir**). Botones para **imprimir la hoja de pedidos del día y la hoja de ruta** (`/imprimir`).
+**Administración** (`/admin` → usuario y contraseña; desde la app del cliente se llega con el botón **Equipo** de la cabecera, el menú móvil o el pie) · recibe un aviso por cada pedido nuevo, tablero por estado (recibidos, en preparación, en camino, entregados), asigna repartidor, registra cobros, envases y devoluciones, carga pedidos telefónicos en **una sola pantalla** (Cargar pedido: buscar cliente por nombre o WhatsApp, kilos por producto en una tabla, pago y repartidor; Enter salta de producto, Ctrl+Enter confirma) y administra clientes (modalidad, cuenta corriente y **repartidor habitual**, que deja los pedidos nuevos preasignados). Pestaña **Reparto y rendición**: hoja de ruta por repartidor y día (salida, paradas en orden, zonas, kilos, envases dejados/devueltos, saldo anterior de cada cliente calculado una vez por cliente) y rendición por medio real de cobro: **efectivo a rendir** = efectivo cobrado en la puerta por ese repartidor + cobros de cuenta corriente en efectivo; las transferencias y Mercado Pago se listan aparte y no suman al efectivo; "entregado a cuenta" cuenta solo pedidos entregados. Botones para **imprimir la hoja de pedidos del día y la hoja de ruta** (`/imprimir`).
 
 **Repartidor** (`/admin` → su usuario y contraseña) · ve solo sus entregas, inicia el reparto, comparte su GPS (el cliente lo ve moverse en el mapa con tiempo estimado de llegada), abre la navegación en Google Maps, registra el cobro y completa la entrega con los envases dejados.
 
@@ -88,6 +88,9 @@ PORT=5173
 HOST=127.0.0.1          # 0.0.0.0 para exponer en la red local
 SITE_URL=http://localhost:5173   # canonicals, sitemap, OG y host permitido
 ADMIN_PASSWORD=         # contraseña inicial de admin y repartidores (en demo, pollito2026)
+WHATSAPP_TOKEN= / WHATSAPP_PHONE_ID=   # WhatsApp Business Cloud API: envía el código de verificación del celular
+WHATSAPP_OTP_TEMPLATE=codigo_de_acceso # plantilla de autenticación aprobada en Meta (WHATSAPP_OTP_LANG=es_AR)
+GEOCODER_URL=           # geocodificador compatible con la API de Nominatim (propio, LocationIQ…); por defecto el público de OSM
 GOOGLE_CLIENT_ID=       # habilita "Continuar con Google" (Google Identity Services)
 SMTP_URL=               # smtps://usuario:clave@smtp.ejemplo.com:465 · envía los enlaces de acceso por email
 MAIL_FROM=              # remitente de los enlaces (por defecto Pollito Casero <no-reply@dominio>)
@@ -104,7 +107,7 @@ TRANSFER_CVU= / TRANSFER_HOLDER=
 MP_ACCESS_TOKEN=        # Checkout Pro (pago online); requiere SITE_URL https para el webhook
 ```
 
-Con `business.demo: true` la contraseña inicial del equipo es `pollito2026`, el enlace de acceso por email se muestra en pantalla si no hay `SMTP_URL`, la cuenta corriente se habilita automáticamente a los nuevos clientes mayoristas y se siembra un pedido de ejemplo (PC-1024, asignado a Franco).
+Con `business.demo: true` la contraseña inicial del equipo es `pollito2026`, el enlace de acceso por email se muestra en pantalla si no hay `SMTP_URL`, el código de WhatsApp se muestra en pantalla si no hay `WHATSAPP_TOKEN` (fuera de demo, sin proveedor, el ingreso por celular se desactiva y el cliente entra por email/Google/passkey), el pedido de ejemplo PC-1024 se siembra en la base vacía, la cuenta corriente se habilita automáticamente a los nuevos clientes mayoristas y se siembra un pedido de ejemplo (PC-1024, asignado a Franco).
 
 ## Estructura
 
@@ -138,12 +141,13 @@ Los scripts de navegador usan Chromium de Playwright (`npx playwright install ch
 
 ## Para operar con clientes reales
 
-1. **Cambiar las contraseñas demo** del equipo desde Operación → Equipo (o arrancar con `ADMIN_PASSWORD`). Verificar el teléfono de quien entra "con celular" (código por WhatsApp Business API u OTP por SMS); las cuentas con email, Google o passkey ya quedan verificadas.
+1. **Cambiar las contraseñas demo** del equipo desde Operación → Equipo (o arrancar con `ADMIN_PASSWORD`) y poner `business.demo: false`. Configurar **`WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID`** con una plantilla de autenticación aprobada para que el código de verificación llegue por WhatsApp (sin eso, el ingreso por celular queda apagado y los clientes entran por email, Google o passkey).
 2. **`GOOGLE_CLIENT_ID`** (consola de Google Cloud, orígenes autorizados = `SITE_URL`) para el botón de Google y **`SMTP_URL`** para que los enlaces de acceso lleguen por correo. Las passkeys (huella/Face ID) y los avisos push requieren HTTPS fuera de localhost.
 3. **HTTPS y dominio** (`SITE_URL`), copias de seguridad de `data/pollito.sqlite`, `HOST=0.0.0.0` detrás de un proxy.
 4. **Plantillas de WhatsApp** automáticas (API de WhatsApp Business) si se quiere avisar también por WhatsApp además de los push.
 5. **Pagos online** (Mercado Pago) si se quiere cobrar antes de la entrega.
 6. Confirmar precios mayorista/intermedio, zona y horarios de reparto, y las coordenadas exactas del local.
+7. **Geocodificador propio o con licencia** (`GEOCODER_URL`): la búsqueda de direcciones es a pedido (botón Buscar / Enter, nunca mientras se escribe) para respetar la política del Nominatim público, pero con volumen conviene un servicio propio.
 
 ## Diseño y activos
 

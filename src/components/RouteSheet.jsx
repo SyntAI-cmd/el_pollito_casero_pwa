@@ -96,10 +96,14 @@ export default function RouteSheet({ sheet }) {
                     <br />
                     <small>
                       {s.order.paid
-                        ? "Cobrado"
+                        ? s.order.payment === "cuenta"
+                          ? "Saldado en cuenta"
+                          : `Cobrado · ${s.method}${s.order.paidBy ? " · " + s.order.paidBy : ""}`
                         : s.order.payment === "cuenta"
                           ? "A cuenta"
-                          : "Cobrar"}
+                          : s.order.payment === "entrega"
+                            ? "Cobrar efectivo"
+                            : "Espera " + s.method}
                     </small>
                   </td>
                   <td className="num">
@@ -166,26 +170,26 @@ export default function RouteSheet({ sheet }) {
           <h3>Rendición de caja</h3>
           <dl>
             <div>
-              <dt>A cobrar en efectivo</dt>
-              <dd>{money(sheet.cash)}</dd>
-            </div>
-            <div>
-              <dt>Cobrado</dt>
+              <dt>Efectivo cobrado en la puerta</dt>
               <dd>{money(sheet.collected)}</dd>
             </div>
             <div>
-              <dt>Pendiente de cobro</dt>
+              <dt>Efectivo pendiente de cobro</dt>
               <dd className={sheet.pendingCash ? "red" : ""}>
                 {money(sheet.pendingCash)}
               </dd>
             </div>
             <div>
-              <dt>Cobros de cuenta corriente (efectivo)</dt>
+              <dt>Cobros de cuenta corriente en efectivo</dt>
               <dd>{money(sheet.accountCash)}</dd>
             </div>
             <div className="total">
-              <dt>Saldo a rendir</dt>
+              <dt>Efectivo a rendir</dt>
               <dd>{money(sheet.toSettle)}</dd>
+            </div>
+            <div>
+              <dt>Transferencias / Mercado Pago (no van en efectivo)</dt>
+              <dd>{money(sheet.transfers + sheet.accountTransfers)}</dd>
             </div>
           </dl>
         </section>
@@ -193,11 +197,15 @@ export default function RouteSheet({ sheet }) {
           <h3>Cuenta corriente</h3>
           <dl>
             <div>
-              <dt>Entregado a cuenta hoy</dt>
+              <dt>A cuenta en este reparto</dt>
+              <dd>{money(sheet.accountPlanned)}</dd>
+            </div>
+            <div>
+              <dt>Entregado a cuenta</dt>
               <dd>{money(sheet.account)}</dd>
             </div>
             <div>
-              <dt>Saldo anterior de clientes</dt>
+              <dt>Saldo anterior de clientes (estado actual)</dt>
               <dd>{money(sheet.previousBalance)}</dd>
             </div>
             <div>

@@ -38,7 +38,7 @@ export default function Delivery() {
         />
         <EmptyState
           icon={ShieldCheck}
-          title="Ingresá con tu nombre y el PIN del equipo"
+          title="Ingresá con tu usuario y contraseña"
           to="/acceso"
           action="Ir al acceso del equipo"
         />
@@ -55,17 +55,27 @@ export default function Delivery() {
     o.destination
       ? `${o.destination.lat},${o.destination.lng}`
       : `${o.address}, ${o.locality?.name || ""}, Mendoza, Argentina`;
-  const routeUrl =
-    routeStops.length > 0
-      ? `https://www.google.com/maps/dir/?api=1&origin=${config?.origin ? config.origin.lat + "," + config.origin.lng : ""}&destination=${encodeURIComponent(point(routeStops.at(-1)))}${
-          routeStops.length > 1
-            ? "&waypoints=" +
-              encodeURIComponent(
-                routeStops.slice(0, -1).slice(0, 9).map(point).join("|"),
-              )
-            : ""
-        }&travelmode=driving`
-      : null;
+  // Google Maps admite 10 puntos por enlace: la ruta se divide en tramos consecutivos.
+  const legs = [];
+  for (let i = 0; i < routeStops.length; i += 10) {
+    const stops = routeStops.slice(i, i + 10);
+    const from =
+      i === 0
+        ? config?.origin
+          ? config.origin.lat + "," + config.origin.lng
+          : ""
+        : point(routeStops[i - 1]);
+    legs.push({
+      from: i + 1,
+      to: i + stops.length,
+      url: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(point(stops.at(-1)))}${
+        stops.length > 1
+          ? "&waypoints=" +
+            encodeURIComponent(stops.slice(0, -1).map(point).join("|"))
+          : ""
+      }&travelmode=driving`,
+    });
+  }
   const zones = [
     ...new Set(routeStops.map((o) => o.locality?.name).filter(Boolean)),
   ];
@@ -102,14 +112,20 @@ export default function Delivery() {
             {zones.length ? ` · ${zones.join(" · ")}` : ""} ·{" "}
             {kgText(routeStops.reduce((s, o) => s + totalKg(o), 0))}
           </span>
-          <a
-            className="secondary route-link"
-            href={routeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Navigation size={15} /> Ruta completa en Google Maps
-          </a>
+          {legs.map((leg) => (
+            <a
+              key={leg.from}
+              className="secondary route-link"
+              href={leg.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation size={15} />{" "}
+              {legs.length === 1
+                ? "Ruta completa en Google Maps"
+                : `Tramo ${leg.from}–${leg.to} en Google Maps`}
+            </a>
+          ))}
         </div>
       )}
       {ready.length + onRoute.length + done.length === 0 ? (

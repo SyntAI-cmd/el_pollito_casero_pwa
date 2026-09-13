@@ -37,6 +37,9 @@ import {
   sendMagicLink,
   verifyGoogleToken,
   createPasskeys,
+  sendOtp,
+  newOtpCode,
+  phoneLoginEnabled,
 } from "./auth.mjs";
 
 export { ApiError };
@@ -89,6 +92,19 @@ export function createApi({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
     magicLinks: true,
     passkeys: true,
+    phoneLogin: phoneLoginEnabled(),
+  };
+  // Cambios simultáneos sobre un mismo pedido se aplican de a uno (cada uno relee el pedido).
+  const orderLocks = new Map();
+  const withOrderLock = (id, fn) => {
+    const previous = orderLocks.get(id) || Promise.resolve();
+    const run = previous.then(fn, fn);
+    const settled = run.catch(() => {});
+    orderLocks.set(id, settled);
+    settled.then(() => {
+      if (orderLocks.get(id) === settled) orderLocks.delete(id);
+    });
+    return run;
   };
   const publicSession = (s) =>
     s
@@ -100,6 +116,8 @@ export function createApi({
           plan: s.plan || null,
           account: !!s.accountId,
           staff: !!s.staffId,
+          staffId: s.staffId || null,
+          verified: !!s.phone,
         }
       : null;
   const publicConfig = (session) => ({
@@ -107,8 +125,10 @@ export function createApi({
     session: publicSession(session),
   });
 
-  function ensureCustomer(phone, data) {
+  function ensureCustomer(phone, data, { trusted = true } = {}) {
     const existing = store.customers.get(phone);
+    // Un teléfono sin verificar no puede pisar nombre, dirección ni ubicación de una ficha existente.
+    if (existing && !trusted) return existing;
     const customer = existing || {
       phone,
       name: String(data.name || "Cliente").trim(),
@@ -164,18 +184,50 @@ export function createApi({
     return account;
   }
 
+  /**
+   * Un cliente ve los pedidos de su teléfono solo si lo verificó; si no, únicamente los que
+   * creó con su cuenta o desde esta misma sesión.
+   */
   function visibleOrders(session) {
     if (!session) return [];
     if (session.role === "admin") return store.orders.all();
     if (session.role === "repartidor")
       return store.orders.forDriver(session.driver);
-    return session.phone ? store.orders.forCustomer(session.phone) : [];
+    if (session.phone) return store.orders.forCustomer(session.phone);
+    const mine = [
+      ...(session.accountId ? store.orders.forAccount(session.accountId) : []),
+      ...store.orders.forSession(session.id),
+    ];
+    return mine
+      .filter((o, i) => mine.findIndex((x) => x.id === o.id) === i)
+      .sort((a, b) => b.created.localeCompare(a.created));
   }
+  const ownsOrder = (session, o) =>
+    (!!session.phone && o.customer === session.phone) ||
+    (!!session.accountId && o.accountId === session.accountId) ||
+    o.sessionId === session.id;
   const canSee = (session, o) =>
     session &&
     (session.role === "admin" ||
       (session.role === "repartidor" && o.driver === session.driver) ||
-      (session.role === "cliente" && o.customer === session.phone));
+      (session.role === "cliente" && ownsOrder(session, o)));
+  /** Vincula un teléfono verificado a la sesión (y a su cuenta, si la tiene). */
+  function attachPhone(session, phone, name) {
+    // Si la ficha ya existe se respeta su nombre; si no, se crea con el de la sesión.
+    const customer = ensureCustomer(
+      phone,
+      store.customers.get(phone) ? {} : { name: name || session.name },
+    );
+    store.sessions.update(session.id, { phone, plan: customer.plan });
+    if (session.accountId) {
+      const account = store.accounts.get(session.accountId);
+      if (account && account.phone !== phone) {
+        account.phone = phone;
+        store.accounts.save(account);
+      }
+    }
+    return { ...session, phone, plan: customer.plan, name: customer.name };
+  }
   const driverCustomers = (session) => {
     const mine = new Set(
       store.orders.forDriver(session.driver).map((o) => o.customer),
@@ -197,6 +249,8 @@ export function createApi({
     const out = { ...o, driverContact: driverContact(o) };
     if (session?.role !== "admin") {
       delete out.key;
+      delete out.accountId;
+      delete out.sessionId;
       if (session?.role === "cliente") delete out.createdBy;
     }
     return out;
@@ -239,45 +293,51 @@ export function createApi({
       );
     if (b.payment === "mercadopago" && !config.mercadopago)
       fail(400, "El pago online no está habilitado. Elegí otro medio.");
-    const key = str(b.key, { min: 1, max: 80, name: "identificador" });
-    const previous = store.orders.byKey(key);
-    if (previous) return { order: previous, session, created: false };
     const phone =
       session?.role === "cliente" && session.phone
         ? session.phone
         : normalizePhone(b.phone);
     if (!phone) fail(400, "Ingresá un WhatsApp válido, con código de área.");
+    // La clave de idempotencia se acota al teléfono: reutilizarla no devuelve pedidos ajenos.
+    const key = `${phone}:${str(b.key, { min: 1, max: 80, name: "identificador" })}`;
+    const previous = store.orders.byKey(key);
+    if (previous) {
+      if (
+        session?.role === "admin" ||
+        (session && ownsOrder(session, previous))
+      )
+        return { order: previous, session, created: false };
+      fail(409, "Ese pedido ya fue registrado. Actualizá la página.");
+    }
+    const trusted =
+      session?.role === "admin" ||
+      (session?.role === "cliente" && session.phone === phone);
     const location =
       b.location && inMendoza(b.location)
         ? { lat: Number(b.location.lat), lng: Number(b.location.lng) }
         : null;
     return store.transaction(() => {
-      const customer = ensureCustomer(phone, { ...b, plan: b.plan, location });
+      const customer = ensureCustomer(
+        phone,
+        { ...b, plan: b.plan, location },
+        { trusted },
+      );
       if (b.payment === "cuenta" && !customer.credit)
         fail(
           400,
           "Tu cuenta corriente todavía no fue habilitada por administración. Elegí otro medio de pago.",
         );
+      // Sin teléfono verificado la sesión queda sin teléfono: solo ve los pedidos que creó.
       let nextSession = session;
       if (!session)
         nextSession = store.sessions.create({
           role: "cliente",
-          phone,
-          name: customer.name,
-          plan: customer.plan,
+          phone: null,
+          name: String(b.name || customer.name)
+            .trim()
+            .slice(0, 100),
+          plan: plans.includes(b.plan) ? b.plan : customer.plan,
         });
-      else if (session.role === "cliente" && !session.phone) {
-        // Primer pedido de una cuenta (email/Google/passkey): queda asociada a este WhatsApp.
-        store.sessions.update(session.id, { phone, plan: customer.plan });
-        if (session.accountId) {
-          const account = store.accounts.get(session.accountId);
-          if (account && !account.phone) {
-            account.phone = phone;
-            store.accounts.save(account);
-          }
-        }
-        nextSession = { ...session, phone, plan: customer.plan };
-      }
       const o = {
         ...priced,
         id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
@@ -291,9 +351,15 @@ export function createApi({
         payment: b.payment,
         paid: false,
         status: "recibido",
-        driver: drivers.some((d) => d.name === customer.driver)
-          ? customer.driver
-          : "",
+        accountId:
+          nextSession.role === "cliente" ? nextSession.accountId || null : null,
+        sessionId: nextSession.role === "cliente" ? nextSession.id : null,
+        driver:
+          session?.role === "admin" && drivers.some((d) => d.name === b.driver)
+            ? b.driver
+            : drivers.some((d) => d.name === customer.driver)
+              ? customer.driver
+              : "",
         boxes: 0,
         returned: 0,
         created: now(),
@@ -369,10 +435,21 @@ export function createApi({
         o.cancelled = true;
         o.status = "cancelado";
         o.history.push({ status: "cancelado", at: now() });
+        // Lo ya pagado (saldo a favor, pago registrado u online) vuelve como saldo a favor.
+        if (o.paid && !o.refunded) {
+          const customer = store.customers.get(o.customer);
+          if (customer) {
+            customer.creditBalance =
+              Math.round(((customer.creditBalance || 0) + o.total) * 100) / 100;
+            store.customers.save(customer);
+            o.refunded = { amount: o.total, at: now(), to: "saldo a favor" };
+            after.push(() => events.customerChanged(customer));
+          }
+        }
         after.push(() =>
           notifyAdmins({
             title: `Pedido cancelado · ${o.name}`,
-            body: `${o.id} fue cancelado por el cliente.`,
+            body: `${o.id} fue cancelado por el cliente.${o.refunded ? " " + ars(o.total) + " quedaron como saldo a favor." : ""}`,
           }),
         );
         return after;
@@ -501,6 +578,7 @@ export function createApi({
         fail(403, "Ese pedido no es tuyo.");
       o.location = { lat, lng, at: now() };
       o.track = [...(o.track || []), [lat, lng]].slice(-200);
+      store.orders.addTrack(o.id, lat, lng, o.location.at);
       if ((!o.eta || Date.now() - new Date(o.eta.at) > 45000) && o.destination)
         after.push(() => refreshEta(o));
     }
@@ -514,11 +592,32 @@ export function createApi({
           400,
           "El pedido ya fue cobrado; pedile a administración que corrija el importe.",
         );
+      const before = Math.round(o.total * 100);
       Object.assign(o, applyWeights(o, b.weights), {
         weighed: true,
         weighedAt: now(),
         weighedBy: actorOf(session),
       });
+      // Pedido a cuenta ya pagado: la diferencia de peso queda como deuda o saldo a favor, no se pierde.
+      const diff = Math.round(o.total * 100) - before;
+      if (o.paid && diff !== 0) {
+        const customer = store.customers.get(o.customer);
+        if (customer) {
+          customer.creditBalance =
+            Math.round((customer.creditBalance || 0) * 100 - diff) / 100;
+          store.customers.save(customer);
+          o.adjustments = [
+            ...(o.adjustments || []),
+            {
+              amount: diff / 100,
+              at: now(),
+              by: actorOf(session),
+              reason: "peso",
+            },
+          ];
+          after.push(() => events.customerChanged(customer));
+        }
+      }
       after.push(() =>
         notifyCustomer(o, {
           title: "Pesamos tu pedido",
@@ -659,28 +758,88 @@ export function createApi({
         }
         return json(200, null, { session: null });
       }
-      if (method === "POST") {
-        // Ingreso rápido por celular (sin contraseña).
-        loginLimit(ip);
-        const name = str(body.name, { min: 2, max: 100, name: "el nombre" });
-        const phone = normalizePhone(body.phone);
-        if (!phone)
-          fail(400, "Ingresá un teléfono válido, con código de área.");
-        const customer = ensureCustomer(phone, { ...body, name });
+      if (method === "POST")
+        fail(
+          410,
+          "El ingreso por celular ahora se confirma con un código: usá /api/auth/phone.",
+        );
+    }
+    // Ingreso o vinculación de celular con código de un solo uso (WhatsApp).
+    if (path === "/api/auth/phone" && method === "POST") {
+      loginLimit(ip);
+      if (!config.phoneLogin)
+        fail(
+          400,
+          "El ingreso por celular no está habilitado. Ingresá con tu email.",
+        );
+      const phone = normalizePhone(body.phone);
+      if (!phone) fail(400, "Ingresá un teléfono válido, con código de área.");
+      const name = str(body.name, {
+        max: 100,
+        name: "el nombre",
+        optional: true,
+      });
+      const code = newOtpCode();
+      const result = await sendOtp(phone, code);
+      store.tokens.put(
+        "otp:" + phone,
+        "otp",
+        phone,
+        { hash: await hashPassword(code), name, attempts: 0 },
+        10 * 60000,
+      );
+      store.audit.log(session, "auth.otp_sent", "customer", phone, {
+        sent: result.sent,
+        ip,
+      });
+      return json(200, {
+        sent: result.sent,
+        demoCode: result.demoCode || null,
+      });
+    }
+    if (path === "/api/auth/phone/verify" && method === "POST") {
+      loginLimit(ip);
+      const phone = normalizePhone(body.phone);
+      const code = str(body.code, { min: 4, max: 8, name: "el código" });
+      const pending = phone && store.tokens.peek("otp:" + phone, "otp");
+      if (!pending) fail(400, "El código venció. Pedí uno nuevo.");
+      if (pending.payload.attempts >= 5) {
+        store.tokens.remove("otp:" + phone);
+        fail(400, "Demasiados intentos. Pedí un código nuevo.");
+      }
+      if (!(await verifyPassword(code, pending.payload.hash))) {
+        store.tokens.setPayload("otp:" + phone, {
+          ...pending.payload,
+          attempts: pending.payload.attempts + 1,
+        });
+        store.audit.log(session, "auth.otp_denied", "customer", phone, { ip });
+        fail(401, "Código incorrecto.");
+      }
+      store.tokens.remove("otp:" + phone);
+      const name =
+        str(body.name, { max: 100, name: "el nombre", optional: true }) ||
+        pending.payload.name ||
+        session?.name ||
+        "";
+      let s;
+      if (session?.role === "cliente") {
+        // Sesión existente (cuenta o invitado): se le vincula el teléfono verificado.
+        s = attachPhone(session, phone, name);
+      } else {
         if (session) store.sessions.delete(session.id);
-        const account = store.accounts.byPhone(phone);
-        const s = store.sessions.create({
+        const customer = ensureCustomer(phone, { name: name || "Cliente" });
+        s = store.sessions.create({
           role: "cliente",
           phone,
           name: customer.name,
           plan: customer.plan,
-          accountId: account?.id || null,
         });
-        store.audit.log(s, "session.login", "customer", phone, {
-          via: "celular",
-        });
-        return json(200, publicSession(s), { session: s });
       }
+      store.audit.log(s, "session.login", "customer", phone, {
+        via: "celular",
+        verified: true,
+      });
+      return json(200, publicSession(s), { session: s });
     }
     if (path === "/api/session/staff" && method === "POST") {
       staffLimit(ip);
@@ -748,18 +907,36 @@ export function createApi({
       if (!validEmail(email)) fail(400, "Ingresá un email válido.");
       if (!passwordOk(body.password))
         fail(400, "La contraseña debe tener al menos 8 caracteres.");
-      const existing = store.accounts.byEmail(email);
-      if (existing?.passwordHash)
+      if (store.accounts.byEmail(email))
         fail(
           409,
-          "Ese email ya tiene cuenta. Ingresá con tu contraseña o pedí un enlace de acceso.",
+          "Ese email ya tiene cuenta. Ingresá con tu contraseña, con Google o pedí un enlace de acceso; desde Mi cuenta podés crear una contraseña.",
         );
-      const account = existing || store.accounts.create({ email, name });
-      account.name = name;
+      const account = store.accounts.create({ email, name });
       account.passwordHash = await hashPassword(body.password);
       store.accounts.save(account);
       const s = sessionForAccount(account, session);
       return json(201, publicSession(s), { session: s });
+    }
+    // Crear o cambiar la contraseña de la cuenta con la que ya se ingresó (Google, enlace o passkey).
+    if (path === "/api/auth/password" && method === "POST") {
+      if (!session?.accountId) fail(401, "Ingresá con tu cuenta.");
+      const account = store.accounts.get(session.accountId);
+      if (!account) fail(401, "Ingresá con tu cuenta.");
+      if (!passwordOk(body.password))
+        fail(400, "La contraseña debe tener al menos 8 caracteres.");
+      if (
+        account.passwordHash &&
+        !(await verifyPassword(
+          String(body.current || ""),
+          account.passwordHash,
+        ))
+      )
+        fail(401, "La contraseña actual no coincide.");
+      account.passwordHash = await hashPassword(body.password);
+      store.accounts.save(account);
+      store.audit.log(session, "auth.password_set", "account", account.id);
+      return json(200, { ok: true });
     }
     if (path === "/api/auth/login" && method === "POST") {
       loginLimit(ip);
@@ -957,14 +1134,12 @@ export function createApi({
               email: account.email,
               google: !!account.googleSub,
               password: !!account.passwordHash,
-              passkeys: store.passkeys
-                .forAccount(account.id)
-                .map((k) => ({
-                  id: k.id,
-                  device: k.device,
-                  created: k.created,
-                  lastUsed: k.lastUsed,
-                })),
+              passkeys: store.passkeys.forAccount(account.id).map((k) => ({
+                id: k.id,
+                device: k.device,
+                created: k.created,
+                lastUsed: k.lastUsed,
+              })),
             }
           : null,
       });
@@ -972,19 +1147,23 @@ export function createApi({
     if (path === "/api/me" && method === "PATCH") {
       if (!session || session.role !== "cliente")
         fail(401, "Ingresá para editar tus datos.");
-      let current = session;
+      const current = session;
       if (!current.phone) {
-        const phone = normalizePhone(body.phone);
-        if (!phone) fail(400, "Ingresá tu WhatsApp con código de área.");
-        store.sessions.update(current.id, { phone });
-        current = { ...current, phone };
+        // Sin teléfono verificado solo se guarda el nombre en la sesión.
+        const name = str(body.name, { min: 2, max: 100, name: "el nombre" });
+        store.sessions.update(current.id, { name });
         if (current.accountId) {
           const account = store.accounts.get(current.accountId);
           if (account) {
-            account.phone = phone;
+            account.name = name;
             store.accounts.save(account);
           }
         }
+        return json(
+          200,
+          { phone: null, name },
+          { session: { ...current, name } },
+        );
       }
       const c = ensureCustomer(current.phone, {
         ...body,
@@ -1064,34 +1243,37 @@ export function createApi({
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
     if (orderMatch && method === "PATCH" && !orderMatch[2]) {
       if (!session) fail(401, "Ingresá para gestionar pedidos.");
-      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
-      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
-      const before = {
-        status: o.status,
-        paid: o.paid,
-        driver: o.driver,
-        total: o.total,
-      };
-      const after = await updateOrder(o, body, session);
-      store.transaction(() => {
-        store.orders.save(o);
-        store.audit.log(session, "order.update", "order", o.id, {
-          before,
-          after: {
-            status: o.status,
-            paid: o.paid,
-            driver: o.driver,
-            total: o.total,
-          },
-          keys: Object.keys(body),
+      const id = decodeURIComponent(orderMatch[1]);
+      return withOrderLock(id, async () => {
+        const o = store.orders.get(id);
+        if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+        const before = {
+          status: o.status,
+          paid: o.paid,
+          driver: o.driver,
+          total: o.total,
+        };
+        const after = await updateOrder(o, body, session);
+        store.transaction(() => {
+          store.orders.save(o);
+          store.audit.log(session, "order.update", "order", o.id, {
+            before,
+            after: {
+              status: o.status,
+              paid: o.paid,
+              driver: o.driver,
+              total: o.total,
+            },
+            keys: Object.keys(body),
+          });
         });
+        events.orderChanged(o);
+        for (const task of after)
+          Promise.resolve()
+            .then(task)
+            .catch(() => {});
+        return json(200, view(o, session));
       });
-      events.orderChanged(o);
-      for (const task of after)
-        Promise.resolve()
-          .then(task)
-          .catch(() => {});
-      return json(200, view(o, session));
     }
     if (orderMatch && orderMatch[2] === "mp" && method === "POST") {
       if (!session) fail(401, "Ingresá para pagar.");
@@ -1266,8 +1448,13 @@ export function createApi({
           fail(400, "La contraseña debe tener al menos 8 caracteres.");
         passwordHash = await hashPassword(body.password);
       }
+      const permissionsChanged =
+        !active ||
+        !!passwordHash ||
+        role !== user.role ||
+        (driver || null) !== (user.driver || null);
       store.staff.update(id, { name, role, driver, active, passwordHash });
-      if (!active || passwordHash) store.sessions.deleteFor({ staffId: id });
+      if (permissionsChanged) store.sessions.deleteFor({ staffId: id });
       store.audit.log(session, "staff.update", "staff", String(id), {
         role,
         driver,
@@ -1340,7 +1527,10 @@ export function createEvents() {
   const sees = (session, o) =>
     session.role === "admin" ||
     (session.role === "repartidor" && o.driver === session.driver) ||
-    (session.role === "cliente" && o.customer === session.phone);
+    (session.role === "cliente" &&
+      ((!!session.phone && o.customer === session.phone) ||
+        (!!session.accountId && o.accountId === session.accountId) ||
+        o.sessionId === session.id));
   return {
     subscribe(res, session) {
       const client = { res, session };

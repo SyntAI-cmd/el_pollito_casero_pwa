@@ -40,9 +40,13 @@ try {
       }),
     );
   }
-  // Páginas privadas: administración y reparto (PIN de demostración).
+  // Páginas privadas: administración y reparto (usuarios de demostración).
   for (const [role, path] of [
     ["Administración", "/operacion"],
+    ["Administración", "/operacion/nuevo"],
+    ["Administración", "/operacion/reparto"],
+    ["Administración", "/operacion/clientes"],
+    ["Administración", "/operacion/equipo"],
     ["Repartidor", "/reparto"],
   ]) {
     await page.goto("http://localhost:5173/acceso");
@@ -63,6 +67,8 @@ try {
       .locator(".access-form")
       .getByRole("button", { name: "Ingresar" })
       .click();
+    await page.waitForURL("**/operacion").catch(() => {});
+    await page.goto("http://localhost:5173" + path);
     await page.waitForURL("**" + path);
     await page.waitForLoadState("networkidle");
     // El aviso de ingreso se desvanece a los 5 s; se analiza sin él.

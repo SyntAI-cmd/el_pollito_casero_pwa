@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import DeliveryPoint from "./DeliveryPoint.jsx";
+import PhoneVerify from "./PhoneVerify.jsx";
 import { passkeyAvailable } from "../lib/auth.js";
 import {
   X,
@@ -177,51 +178,33 @@ function CartSheet() {
 }
 
 function Login() {
-  const { login, busy, profile, setModal } = useStore();
+  const { profile } = useStore();
+  const { navigate } = useRoute();
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        login(Object.fromEntries(new FormData(e.target)));
-      }}
-    >
+    <>
       <span className="eyebrow">TUS PEDIDOS, DONDE ESTÉS</span>
-      <h2>Ingresá con tu teléfono.</h2>
+      <h2>Ingresá con tu celular.</h2>
       <p>
-        Sin contraseñas: te identificamos por tu WhatsApp, el mismo con el que
-        hiciste tus pedidos.
+        Te mandamos un código por WhatsApp, el mismo con el que hacés tus
+        pedidos.
       </p>
-      <label>
-        Nombre y apellido
-        <input
-          name="name"
-          autoComplete="name"
-          defaultValue={profile.name || ""}
-          required
-          minLength="2"
-          maxLength="100"
-        />
-      </label>
-      <label>
-        WhatsApp
-        <input
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          defaultValue={profile.phone || ""}
-          required
-          pattern={phonePattern}
-          placeholder="263 4 55-1234"
-        />
-      </label>
-      <button className="primary full" disabled={busy}>
-        {busy ? "Ingresando…" : "Ingresar"} <ArrowRight size={16} />
-      </button>
+      <PhoneVerify
+        initialName={profile.name || ""}
+        initialPhone={profile.phone || ""}
+      />
       <p className="demo-note">
-        En producción este paso se confirma con un código enviado por WhatsApp.
+        ¿Preferís email, Google o huella?{" "}
+        <Link
+          to="/ingresar"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate("/ingresar");
+          }}
+        >
+          Ver todas las opciones
+        </Link>
       </p>
-    </form>
+    </>
   );
 }
 
@@ -238,7 +221,12 @@ function Profile() {
     setPlan,
     addPasskey,
     removePasskey,
+    setPassword,
+    setModal,
+    config,
   } = useStore();
+  const [verifying, setVerifying] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const known = {
     ...profile,
     ...me,
@@ -278,6 +266,46 @@ function Profile() {
                 .join(" · ") || "enlace por email"}
             </span>
           </div>
+          {changingPassword ? (
+            <form
+              className="inline-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const f = Object.fromEntries(new FormData(e.target));
+                if (await setPassword(f)) setChangingPassword(false);
+              }}
+            >
+              {account.password && (
+                <input
+                  name="current"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Contraseña actual"
+                  required
+                />
+              )}
+              <input
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                minLength="8"
+                placeholder="Nueva contraseña (mín. 8)"
+                required
+              />
+              <button className="primary small" disabled={busy}>
+                <Check size={14} />
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setChangingPassword(true)}
+            >
+              {account.password ? "Cambiar contraseña" : "Crear una contraseña"}
+            </button>
+          )}
           {canPasskey && (
             <button
               type="button"
@@ -311,11 +339,32 @@ function Profile() {
           )}
         </div>
       )}
-      {!session?.phone && (
-        <p className="notice">
-          Falta tu WhatsApp: lo usamos para identificar tus pedidos y avisarte
-          por el reparto.
-        </p>
+      {session && !session.phone && (
+        <div className="notice verify-box">
+          <p>
+            <strong>Verificá tu WhatsApp</strong> para ver todos tus pedidos, tu
+            cuenta corriente y recibir avisos del reparto.
+          </p>
+          {verifying ? (
+            <PhoneVerify
+              askName={false}
+              initialPhone={known.phone || ""}
+              compact
+              message="WhatsApp verificado."
+              onDone={() => setVerifying(false)}
+            />
+          ) : (
+            config?.phoneLogin !== false && (
+              <button
+                type="button"
+                className="primary small"
+                onClick={() => setVerifying(true)}
+              >
+                Verificar con un código
+              </button>
+            )
+          )}
+        </div>
       )}
       <label>
         Nombre y apellido
@@ -328,18 +377,12 @@ function Profile() {
           maxLength="100"
         />
       </label>
-      <label>
-        WhatsApp
-        <input
-          name="phone"
-          type="tel"
-          inputMode="tel"
-          autoComplete="tel"
-          defaultValue={known.phone}
-          pattern={phonePattern}
-          required
-        />
-      </label>
+      {session?.phone ? (
+        <label>
+          WhatsApp <small>(verificado)</small>
+          <input name="phone" type="tel" value={known.phone} readOnly />
+        </label>
+      ) : null}
       <label>
         Dirección
         <input
@@ -406,7 +449,7 @@ function Menu() {
             navigate("/ingresar");
           }}
         >
-          <User size={20} /> Ingresar con mi celular
+          <User size={20} /> Ingresar o crear cuenta
         </Link>
       )}
       {links.map(([to, title]) => (
@@ -429,6 +472,19 @@ function Menu() {
           <LogOut size={18} /> Cerrar sesión
         </button>
       )}
+      <Link
+        to="/admin"
+        className="notification-row staff-row"
+        rel="nofollow"
+        onClick={(e) => {
+          e.preventDefault();
+          setModal(null);
+          navigate("/admin");
+        }}
+      >
+        <ShieldCheck size={18} /> Administración / Equipo
+        <ArrowUpRight size={17} />
+      </Link>
     </>
   );
 }
@@ -875,9 +931,11 @@ export default function Modals() {
         <>
           <ShieldCheck size={32} />
           <h2>Acceso del equipo</h2>
-          <p>Administración y repartidores ingresan con el PIN del equipo.</p>
+          <p>
+            Administración y repartidores ingresan con su usuario y contraseña.
+          </p>
           <Link
-            to="/acceso"
+            to="/admin"
             className="primary full"
             onClick={() => setModal(null)}
           >

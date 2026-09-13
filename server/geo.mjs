@@ -4,7 +4,10 @@
  * Desactivable con GEOCODING=off. Política de uso: 1 consulta por segundo e identificación.
  */
 export const enabled = process.env.GEOCODING !== "off";
-const endpoint = "https://nominatim.openstreetmap.org";
+// Geocodificador configurable (Nominatim propio, Photon, LocationIQ compatible con la API de Nominatim).
+const endpoint = (
+  process.env.GEOCODER_URL || "https://nominatim.openstreetmap.org"
+).replace(/\/$/, "");
 const userAgent =
   "PollitoCasero/0.3 (pedidos de pollo en San Martín, Mendoza; contacto por WhatsApp del negocio)";
 // Este de Mendoza y Gran Mendoza: acota búsquedas y descarta homónimos de otras provincias.

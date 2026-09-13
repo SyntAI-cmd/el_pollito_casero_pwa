@@ -16,6 +16,7 @@ import {
   stored,
   persist,
   serverDownMessage,
+  onAuthError,
 } from "./api.js";
 import {
   labels,
@@ -147,6 +148,34 @@ export function StoreProvider({ children }) {
     };
   }, [loadOrders, loadMe, loadCustomers]);
 
+  // Si el servidor rechaza la sesión (usuario desactivado, rol cambiado, vencida), se vuelve al ingreso.
+  useEffect(() => {
+    let checking = false;
+    onAuthError(async () => {
+      const current = sessionRef.current;
+      if (!current || checking) return;
+      checking = true;
+      try {
+        const s = await api("/session");
+        if (s) return;
+        const wasStaff = current.role !== "cliente";
+        setSession(null);
+        sessionRef.current = null;
+        setOrders([]);
+        setMe(null);
+        setCustomers([]);
+        setModal(null);
+        navigate(wasStaff ? "/admin" : "/ingresar", { replace: true });
+        notify("Tu sesión ya no es válida. Volvé a ingresar.");
+      } catch {
+      } finally {
+        checking = false;
+      }
+    });
+    return () => onAuthError(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Novedades en tiempo real mientras haya sesión; respaldo por sondeo cada 30 s.
   useEffect(() => {
     if (!session) return;
@@ -228,9 +257,12 @@ export function StoreProvider({ children }) {
     return { kg, subtotal, shipping, total: subtotal + shipping };
   }, [items, cart, price, plan, config]);
 
+  // Con un id explícito que no existe se devuelve null (no otro pedido).
   const activeOrder = useCallback(
     (id) =>
-      orders.find((o) => o.id === id) || orders.find(isActive) || orders[0],
+      id
+        ? orders.find((o) => o.id === id) || null
+        : orders.find(isActive) || orders[0],
     [orders],
   );
 
@@ -328,26 +360,38 @@ export function StoreProvider({ children }) {
       return order;
     });
 
-  const login = (fields, { message, redirect } = {}) =>
+  /** Ingreso por celular en dos pasos: pedir el código por WhatsApp y confirmarlo. */
+  const requestPhoneCode = (fields) =>
     run(async () => {
-      const s = await post("/session", fields);
+      const r = await post("/auth/phone", fields);
+      notify(
+        r.sent
+          ? "Te enviamos el código por WhatsApp."
+          : "Código generado (modo demostración).",
+      );
+      return r;
+    });
+  const verifyPhone = (fields, { message, redirect } = {}) =>
+    run(async () => {
+      const s = await post("/auth/phone/verify", fields);
       setSession(s);
       sessionRef.current = s;
-      setProfile((p) => ({
-        ...p,
-        name: fields.name,
-        phone: fields.phone,
-        ...(fields.address
-          ? { address: fields.address, localityId: fields.localityId }
-          : {}),
-      }));
+      setProfile((p) => ({ ...p, name: s.name, phone: fields.phone }));
       if (s.plan) setPlanState(s.plan);
       lastStatuses.current = {};
       await Promise.all([loadOrders(), loadMe()]);
       syncPush().catch(() => {});
       setModal(null);
       if (redirect) navigate(redirect);
-      notify(message || `Hola, ${s.name.split(" ")[0]}.`);
+      notify(message || `Hola, ${(s.name || "").split(" ")[0] || "de nuevo"}.`);
+      return s;
+    });
+  const setPassword = (fields) =>
+    run(async () => {
+      await post("/auth/password", fields);
+      await loadMe();
+      notify("Contraseña guardada.");
+      return true;
     });
 
   /** Ingreso con cuenta (email, Google, passkey): aplica la sesión devuelta por el servidor. */
@@ -446,6 +490,9 @@ export function StoreProvider({ children }) {
       setSession(s);
       sessionRef.current = s;
       lastStatuses.current = {};
+      // El equipo no hereda carrito ni datos del cliente anterior en este dispositivo.
+      setCart({});
+      setProfile({});
       await Promise.all([loadOrders(), loadCustomers()]);
       loadChat().catch(() => {});
       syncPush().catch(() => {});
@@ -467,11 +514,27 @@ export function StoreProvider({ children }) {
     setOrders([]);
     setMe(null);
     setCustomers([]);
+    // Nada personal queda para la próxima persona que use este dispositivo.
+    setCart({});
+    setProfile({});
+    orderKey.current = crypto.randomUUID();
     lastStatuses.current = {};
     setModal(null);
     navigate("/");
     notify("Sesión cerrada en este dispositivo.");
   };
+
+  /** Pedido cargado por administración desde la pantalla rápida. */
+  const createStaffOrder = (payload) =>
+    run(async () => {
+      const order = await post("/orders", {
+        ...payload,
+        key: crypto.randomUUID(),
+      });
+      await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+      notify(`Pedido ${order.id} cargado para ${order.name}.`);
+      return order;
+    });
 
   const update = (o, data) =>
     run(
@@ -681,7 +744,10 @@ export function StoreProvider({ children }) {
     clearCart,
     repeat,
     checkout,
-    login,
+    requestPhoneCode,
+    verifyPhone,
+    setPassword,
+    createStaffOrder,
     saveProfile,
     emailLogin,
     emailRegister,

@@ -15,15 +15,23 @@ export function RouterProvider({ children }) {
   }, []);
   const navigate = (to, { replace = false } = {}) => {
     const url = new URL(to, location.origin);
-    if (url.pathname + url.search === location.pathname + location.search)
+    if (
+      url.pathname + url.search === location.pathname + location.search &&
+      !url.hash
+    )
       return;
     history[replace ? "replaceState" : "pushState"](
       {},
       "",
-      url.pathname + url.search,
+      url.pathname + url.search + url.hash,
     );
     setRoute(read());
-    window.scrollTo({ top: 0, behavior: "instant" });
+    if (url.hash) {
+      // El destino puede renderizarse recién en el próximo cuadro.
+      requestAnimationFrame(() =>
+        document.getElementById(url.hash.slice(1))?.scrollIntoView(),
+      );
+    } else window.scrollTo({ top: 0, behavior: "instant" });
   };
   return (
     <RouteContext.Provider value={{ ...route, navigate }}>

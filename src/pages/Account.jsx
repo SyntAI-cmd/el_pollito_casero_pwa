@@ -9,6 +9,7 @@ import {
   User,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { Link } from "../lib/router.jsx";
 import { money, dateText, kgText, totalKg, planNames } from "../lib/format.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 
@@ -28,12 +29,9 @@ export default function Account() {
           text="Saldo, movimientos y envases pendientes de devolución."
         />
         <div className="actions-row">
-          <button
-            className="primary"
-            onClick={() => setModal({ type: "login" })}
-          >
-            Ingresar con mi teléfono
-          </button>
+          <Link to="/ingresar?volver=/cuenta" className="primary">
+            Ingresar a mi cuenta
+          </Link>
         </div>
       </>
     );

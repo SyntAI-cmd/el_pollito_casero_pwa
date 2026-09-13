@@ -1152,3 +1152,235 @@
   font-size: 12px;
   margin-left: auto;
 }
+
+/* ---- Acceso visible al equipo desde la app del cliente ---- */
+.top-staff {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  color: #4a4842;
+  font-size: 13px;
+  font-weight: 600;
+  background: #fff;
+}
+.top-staff:hover {
+  border-color: #c9c5bb;
+  color: var(--black);
+}
+.staff-row {
+  margin-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: #4a4842;
+}
+@media (max-width: 720px) {
+  .top-staff span {
+    display: none;
+  }
+}
+
+/* ---- Búsqueda de dirección a pedido ---- */
+.search-field .search-button {
+  position: absolute;
+  right: 6px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--black);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+.search-field .search-button:disabled {
+  background: transparent;
+}
+.search-field .search-button .search-spin {
+  position: static;
+  display: block;
+}
+.search-field input {
+  padding-right: 84px !important;
+}
+
+/* ---- Verificación de celular ---- */
+.demo-code code {
+  font-size: 16px;
+  letter-spacing: 2px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.verify-box {
+  display: grid;
+  gap: 10px;
+}
+.verify-box p {
+  margin: 0;
+}
+.verify-box .login-form {
+  display: grid;
+  gap: 10px;
+}
+.notice.success {
+  background: #e7f5ea;
+  color: #1c6b34;
+}
+
+/* ---- Cargar pedido (pantalla rápida) ---- */
+.quick-order {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 1.4fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+.quick-order .panel {
+  padding: 18px 20px;
+}
+.quick-order h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.quick-order label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4842;
+}
+.quick-order input,
+.quick-order select {
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+.qo-search {
+  position: relative;
+  margin-bottom: 10px;
+}
+.qo-search .suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 5;
+}
+.qo-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #e7f5ea;
+  color: #1c6b34;
+  font-size: 13px;
+}
+.qo-picked .link-button {
+  margin-left: auto;
+  font-size: 12px;
+}
+.qo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.qo-grid .wide {
+  grid-column: 1 / -1;
+}
+.qo-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.qo-table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 4px 8px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.qo-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #f0eee8;
+}
+.qo-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.qo-table tr.on td {
+  background: #fff7f7;
+  font-weight: 600;
+}
+.qo-table .qo-kg {
+  width: 104px;
+}
+.qo-table .qo-kg input {
+  width: 92px;
+  text-align: right;
+  min-height: 34px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+.qo-summary {
+  position: sticky;
+  top: 76px;
+  display: grid;
+  gap: 12px;
+}
+.qo-summary dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.qo-summary dl div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.qo-summary dl .total {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.qo-summary dd,
+.qo-summary dt {
+  margin: 0;
+}
+.qo-summary .muted {
+  font-size: 11px;
+  text-align: center;
+}
+.qo-created {
+  flex-wrap: wrap;
+}
+.qo-created span {
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .quick-order {
+    grid-template-columns: 1fr 1fr;
+  }
+  .qo-summary {
+    grid-column: 1 / -1;
+    position: static;
+  }
+}
+@media (max-width: 720px) {
+  .quick-order {
+    grid-template-columns: 1fr;
+  }
+  .qo-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -15,7 +15,7 @@ import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
 import { money, planNames, dateText, waLink } from "../lib/format.js";
-import { routeSheet, today } from "../lib/report.js";
+import { routeSheet, receivables, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
@@ -58,7 +58,7 @@ export default function Operations() {
         />
         <EmptyState
           icon={ShieldCheck}
-          title="Ingresá con el PIN del equipo"
+          title="Ingresá con tu usuario y contraseña del equipo"
           to="/admin"
           action="Ir al acceso de administración"
         />
@@ -67,8 +67,9 @@ export default function Operations() {
   const drivers = config?.drivers || [];
   const selectedDriver = driver || drivers[0] || "";
   const cancelled = orders.filter((o) => o.status === "cancelado");
-  const recent = (list) =>
-    showAll
+  // Los pedidos abiertos se ven siempre; el filtro de antigüedad solo recorta los entregados.
+  const recent = (list, status) =>
+    showAll || status !== "entregado"
       ? list
       : list.filter(
           (o) =>
@@ -80,10 +81,23 @@ export default function Operations() {
     open: orders.filter((o) =>
       ["recibido", "preparando", "en_camino"].includes(o.status),
     ).length,
-    unpaid: orders
-      .filter((o) => !o.paid && o.status !== "cancelado")
-      .reduce((s, o) => s + o.total, 0),
+    unpaid: receivables(orders, customers).total,
     boxes: orders.reduce((s, o) => s + (o.boxes || 0) - (o.returned || 0), 0),
+  };
+  const heads = {
+    pedidos: [
+      "Pedidos por preparar.",
+      "Recibidos, en preparación, en camino y entregados.",
+    ],
+    reparto: [
+      "Reparto y rendición.",
+      "Hoja de ruta por repartidor y efectivo a rendir.",
+    ],
+    clientes: [
+      "Clientes.",
+      "Modalidad, cuenta corriente y repartidor habitual.",
+    ],
+    equipo: ["Equipo.", "Quién entra, con qué rol y con qué contraseña."],
   };
   const sheet = routeSheet(orders, customers, { driver: selectedDriver, date });
   const printUrl = (params) =>
@@ -92,43 +106,52 @@ export default function Operations() {
     <>
       <PageHead
         eyebrow="OPERACIÓN · POLLITO CASERO"
-        title="Todo listo para salir."
-        description="Pedidos, repartos, cobros y clientes en un solo lugar."
+        title={heads[tab][0]}
+        description={heads[tab][1]}
       >
         <div className="head-actions">
           <span className={"live-indicator " + (live ? "on" : "")}>
             <i /> {live ? "En vivo" : "Reconectando…"}
           </span>
-          <Link
-            to={printUrl({ tipo: "pedidos", fecha: today() })}
-            className="secondary"
-          >
-            <Printer size={15} /> Hoja de pedidos
-          </Link>
+          {tab === "pedidos" && (
+            <>
+              <Link to="/operacion/nuevo" className="primary">
+                <Plus size={15} /> Cargar pedido
+              </Link>
+              <Link
+                to={printUrl({ tipo: "pedidos", fecha: today() })}
+                className="secondary"
+              >
+                <Printer size={15} /> Hoja de pedidos
+              </Link>
+            </>
+          )}
         </div>
       </PageHead>
-      <div className="stats">
-        <div>
-          <ClipboardList size={18} />
-          <strong>{totals.open}</strong>
-          <span>pedidos abiertos</span>
+      {tab === "pedidos" && (
+        <div className="stats">
+          <div>
+            <ClipboardList size={18} />
+            <strong>{totals.open}</strong>
+            <span>pedidos abiertos</span>
+          </div>
+          <div>
+            <Wallet size={18} />
+            <strong>{money(totals.unpaid)}</strong>
+            <span>por cobrar</span>
+          </div>
+          <div>
+            <Package size={18} />
+            <strong>{totals.boxes}</strong>
+            <span>envases en la calle</span>
+          </div>
+          <div>
+            <Users size={18} />
+            <strong>{customers.length}</strong>
+            <span>clientes</span>
+          </div>
         </div>
-        <div>
-          <Wallet size={18} />
-          <strong>{money(totals.unpaid)}</strong>
-          <span>por cobrar</span>
-        </div>
-        <div>
-          <Package size={18} />
-          <strong>{totals.boxes}</strong>
-          <span>envases en la calle</span>
-        </div>
-        <div>
-          <Users size={18} />
-          <strong>{customers.length}</strong>
-          <span>clientes</span>
-        </div>
-      </div>
+      )}
       {tab === "pedidos" && (
         <div className="board-toolbar">
           <p className="board-hint">
@@ -150,7 +173,10 @@ export default function Operations() {
       {tab === "pedidos" && (
         <div className="board">
           {columns.map(([status, title, hint]) => {
-            const list = recent(orders.filter((o) => o.status === status));
+            const list = recent(
+              orders.filter((o) => o.status === status),
+              status,
+            );
             return (
               <section
                 className={"board-column status-" + status}

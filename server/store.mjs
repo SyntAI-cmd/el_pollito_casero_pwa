@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 const SESSION_DAYS = 90;
 const now = () => new Date().toISOString();
 const j = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
@@ -132,6 +132,18 @@ export async function openStore(path, { log = console } = {}) {
     db.exec("ALTER TABLE sessions ADD COLUMN account_id TEXT");
   if (!sessionCols.includes("staff_id"))
     db.exec("ALTER TABLE sessions ADD COLUMN staff_id INTEGER");
+  // v4: un pedido pertenece a un teléfono verificado, o a la cuenta / sesión que lo creó.
+  const orderCols = db
+    .prepare("PRAGMA table_info(orders)")
+    .all()
+    .map((c) => c.name);
+  if (!orderCols.includes("account_id"))
+    db.exec("ALTER TABLE orders ADD COLUMN account_id TEXT");
+  if (!orderCols.includes("session_id"))
+    db.exec("ALTER TABLE orders ADD COLUMN session_id TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS orders_account ON orders(account_id); CREATE INDEX IF NOT EXISTS orders_session ON orders(session_id)",
+  );
   const applied = new Set(
     db
       .prepare("SELECT version FROM schema_migrations")
@@ -155,7 +167,16 @@ export async function openStore(path, { log = console } = {}) {
     ordersDriver: db.prepare(
       "SELECT * FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
     ),
+    ordersAccount: db.prepare(
+      "SELECT * FROM orders WHERE account_id = ? ORDER BY created DESC, rowid DESC",
+    ),
+    ordersSession: db.prepare(
+      "SELECT * FROM orders WHERE session_id = ? ORDER BY created DESC, rowid DESC",
+    ),
     ordersCount: db.prepare("SELECT COUNT(*) AS n FROM orders"),
+    ordersCustomerCount: db.prepare(
+      "SELECT COUNT(*) AS n FROM orders WHERE customer = ?",
+    ),
     items: db.prepare(
       "SELECT * FROM order_items WHERE order_id = ? ORDER BY position",
     ),
@@ -163,7 +184,7 @@ export async function openStore(path, { log = console } = {}) {
       "SELECT status, at FROM order_events WHERE order_id = ? ORDER BY id",
     ),
     track: db.prepare(
-      "SELECT lat, lng FROM order_track WHERE order_id = ? ORDER BY id",
+      "SELECT lat, lng FROM (SELECT id, lat, lng FROM order_track WHERE order_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id",
     ),
     returns: db.prepare(
       "SELECT boxes, at, by_actor AS by FROM box_movements WHERE order_id = ? AND kind = 'returned' ORDER BY id",
@@ -171,10 +192,10 @@ export async function openStore(path, { log = console } = {}) {
     upsertOrder:
       db.prepare(`INSERT INTO orders(id, idem_key, customer, name, phone, address, locality, notes, plan, payment, paid, paid_at, paid_by, payment_id,
         status, driver, subtotal, shipping, total, boxes, returned, created, updated, created_by, departed_at, delivered_at, delivered_by,
-        weighed, weighed_at, weighed_by, cancelled, demo, destination, location, eta, transfer, data)
+        weighed, weighed_at, weighed_by, cancelled, demo, destination, location, eta, transfer, data, account_id, session_id)
       VALUES(@id, @idem_key, @customer, @name, @phone, @address, @locality, @notes, @plan, @payment, @paid, @paid_at, @paid_by, @payment_id,
         @status, @driver, @subtotal, @shipping, @total, @boxes, @returned, @created, @updated, @created_by, @departed_at, @delivered_at, @delivered_by,
-        @weighed, @weighed_at, @weighed_by, @cancelled, @demo, @destination, @location, @eta, @transfer, @data)
+        @weighed, @weighed_at, @weighed_by, @cancelled, @demo, @destination, @location, @eta, @transfer, @data, @account_id, @session_id)
       ON CONFLICT(id) DO UPDATE SET idem_key=excluded.idem_key, customer=excluded.customer, name=excluded.name, phone=excluded.phone,
         address=excluded.address, locality=excluded.locality, notes=excluded.notes, plan=excluded.plan, payment=excluded.payment,
         paid=excluded.paid, paid_at=excluded.paid_at, paid_by=excluded.paid_by, payment_id=excluded.payment_id, status=excluded.status,
@@ -182,7 +203,7 @@ export async function openStore(path, { log = console } = {}) {
         returned=excluded.returned, updated=excluded.updated, departed_at=excluded.departed_at, delivered_at=excluded.delivered_at,
         delivered_by=excluded.delivered_by, weighed=excluded.weighed, weighed_at=excluded.weighed_at, weighed_by=excluded.weighed_by,
         cancelled=excluded.cancelled, demo=excluded.demo, destination=excluded.destination, location=excluded.location, eta=excluded.eta,
-        transfer=excluded.transfer, data=excluded.data`),
+        transfer=excluded.transfer, data=excluded.data, account_id=excluded.account_id, session_id=excluded.session_id`),
     deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
     insertItem: db.prepare(
       "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed) VALUES(?,?,?,?,?,?,?,?,?)",
@@ -229,7 +250,10 @@ export async function openStore(path, { log = console } = {}) {
     boxMovements: db.prepare(
       "SELECT * FROM box_movements WHERE customer = ? ORDER BY id",
     ),
-    session: db.prepare("SELECT * FROM sessions WHERE id = ? AND expires > ?"),
+    session: db.prepare(
+      `SELECT s.*, u.active AS staff_active, u.role AS staff_role, u.driver AS staff_driver
+       FROM sessions s LEFT JOIN staff_users u ON u.id = s.staff_id WHERE s.id = ? AND s.expires > ?`,
+    ),
     insertSession: db.prepare(
       "INSERT INTO sessions(id, role, phone, name, driver, plan, created, expires, last_seen, account_id, staff_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
     ),
@@ -259,6 +283,13 @@ export async function openStore(path, { log = console } = {}) {
       "SELECT * FROM auth_tokens WHERE token = ? AND purpose = ? AND used_at IS NULL AND expires > ?",
     ),
     useToken: db.prepare("UPDATE auth_tokens SET used_at = ? WHERE token = ?"),
+    putToken: db.prepare(
+      "INSERT OR REPLACE INTO auth_tokens(token, purpose, subject, payload, expires) VALUES(?,?,?,?,?)",
+    ),
+    tokenPayload: db.prepare(
+      "UPDATE auth_tokens SET payload = ? WHERE token = ?",
+    ),
+    deleteToken: db.prepare("DELETE FROM auth_tokens WHERE token = ?"),
     purgeTokens: db.prepare("DELETE FROM auth_tokens WHERE expires < ?"),
     passkeysFor: db.prepare("SELECT * FROM passkeys WHERE account_id = ?"),
     passkey: db.prepare("SELECT * FROM passkeys WHERE id = ?"),
@@ -379,6 +410,8 @@ export async function openStore(path, { log = console } = {}) {
       });
     if (r.cancelled) o.cancelled = true;
     if (r.demo) o.demo = true;
+    if (r.account_id) o.accountId = r.account_id;
+    if (r.session_id) o.sessionId = r.session_id;
     if (r.destination !== null) o.destination = p(r.destination);
     if (r.location) o.location = p(r.location);
     if (r.eta) o.eta = p(r.eta);
@@ -431,6 +464,8 @@ export async function openStore(path, { log = console } = {}) {
     "track",
     "returns",
     "driverContact",
+    "accountId",
+    "sessionId",
   ]);
 
   function saveOrder(o) {
@@ -477,6 +512,8 @@ export async function openStore(path, { log = console } = {}) {
         eta: j(o.eta),
         transfer: j(o.transfer),
         data: Object.keys(extra).length ? JSON.stringify(extra) : null,
+        account_id: o.accountId || null,
+        session_id: o.sessionId || null,
       });
       // `destination: null` (no ubicable) se distingue de "sin geocodificar" (undefined) guardando la cadena "null".
       q.deleteItems.run(o.id);
@@ -497,13 +534,10 @@ export async function openStore(path, { log = console } = {}) {
       const have = q.countEvents.get(o.id).n;
       for (const e of (o.history || []).slice(have))
         q.insertEvent.run(o.id, e.status, e.at);
-      const haveTrack = q.countTrack.get(o.id).n;
-      const track = o.track || [];
-      if (track.length >= haveTrack) {
-        for (const [lat, lng] of track.slice(haveTrack))
+      // Recorrido GPS: los puntos nuevos entran por orders.addTrack; acá solo se importa uno inicial.
+      if (o.track?.length && q.countTrack.get(o.id).n === 0)
+        for (const [lat, lng] of o.track)
           q.insertTrack.run(o.id, lat, lng, o.location?.at || now());
-        q.trimTrack.run(o.id, o.id);
-      }
       const haveReturns = q.countReturns.get(o.id).n;
       for (const r of (o.returns || []).slice(haveReturns))
         q.insertBox.run(
@@ -646,8 +680,17 @@ export async function openStore(path, { log = console } = {}) {
       forDriver: (name) => q.ordersDriver.all(name).map(rowToOrder),
       get: (id) => rowToOrder(q.order.get(id)),
       byKey: (key) => rowToOrder(q.orderByKey.get(key)),
+      forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),
+      forSession: (id) => q.ordersSession.all(id).map(rowToOrder),
       save: saveOrder,
       count: () => q.ordersCount.get().n,
+      countFor: (phone) => q.ordersCustomerCount.get(phone).n,
+      /** Agrega un punto al recorrido y conserva los últimos 200 (secuencia propia, no depende del array en memoria). */
+      addTrack: (id, lat, lng, at = now()) =>
+        transaction(() => {
+          q.insertTrack.run(id, lat, lng, at);
+          q.trimTrack.run(id, id);
+        }),
     },
     customers: {
       get: (phone) => rowToCustomer(q.customer.get(phone)),
@@ -681,6 +724,16 @@ export async function openStore(path, { log = console } = {}) {
         if (!id) return null;
         const r = q.session.get(id, now());
         if (!r) return null;
+        // Un usuario del equipo desactivado, degradado o reasignado pierde la sesión al instante.
+        if (
+          r.staff_id &&
+          (!r.staff_active ||
+            r.staff_role !== r.role ||
+            (r.role === "repartidor" && r.staff_driver !== r.driver))
+        ) {
+          q.deleteSession.run(id);
+          return null;
+        }
         if (Date.now() - new Date(r.last_seen) > 3600000)
           q.touchSession.run(now(), id);
         return {
@@ -775,6 +828,22 @@ export async function openStore(path, { log = console } = {}) {
         q.useToken.run(now(), token);
         return { subject: r.subject, payload: p(r.payload, null) };
       },
+      /** Token con clave conocida (p. ej. un código por teléfono): reemplaza al anterior. */
+      put: (token, purpose, subject, payload, ttlMs) =>
+        q.putToken.run(
+          token,
+          purpose,
+          subject || null,
+          payload ? JSON.stringify(payload) : null,
+          new Date(Date.now() + ttlMs).toISOString(),
+        ),
+      peek: (token, purpose) => {
+        const r = q.token.get(token, purpose, now());
+        return r ? { subject: r.subject, payload: p(r.payload, null) } : null;
+      },
+      setPayload: (token, payload) =>
+        q.tokenPayload.run(JSON.stringify(payload), token),
+      remove: (token) => q.deleteToken.run(token),
     },
     passkeys: {
       forAccount: (accountId) => q.passkeysFor.all(accountId).map(rowToPasskey),

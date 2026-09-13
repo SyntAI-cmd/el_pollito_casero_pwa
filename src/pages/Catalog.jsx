@@ -35,76 +35,64 @@ export default function Catalog() {
       (filter === "todos" || p.category === filter) &&
       normalize(p.name).includes(normalize(search)),
   );
-  const adminMode = session?.role === "admin";
-  const greeting = adminMode
-    ? "Cargar un pedido telefónico"
-    : session?.role === "cliente"
+  const greeting =
+    session?.role === "cliente"
       ? `Hola, ${session.name.split(" ")[0]}.`
       : "¿Qué llevamos hoy?";
   return (
     <>
       <div className="welcome">
         <div>
-          <span className="eyebrow">
-            {adminMode ? "OPERACIÓN" : "BUEN POLLO. BUENA COMPAÑÍA."}
-          </span>
+          <span className="eyebrow">BUEN POLLO. BUENA COMPAÑÍA.</span>
           <h1>{greeting}</h1>
-          <p>
-            {adminMode
-              ? "Elegí la modalidad del cliente, cargá los kilos y completá sus datos al confirmar."
-              : "Para tu negocio o para tu mesa. Siempre casero."}
-          </p>
+          <p>Para tu negocio o para tu mesa. Siempre casero.</p>
         </div>
         <span className="fresh-label">
           <MapPin size={13} />{" "}
           {config?.origin?.address || "San Martín, Mendoza"}
         </span>
       </div>
-      {!adminMode && (
-        <>
-          <section className="hero">
-            <div className="hero-copy">
-              <span className="eyebrow">EL SABOR DE ELEGIR BIEN</span>
-              <h2>
-                Fresco de origen.
-                <br />
-                <em>Casero de corazón.</em>
-              </h2>
-              <p>
-                Pollo entero y por corte, por kilo,
-                <br />
-                con entrega en San Martín y alrededores.
-              </p>
-              <a className="hero-button" href="#productos">
-                Armá tu pedido <ArrowUpRight size={17} />
-              </a>
-            </div>
-            <img
-              src="/images/pollo.webp"
-              width="1440"
-              height="960"
-              fetchPriority="high"
-              alt="Pollo entero fresco sobre papel de carnicería, con limón y romero. Imagen ilustrativa."
-            />
-            <div className="hero-stamp" aria-hidden="true">
-              <i>DE ACÁ.</i>
-              <b>BIEN CASERO.</b>
-              <span>PARA VOS.</span>
-            </div>
-          </section>
-          <div className="benefits">
-            <span>
-              <Leaf /> Fresco, como tiene que ser
-            </span>
-            <span>
-              <Truck /> Reparto a tu puerta
-            </span>
-            <span>
-              <ShieldCheck /> Compra simple y directa
-            </span>
-          </div>
-        </>
-      )}
+      <section className="hero">
+        <div className="hero-copy">
+          <span className="eyebrow">EL SABOR DE ELEGIR BIEN</span>
+          <h2>
+            Fresco de origen.
+            <br />
+            <em>Casero de corazón.</em>
+          </h2>
+          <p>
+            Pollo entero y por corte, por kilo,
+            <br />
+            con entrega en San Martín y alrededores.
+          </p>
+          <a className="hero-button" href="#productos">
+            Armá tu pedido <ArrowUpRight size={17} />
+          </a>
+        </div>
+        <img
+          src="/images/pollo.webp"
+          width="1440"
+          height="960"
+          fetchPriority="high"
+          alt="Pollo entero fresco sobre papel de carnicería, con limón y romero. Imagen ilustrativa."
+        />
+        <div className="hero-stamp" aria-hidden="true">
+          <i>DE ACÁ.</i>
+          <b>BIEN CASERO.</b>
+          <span>PARA VOS.</span>
+        </div>
+      </section>
+      <div className="benefits">
+        <span>
+          <Leaf /> Fresco, como tiene que ser
+        </span>
+        <span>
+          <Truck /> Reparto a tu puerta
+        </span>
+        <span>
+          <ShieldCheck /> Compra simple y directa
+        </span>
+      </div>
       <div className="shop-grid">
         <section
           id="productos"

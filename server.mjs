@@ -7,6 +7,7 @@ import { createPush } from "./server/push.mjs";
 import { seedStaff } from "./server/auth.mjs";
 import { statuses, origin, drivers } from "./domain.mjs";
 import pkg from "./package.json" with { type: "json" };
+import business from "./business.json" with { type: "json" };
 
 const dev = process.argv.includes("--dev");
 const port = Number(process.env.PORT || 5173);
@@ -45,7 +46,7 @@ if (dbPath !== ":memory:") {
 }
 
 // Pedido de ejemplo para la demostración: visible en Operación y para el repartidor Franco.
-if (!store.orders.count() && !process.env.DB_PATH) {
+if (business.demo && !store.orders.count() && !process.env.DB_PATH) {
   const at = new Date().toISOString();
   const track = [
     [-33.0725, -68.4905],

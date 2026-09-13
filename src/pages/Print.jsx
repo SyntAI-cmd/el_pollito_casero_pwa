@@ -34,7 +34,7 @@ export default function Print() {
         />
         <EmptyState
           icon={ShieldCheck}
-          title="Ingresá con el PIN del equipo"
+          title="Ingresá con tu usuario del equipo"
           to="/admin"
           action="Ir al acceso"
         />

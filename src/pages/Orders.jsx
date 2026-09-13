@@ -20,12 +20,9 @@ export default function Orders() {
           text="Identificate con tu nombre y tu WhatsApp para recuperar tus pedidos."
         />
         <div className="actions-row">
-          <button
-            className="primary"
-            onClick={() => setModal({ type: "login" })}
-          >
-            Ingresar con mi teléfono
-          </button>
+          <Link to="/ingresar?volver=/pedidos" className="primary">
+            Ingresar a mi cuenta
+          </Link>
         </div>
       </>
     );

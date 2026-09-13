@@ -239,7 +239,7 @@ export default function Team() {
         </form>
         <p className="demo-note">
           Los repartidores disponibles se definen en la configuración del
-          negocio (business.json → drivers). Un usuario desactivado pierde el
+          negocio (lista de repartidores). Un usuario desactivado pierde el
           acceso al instante.
         </p>
       </section>

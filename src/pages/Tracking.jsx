@@ -66,12 +66,9 @@ export default function Tracking() {
           text="Con tu nombre y tu WhatsApp recuperás tus pedidos en cualquier dispositivo."
         />
         <div className="actions-row">
-          <button
-            className="primary"
-            onClick={() => setModal({ type: "login" })}
-          >
-            Ingresar con mi teléfono
-          </button>
+          <Link to="/ingresar?volver=/seguimiento" className="primary">
+            Ingresar a mi cuenta
+          </Link>
           <Link to="/" className="secondary">
             Ver el catálogo
           </Link>
@@ -86,11 +83,25 @@ export default function Tracking() {
           title="Tu pedido, paso a paso."
           description="Acá vas a ver cómo viene tu entrega."
         />
-        <EmptyState
-          title="Todavía no tenés pedidos"
-          to="/"
-          action="Armar mi primer pedido"
-        />
+        {query.get("pedido") ? (
+          <EmptyState
+            icon={Package}
+            title={`No encontramos el pedido ${query.get("pedido")}`}
+            text={
+              session.verified === false
+                ? "Si lo hiciste con este WhatsApp, verificalo desde Mi cuenta para ver todo tu historial."
+                : "Puede ser de otra cuenta o el enlace estar vencido."
+            }
+            to="/pedidos"
+            action="Ver mis pedidos"
+          />
+        ) : (
+          <EmptyState
+            title="Todavía no tenés pedidos"
+            to="/"
+            action="Armar mi primer pedido"
+          />
+        )}
       </>
     );
 

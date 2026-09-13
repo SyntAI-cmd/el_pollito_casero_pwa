@@ -45,3 +45,42 @@ No se enviaron mensajes de WhatsApp ni se realizaron pagos. No se verificó GPS 
 - Ubicación: `matchLocality` prioriza nombre de distrito sobre código postal (Los Barriales ya no cae en Palmira); en PC sin GPS se avisa el margen de error y se ofrece la búsqueda de dirección con sugerencias.
 - Pantalla en blanco al actualizar: ErrorBoundary con recarga automática ante chunks viejos y recarga al cambiar el service worker.
 - Inspección visual: sello del hero centrado, pantalla de ingreso con las cuatro opciones, pestaña Equipo, sugerencias de dirección en el checkout.
+
+## Etapa 7 · 12 de septiembre de 2026 · respuesta a la auditoría (commit `ab2e4c9`)
+
+Estado de cada hallazgo. "Prueba" indica qué lo cubre en `scripts/verify.mjs` (E2E) o `tests/` (unit).
+
+| # | Hallazgo | Estado | Cómo quedó / prueba |
+|---|---|---|---|
+| 1 | Registro sobre cuenta sin contraseña toma la cuenta | **Corregido** | `/api/auth/register` rechaza (409) cualquier email existente; la contraseña se crea con sesión en `POST /api/auth/password`. E2E: "registrarse con el email de una cuenta sin contraseña no la toma". |
+| 2 | Celular sin verificación entra en una cuenta existente | **Corregido** | `POST /api/session` retirado (410). Ingreso por celular = código de un solo uso por WhatsApp (`/api/auth/phone` + `/verify`, 10 min, 5 intentos, hash scrypt, límite por IP). La sesión por teléfono ya no recibe `accountId`. E2E: "ya no se entra solo con el número", "un teléfono conocido no da acceso al historial ajeno". |
+| 3 | Vincular un teléfono ajeno trae su historial | **Corregido** | `session.phone` solo se fija verificado; el pedido guarda `account_id`/`session_id` (esquema v4) y una sesión sin verificar ve únicamente lo que creó. `PATCH /me` ya no acepta teléfono; `ensureCustomer` no pisa una ficha existente desde un teléfono sin verificar. E2E: Mallory declara el teléfono de Eva → sin historial ni vínculo; el pedido del impostor no cambia la dirección del almacén. |
+| 4 | Cambiar rol/repartidor no revoca sesiones | **Corregido** | Cualquier cambio de rol, repartidor, contraseña o baja borra las sesiones del usuario; además `sessions.get` compara la sesión con `staff_users` en cada solicitud. E2E: "degradar a repartidor cierra la sesión de administrador" (`/staff` → 403). |
+| 5 | Clave de idempotencia revela un pedido ajeno | **Corregido** | La clave se guarda como `teléfono:clave`; si la sesión no es dueña del pedido previo → 409. E2E: "otra sesión con la misma clave de idempotencia no recibe el pedido". |
+| 6 | Dos cambios simultáneos se sobrescriben | **Corregido** | `PATCH /orders/:id` se serializa por pedido (cola por id) y relee el pedido dentro de la cola. E2E: preparar + cobrar en paralelo conserva ambos y no duplica historial. |
+| 7 | Pesar un pedido a cuenta pagado borra la diferencia | **Corregido** | La diferencia de peso de un pedido pagado ajusta `creditBalance` (puede quedar deudor) y se registra en `order.adjustments`. E2E: saldo a favor 2600 → 2120 tras pesar 5→6 kg. |
+| 8 | Cancelar un pedido pagado con saldo a favor no lo repone | **Corregido** | Al cancelar un pedido pagado, el importe vuelve como saldo a favor una sola vez (`order.refunded`). E2E: 2120 → 5000; segundo cancel → 400. |
+| 9 | Transferencias sumadas al efectivo a rendir | **Corregido** | `routeSheet` separa efectivo cobrado en la puerta **por ese repartidor** (`paidBy`), efectivo pendiente, transferencias/MP y cobros de cuenta corriente; "Efectivo a rendir" solo suma efectivo. Unit: `tests/report.test.mjs`. |
+| 10 | "Entregado a cuenta hoy" incluye pedidos en camino | **Corregido** | `account` cuenta solo entregados; se muestra aparte "A cuenta en este reparto". Unit. |
+| 11 | "Saldo anterior" no fiable | **Mitigado** | Se calcula una vez por cliente (saldo actual − pendiente de sus paradas del día) y se rotula "estado actual". Un corte histórico por movimientos queda pendiente (requiere libro mayor de movimientos). Unit. |
+| 12 | "Por cobrar" no descuenta saldo a favor | **Corregido** | `receivables()` compartido: pedidos directos impagos + deuda neta por cliente. Unit. |
+| 13 | Excepción del mapa al desmontar | **Corregido** | Arreglo del auditor en `src/Map.jsx` incorporado y commiteado. |
+| 14 | Cambiar la dirección conserva el pin | **Corregido** | Cambiar calle o localidad invalida el punto; las búsquedas viejas se descartan por número de solicitud. |
+| 15 | Autocompletado contra Nominatim público | **Corregido** | Sin autocompletado: búsqueda explícita (botón Buscar / Enter). `GEOCODER_URL` para un servicio propio. |
+| 16 | GPS congelado a los 200 puntos | **Corregido** | Los puntos se insertan por `orders.addTrack` con secuencia propia y ventana de 200 en la base. E2E: 205 lecturas → 200 puntos y el último coincide con la ubicación. |
+| 17 | "Ruta completa" omite paradas | **Corregido** | Enlaces por tramos de 10 paradas ("Tramo 1–10", "Tramo 11–20"). |
+| UX | No se entiende cómo entrar a administración | **Corregido** | Botón **Equipo** en la cabecera de escritorio, "Administración / Equipo" en el menú móvil y el enlace del pie. Sin controles de gestión antes de autenticar (E2E). |
+| UX | Cargar pedido ocupa mucho y es lento | **Corregido** | Nueva pantalla `/operacion/nuevo` en un solo paso (buscador de clientes, tabla de kilos, pago, repartidor, Ctrl+Enter). E2E de navegador con captura `test-results/operacion-cargar.png`. |
+| P2 | Carrito y perfil compartidos entre sesiones | **Corregido** | Se vacían al cerrar sesión y al entrar como equipo; administración ya no usa el carrito. |
+| P2 | Pedido inexistente muestra otro | **Corregido** | `activeOrder(id)` devuelve null con id explícito; Seguimiento muestra "No encontramos el pedido". |
+| P2 | Pedidos abiertos antiguos ocultos | **Corregido** | El filtro de antigüedad solo recorta la columna Entregados. |
+| P2 | La interfaz no identifica al administrador actual | **Corregido** | `publicSession` expone `staffId` (y `verified`). |
+| P2 | Sesión inválida deja la vista privada | **Corregido** | Ante 401/403 la app reconsulta `/api/session`; si no hay sesión limpia la vista y vuelve al ingreso. |
+| P3 | Ancla de Planes | **Corregido** | El router conserva el hash y desplaza al destino. |
+| P3 | Textos viejos (PIN, SMTP_URL…) | **Corregido** | Sin variables de entorno ni "PIN del equipo" en textos del cliente. |
+| Prod | Semilla de ejemplo fuera de demo | **Corregido** | Solo con `business.demo: true`. |
+| A11y | Chat sin región de anuncios; listbox incompleto | **Corregido** | `role="log" aria-live="polite"` en el chat; las sugerencias son una lista de botones. Axe: 16 rutas sin violaciones (incluye `/operacion/nuevo`, `/operacion/reparto`, `/operacion/clientes`, `/operacion/equipo`). |
+
+Pendiente (fuera de esta etapa): libro mayor de movimientos para cortes históricos de saldo y cierre de caja auditable; paginación de listados; validación en teléfonos reales (GPS en segundo plano, offline, Mercado Pago sandbox, WhatsApp Cloud API real).
+
+Resultados: unit 14/14; E2E completo correcto; axe 16 rutas sin violaciones.

@@ -60,6 +60,58 @@ export async function sendMagicLink(email, link) {
   return { sent: false, demoLink: business.demo ? link : undefined };
 }
 
+/**
+ * Código de verificación por WhatsApp (WhatsApp Business Cloud API, plantilla de autenticación).
+ * Sin WHATSAPP_TOKEN / WHATSAPP_PHONE_ID el código se registra en el log; en demo además se
+ * devuelve para mostrarlo en pantalla. Fuera de demo, sin proveedor, el ingreso por celular se apaga.
+ */
+export const otpConfigured = () =>
+  !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID);
+export const phoneLoginEnabled = () => otpConfigured() || !!business.demo;
+export const newOtpCode = () =>
+  String(randomBytes(4).readUInt32BE(0) % 1000000).padStart(6, "0");
+export async function sendOtp(phone, code) {
+  if (otpConfigured()) {
+    const r = await fetch(
+      `https://graph.facebook.com/v20.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.WHATSAPP_TOKEN,
+          "Content-Type": "application/json",
+        },
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          to: phone,
+          type: "template",
+          template: {
+            name: process.env.WHATSAPP_OTP_TEMPLATE || "codigo_de_acceso",
+            language: { code: process.env.WHATSAPP_OTP_LANG || "es_AR" },
+            components: [
+              { type: "body", parameters: [{ type: "text", text: code }] },
+              {
+                type: "button",
+                sub_type: "url",
+                index: "0",
+                parameters: [{ type: "text", text: code }],
+              },
+            ],
+          },
+        }),
+      },
+    );
+    if (!r.ok) throw Error("No pudimos enviar el código por WhatsApp.");
+    return { sent: true };
+  }
+  if (!business.demo)
+    throw Error(
+      "El ingreso por celular no está habilitado. Ingresá con tu email.",
+    );
+  console.log(new Date().toISOString(), `Código para +${phone}: ${code}`);
+  return { sent: false, demoCode: code };
+}
+
 /** Verifica un ID token de Google Identity Services contra el endpoint tokeninfo. */
 export async function verifyGoogleToken(credential) {
   const clientId = process.env.GOOGLE_CLIENT_ID;

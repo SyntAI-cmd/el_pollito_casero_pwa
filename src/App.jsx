@@ -40,6 +40,7 @@ import Operations from "./pages/Operations.jsx";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
+import QuickOrder from "./pages/QuickOrder.jsx";
 
 /**
  * Tres aplicaciones en una, separadas por rol. El servidor ya filtra los datos;
@@ -60,7 +61,7 @@ const ADMIN_ROUTES = {
   "/operacion/reparto": Operations,
   "/operacion/clientes": Operations,
   "/operacion/equipo": Operations,
-  "/operacion/nuevo": Catalog,
+  "/operacion/nuevo": QuickOrder,
   "/imprimir": Print,
   "/ayuda": Help,
 };
@@ -216,7 +217,7 @@ function ClientShell({ Page, path }) {
               <span className="avatar">PC</span>
               <span>
                 <strong>Ingresar</strong>
-                <small>Con tu WhatsApp</small>
+                <small>Celular o email</small>
               </span>
               <ArrowRight size={16} />
             </Link>
@@ -250,6 +251,14 @@ function ClientShell({ Page, path }) {
           )}
           <div className="topbar-right">
             {config?.demo && <span className="demo-pill">Demo</span>}
+            <Link
+              to="/admin"
+              className="top-staff"
+              rel="nofollow"
+              title="Ingreso de administración y reparto"
+            >
+              <ShieldCheck size={16} /> <span>Equipo</span>
+            </Link>
             {session && (
               <button
                 className="icon-button notification-button"
@@ -398,7 +407,6 @@ function StaffShell({ Page, path }) {
         <Notices />
         {Page ? <Page /> : <NotFound />}
       </main>
-      {Page === Catalog && <MobileCartBar />}
       <Chat />
     </div>
   );

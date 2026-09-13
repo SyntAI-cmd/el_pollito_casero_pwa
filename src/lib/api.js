@@ -2,6 +2,12 @@ export const serverDownMessage = navigator.onLine
   ? `No se pudo conectar con el servidor de Pollito Casero en ${location.host}. Si estás en la PC del negocio, abrí «Iniciar Pollito Casero» (o corré npm start) y volvé a intentar.`
   : "Estás sin conexión a internet. Reintentá cuando vuelva la señal.";
 
+/** Aviso global cuando el servidor rechaza la sesión (vencida, desactivada o degradada). */
+let authErrorHandler = null;
+export const onAuthError = (fn) => {
+  authErrorHandler = fn;
+};
+
 export async function api(path, options = {}) {
   let r;
   try {
@@ -29,6 +35,8 @@ export async function api(path, options = {}) {
   if (!r.ok) {
     const e = Error(data?.error || "No se pudo completar la solicitud.");
     e.status = r.status;
+    if ((r.status === 401 || r.status === 403) && path !== "/session")
+      authErrorHandler?.(e);
     throw e;
   }
   return data;

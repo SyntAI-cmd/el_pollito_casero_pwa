@@ -14,6 +14,7 @@ import {
 import { useStore } from "../lib/store.jsx";
 import { useRoute, Link } from "../lib/router.jsx";
 import { passkeyAvailable, renderGoogleButton } from "../lib/auth.js";
+import PhoneVerify from "../components/PhoneVerify.jsx";
 
 /**
  * Ingreso del cliente, sin contraseñas obligatorias:
@@ -21,7 +22,6 @@ import { passkeyAvailable, renderGoogleButton } from "../lib/auth.js";
  */
 export default function Login() {
   const {
-    login,
     emailLogin,
     emailRegister,
     googleLogin,
@@ -113,7 +113,7 @@ export default function Login() {
                 <button
                   className="login-option disabled"
                   type="button"
-                  title="Requiere configurar GOOGLE_CLIENT_ID"
+                  title="Todavía no disponible"
                   disabled
                 >
                   <GoogleG /> Continuar con Google <small>próximamente</small>
@@ -137,13 +137,15 @@ export default function Login() {
                   dispositivo
                 </button>
               )}
-              <button
-                className="login-option primary-option"
-                type="button"
-                onClick={() => setMode("celular")}
-              >
-                <Phone size={18} /> Continuar con celular
-              </button>
+              {config?.phoneLogin !== false && (
+                <button
+                  className="login-option primary-option"
+                  type="button"
+                  onClick={() => setMode("celular")}
+                >
+                  <Phone size={18} /> Continuar con celular
+                </button>
+              )}
             </div>
             {formError && (
               <p className="form-error" role="alert">
@@ -166,59 +168,12 @@ export default function Login() {
               <ArrowLeft size={14} /> Otras opciones
             </button>
             <h2>Con tu celular</h2>
-            <p>
-              Te reconocemos por el WhatsApp con el que pedís. Sin contraseña.
-            </p>
-            <form
-              className="login-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                login(Object.fromEntries(new FormData(e.target)), { redirect });
-              }}
-            >
-              <label>
-                Nombre y apellido
-                <input
-                  name="name"
-                  autoComplete="name"
-                  defaultValue={profile.name || ""}
-                  required
-                  minLength="2"
-                  maxLength="100"
-                  placeholder="Como te conocemos"
-                />
-              </label>
-              <label>
-                WhatsApp
-                <div className="phone-field">
-                  <span>+54</span>
-                  <input
-                    name="phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel-national"
-                    defaultValue={profile.phone || ""}
-                    required
-                    pattern="[+0-9 \(\)\-]{8,25}"
-                    placeholder="263 4 55-1234"
-                  />
-                </div>
-                <small>Con código de área, sin 0 ni 15.</small>
-              </label>
-              {formError && (
-                <p className="form-error" role="alert">
-                  {formError}
-                </p>
-              )}
-              <button className="primary full login-cta" disabled={busy}>
-                <Phone size={17} />{" "}
-                {busy ? "Ingresando…" : "Continuar con mi celular"}{" "}
-                <ArrowRight size={17} />
-              </button>
-            </form>
-            <p className="demo-note">
-              En producción confirmamos el número con un código por WhatsApp.
-            </p>
+            <p>Te mandamos un código por WhatsApp y entrás. Sin contraseña.</p>
+            <PhoneVerify
+              initialName={profile.name || ""}
+              initialPhone={profile.phone || ""}
+              redirect={redirect}
+            />
           </>
         )}
 
@@ -377,7 +332,7 @@ export default function Login() {
                       <p>
                         {magic.sent
                           ? "Revisá tu bandeja de entrada (y spam). Vale 15 minutos."
-                          : "Este servidor no tiene email configurado (SMTP_URL)."}
+                          : "El envío de emails todavía no está habilitado."}
                       </p>
                       {magic.demoLink && (
                         <a className="primary magic-demo" href={magic.demoLink}>

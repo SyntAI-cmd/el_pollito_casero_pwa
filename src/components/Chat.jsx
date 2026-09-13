@@ -91,7 +91,13 @@ export default function Chat() {
               ))}
             </div>
           )}
-          <div className="chat-list" ref={listRef}>
+          <div
+            className="chat-list"
+            ref={listRef}
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions"
+          >
             {chat.messages.length === 0 && (
               <p className="muted">
                 Sin mensajes todavía. Escribí para coordinar la entrega.

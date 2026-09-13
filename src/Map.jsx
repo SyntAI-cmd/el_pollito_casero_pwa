@@ -22,6 +22,7 @@ export default function LiveMap({ order, origin, onRoute }) {
   const ref = useRef();
   const map = useRef();
   const markers = useRef({});
+  const fitted = useRef(false);
   const routeState = useRef({ from: null, at: 0 });
   const [following, setFollowing] = useState(true);
   const [ready, setReady] = useState(false);
@@ -43,6 +44,7 @@ export default function LiveMap({ order, origin, onRoute }) {
       zoom: 14,
     });
     map.current = m;
+    setReady(false);
     const stopFollowing = () => {
       followingRef.current = false;
       setFollowing(false);
@@ -58,6 +60,9 @@ export default function LiveMap({ order, origin, onRoute }) {
     });
     return () => {
       for (const mk of Object.values(markers.current)) mk.remove();
+      markers.current = {};
+      fitted.current = false;
+      routeState.current = { from: null, at: 0 };
       m.remove();
       map.current = null;
     };
@@ -94,8 +99,8 @@ export default function LiveMap({ order, origin, onRoute }) {
       !driverLL || !active ? originLL : null,
     ].filter(Boolean);
     if (followingRef.current)
-      fitTo(m, points, { padding: 70, animate: !!mk._fitted });
-    mk._fitted = true;
+      fitTo(m, points, { padding: 70, animate: fitted.current });
+    fitted.current = true;
   }, [
     ready,
     order.id,

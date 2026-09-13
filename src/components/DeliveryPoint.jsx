@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, lazy, Suspense } from "react";
+import React, { useRef, useState, lazy, Suspense } from "react";
 import { Navigation, MapPin, Check, Search, AlertTriangle } from "lucide-react";
 import { api } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
@@ -7,7 +7,10 @@ const LocationPicker = lazy(() => import("./LocationPicker.jsx"));
 
 /**
  * Dirección y punto exacto de entrega, como en las apps de reparto:
- * buscás la calle con sugerencias, o usás el GPS del dispositivo, y ajustás el pin.
+ * escribís la calle y tocás "Buscar" (o Enter) para ver coincidencias, usás el GPS del
+ * dispositivo, o ajustás el pin. La búsqueda es a pedido (no mientras se escribe): así respeta
+ * la política del geocodificador y no dispara consultas por cada tecla.
+ * Si después cambiás la calle o la localidad, el pin anterior deja de valer y hay que volver a marcarlo.
  * En una PC sin GPS el navegador ubica por IP (impreciso): se avisa y se pide ajustar.
  */
 export default function DeliveryPoint({ known }) {
@@ -21,38 +24,41 @@ export default function DeliveryPoint({ known }) {
   const [suggestions, setSuggestions] = useState([]);
   const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
-  const timer = useRef();
-  const skipSearch = useRef(false);
+  const request = useRef(0);
   const origin = config?.origin || { lat: -33.0806, lng: -68.4686 };
 
-  // Sugerencias mientras se escribe (acotadas a la zona de reparto).
-  useEffect(() => {
-    if (skipSearch.current) {
-      skipSearch.current = false;
-      return;
-    }
-    clearTimeout(timer.current);
+  // Cualquier cambio manual de dirección o localidad invalida el punto marcado.
+  function invalidate() {
+    if (!location) return;
+    setLocation(null);
+    setWarning("");
+    setStatus("Cambiaste la dirección: volvé a buscarla o a marcar el punto.");
+  }
+
+  async function search() {
     const q = address.trim();
-    if (q.length < 4) return setSuggestions([]);
-    timer.current = setTimeout(async () => {
-      setSearching(true);
-      try {
-        const local = localities.find((l) => l.id === localityId);
-        const r = await api(
-          `/geo/search?q=${encodeURIComponent(local && !/[a-z]{3,}\s*,/i.test(q) ? `${q}, ${local.name}` : q)}`,
+    if (q.length < 4) return notify("Escribí la calle y el número.");
+    const id = ++request.current;
+    setSearching(true);
+    try {
+      const local = localities.find((l) => l.id === localityId);
+      const r = await api(
+        `/geo/search?q=${encodeURIComponent(local && !/[a-z]{3,}\s*,/i.test(q) ? `${q}, ${local.name}` : q)}`,
+      );
+      if (id !== request.current) return; // llegó tarde: hay una búsqueda más nueva
+      setSuggestions(r);
+      if (!r.length)
+        setStatus(
+          "No encontramos esa dirección. Probá con calle y número, o marcá el punto en el mapa.",
         );
-        setSuggestions(r);
-      } catch {
-        setSuggestions([]);
-      } finally {
-        setSearching(false);
-      }
-    }, 450);
-    return () => clearTimeout(timer.current);
-  }, [address]);
+    } catch {
+      if (id === request.current) setSuggestions([]);
+    } finally {
+      if (id === request.current) setSearching(false);
+    }
+  }
 
   function choose(s) {
-    skipSearch.current = true;
     setAddress(s.address || s.label);
     if (s.localityId) setLocalityId(s.localityId);
     setLocation({ lat: s.lat, lng: s.lng });
@@ -73,10 +79,8 @@ export default function DeliveryPoint({ known }) {
     try {
       const r = await api(`/geo/reverse?lat=${point.lat}&lng=${point.lng}`);
       if (r) {
-        if (fill && r.address) {
-          skipSearch.current = true;
+        if (fill && r.address)
           setAddress((a) => (a.trim().length < 8 ? r.address : a));
-        }
         if (r.localityId) setLocalityId(r.localityId);
         setStatus(
           r.address
@@ -135,21 +139,45 @@ export default function DeliveryPoint({ known }) {
             name="address"
             autoComplete="off"
             value={address}
-            onChange={(e) => setAddress(e.target.value)}
+            onChange={(e) => {
+              setAddress(e.target.value);
+              setSuggestions([]);
+              invalidate();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                search();
+              }
+            }}
             placeholder="Calle y número, ej. Pergamino 120"
             required
             minLength="8"
             maxLength="250"
-            aria-autocomplete="list"
-            aria-expanded={suggestions.length > 0}
+            aria-describedby="address-help"
           />
-          {searching && <span className="search-spin" aria-hidden="true" />}
+          <button
+            type="button"
+            className="search-button"
+            onClick={search}
+            disabled={searching}
+            aria-label="Buscar dirección en el mapa"
+          >
+            {searching ? (
+              <span className="search-spin" aria-hidden="true" />
+            ) : (
+              "Buscar"
+            )}
+          </button>
         </div>
+        <small id="address-help">
+          Tocá Buscar para ubicarla en el mapa, o marcá el punto a mano.
+        </small>
         {suggestions.length > 0 && (
-          <ul className="suggestions" role="listbox">
+          <ul className="suggestions" aria-label="Direcciones encontradas">
             {suggestions.map((s) => (
               <li key={s.lat + "," + s.lng}>
-                <button type="button" role="option" onClick={() => choose(s)}>
+                <button type="button" onClick={() => choose(s)}>
                   <MapPin size={14} />
                   <span>
                     <strong>{s.label}</strong>
@@ -166,7 +194,10 @@ export default function DeliveryPoint({ known }) {
         <select
           name="localityId"
           value={localityId}
-          onChange={(e) => setLocalityId(e.target.value)}
+          onChange={(e) => {
+            setLocalityId(e.target.value);
+            invalidate();
+          }}
           required
         >
           <option value="" disabled>
@@ -243,7 +274,7 @@ export default function DeliveryPoint({ known }) {
           {status ||
             (location
               ? "Punto de entrega marcado."
-              : "Escribí tu calle y elegí la sugerencia, o marcá el punto en el mapa.")}
+              : "Buscá tu calle o marcá el punto en el mapa (opcional, ayuda al reparto).")}
         </p>
         <input type="hidden" name="lat" value={location?.lat ?? ""} />
         <input type="hidden" name="lng" value={location?.lng ?? ""} />
