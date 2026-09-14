@@ -21,6 +21,8 @@ import {
   Plus,
   Users,
   ShieldCheck,
+  Scale,
+  Package,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
@@ -41,6 +43,9 @@ import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
 import QuickOrder from "./pages/QuickOrder.jsx";
+import Weighing from "./pages/Weighing.jsx";
+import TruckLoading from "./pages/TruckLoading.jsx";
+import DaySheet from "./pages/DaySheet.jsx";
 
 /**
  * Tres aplicaciones en una, separadas por rol. El servidor ya filtra los datos;
@@ -62,17 +67,22 @@ const ADMIN_ROUTES = {
   "/operacion/clientes": Operations,
   "/operacion/equipo": Operations,
   "/operacion/nuevo": QuickOrder,
+  "/operacion/dia": DaySheet,
+  "/operacion/pesada": Weighing,
+  "/operacion/carga": TruckLoading,
   "/imprimir": Print,
   "/ayuda": Help,
 };
 const DRIVER_ROUTES = {
   "/reparto": Delivery,
   "/reparto/nuevo": QuickOrder,
+  "/reparto/pesada": Weighing,
+  "/reparto/carga": TruckLoading,
   "/ayuda": Help,
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
 const homeFor = (role) =>
-  role === "admin" ? "/operacion" : role === "repartidor" ? "/reparto" : "/";
+  role === "admin" ? "/operacion/dia" : role === "repartidor" ? "/reparto" : "/";
 
 const clientNav = [
   ["/", "Hacer un pedido", House],
@@ -365,15 +375,20 @@ function StaffShell({ Page, path }) {
   const admin = session.role === "admin";
   const nav = admin
     ? [
-        ["/operacion", "Pedidos", ClipboardList],
+        ["/operacion/dia", "Nota del día", ClipboardList],
         ["/operacion/nuevo", "Cargar pedido", Plus],
-        ["/operacion/reparto", "Reparto y rendición", Truck],
+        ["/operacion/pesada", "Pesada", Scale],
+        ["/operacion/carga", "Carga", Package],
+        ["/operacion", "Pedidos", ClipboardList],
+        ["/operacion/reparto", "Rendición", Truck],
         ["/operacion/clientes", "Clientes", Users],
         ["/operacion/equipo", "Equipo", ShieldCheck],
       ]
     : [
         ["/reparto", "Mis entregas", Truck],
         ["/reparto/nuevo", "Cargar pedido", Plus],
+        ["/reparto/pesada", "Pesada", Scale],
+        ["/reparto/carga", "Carga", Package],
       ];
   const received = orders.filter((o) => o.status === "recibido").length;
   return (
@@ -453,7 +468,7 @@ export default function App() {
       return;
     }
     if (role === "admin" && !inAdmin && !inLogin)
-      navigate("/operacion", { replace: true });
+      navigate("/operacion/dia", { replace: true });
     else if (role === "repartidor" && !inDriver && !inLogin)
       navigate("/reparto", { replace: true });
     else if (role === "cliente" && (inAdmin || inDriver) && !inClient)

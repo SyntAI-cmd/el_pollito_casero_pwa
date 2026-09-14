@@ -24,7 +24,7 @@ import {
 import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { createFloor } from "./floor.mjs";
-import { appMode, defaultTare, shifts } from "../domain.mjs";
+import { appMode, defaultTare, shifts, fiscal } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
   transferInfo,
@@ -107,6 +107,7 @@ export function createApi({
     },
     mode: appMode,
     shifts,
+    fiscal,
     origin,
     shipping: shippingByPlan,
     planMinKg,

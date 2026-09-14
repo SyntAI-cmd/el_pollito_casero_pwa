@@ -23,7 +23,7 @@ export default function Access() {
         {inside ? (
           <div className="actions-row">
             <Link
-              to={session.role === "admin" ? "/operacion" : "/reparto"}
+              to={session.role === "admin" ? "/operacion/dia" : "/reparto"}
               className="primary"
             >
               {session.role === "admin"

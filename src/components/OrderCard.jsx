@@ -71,17 +71,20 @@ export default function OrderCard({ order: o, role }) {
       <div className="op-customer">
         <p>
           <Store size={15} /> <strong>{o.name}</strong>
-          <a
-            className="wa-inline"
-            href={waLink(
-              o.phone,
-              `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido ${o.id}.`,
-            )}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <MessageCircle size={14} /> {o.phone}
-          </a>
+          {o.phone && /^\d{8,}$/.test(o.phone) && (
+            <a
+              className="wa-inline"
+              href={waLink(
+                o.phone,
+                `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido ${o.id}.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`WhatsApp de ${o.name}: ${o.phone}`}
+            >
+              <MessageCircle size={14} /> {o.phone}
+            </a>
+          )}
         </p>
         <p>
           <MapPin size={15} /> {o.address}, {localityText(o)}

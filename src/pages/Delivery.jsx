@@ -12,6 +12,7 @@ import { kgText, totalKg, money } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
+import News from "../components/News.jsx";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
 export default function Delivery() {
@@ -104,6 +105,7 @@ export default function Delivery() {
           app.
         </div>
       )}
+      <News compact />
       {routeStops.length > 0 && (
         <div className="notice route-summary">
           <Map size={18} />

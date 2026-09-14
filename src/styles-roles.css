@@ -258,6 +258,7 @@
 .staff-brand {
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
   gap: 10px;
   color: #fff;
 }
@@ -292,6 +293,27 @@
 .staff-bar nav a:hover {
   background: #ffffff14;
   color: #fff;
+}
+/* Entre 741 y 1400 px la barra tiene 8 secciones: se compacta antes que desbordar. */
+@media (min-width: 741px) and (max-width: 1400px) {
+  .staff-bar {
+    gap: 12px;
+    padding: 0 16px;
+  }
+  .staff-bar nav {
+    margin-left: 0;
+    gap: 2px;
+  }
+  .staff-bar nav a {
+    padding: 0 10px;
+    gap: 5px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .staff-brand small,
+  .staff-user > span:last-child {
+    display: none;
+  }
 }
 .staff-bar nav .nav-count {
   background: var(--red);
@@ -1739,4 +1761,602 @@ dialog.wide-dialog {
 }
 .customers-filters .search-field {
   min-width: 240px;
+}
+
+/* ---- Piso: pesada, carga, nota del día, noticias ---- */
+.floor .head-actions input[type="date"],
+.floor .head-actions select {
+  min-height: 42px;
+  width: auto;
+}
+.offline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #7a5200;
+  font-size: 13px;
+  font-weight: 600;
+}
+.floor-list {
+  display: grid;
+  gap: 10px;
+}
+.floor-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.2s;
+}
+button.floor-card:hover {
+  border-color: var(--black);
+  box-shadow: var(--shadow-md);
+}
+.floor-card.st-pesando {
+  border-left: 5px solid #e5af1e;
+}
+.floor-card.st-pesado {
+  border-left: 5px solid #1c6b34;
+}
+.floor-card.st-cargado {
+  border-left: 5px solid var(--black);
+}
+.floor-card-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.floor-card-main strong {
+  font-size: 17px;
+}
+.floor-card-main small {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.floor-card-side {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  text-align: right;
+}
+.floor-card-side b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.floor-card-side small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.chip {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f0ede3;
+  color: #4a4842;
+}
+.chip.st-pesando {
+  background: #fff4d6;
+  color: #7a5200;
+}
+.chip.st-pesado,
+.chip.st-entregado {
+  background: #e7f5ea;
+  color: #1c6b34;
+}
+.chip.st-cargado,
+.chip.st-en_camino {
+  background: var(--black);
+  color: #fff;
+}
+.floor-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+.floor-empty h2 {
+  color: var(--black);
+}
+/* Pesada */
+.weigh-panel {
+  display: grid;
+  gap: 16px;
+}
+.weigh-products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.weigh-product {
+  display: grid;
+  gap: 2px;
+  min-height: 60px;
+  padding: 10px 30px 10px 16px;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  position: relative;
+}
+.weigh-product strong {
+  font-size: 15px;
+}
+.weigh-product small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.weigh-product.active {
+  border-color: var(--red);
+  box-shadow: var(--shadow-md);
+}
+.weigh-product.complete {
+  background: #e7f5ea;
+  border-color: #b9dcc2;
+}
+.weigh-product.complete svg {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: #1c6b34;
+}
+.weigh-main {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.weigh-entry {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+.weigh-counter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: #4a4842;
+}
+.weigh-gross {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4a4842;
+}
+.weigh-gross input {
+  font-size: 44px;
+  font-weight: 700;
+  text-align: right;
+  min-height: 76px;
+  padding: 8px 16px;
+  font-variant-numeric: tabular-nums;
+}
+.weigh-net {
+  display: grid;
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f6f4ef;
+  color: var(--muted);
+  font-size: 13px;
+}
+.weigh-net strong {
+  font-size: 36px;
+  color: var(--black);
+  font-variant-numeric: tabular-nums;
+}
+.weigh-net.ok {
+  background: #e7f5ea;
+}
+.weigh-net.ok strong {
+  color: #1c6b34;
+}
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.keypad button {
+  min-height: 60px;
+  border-radius: 12px;
+  background: #f0ede3;
+  font-size: 24px;
+  font-weight: 600;
+}
+.keypad button:active {
+  background: #e3dfd3;
+}
+.weigh-confirm {
+  min-height: 64px;
+  font-size: 18px;
+  gap: 10px;
+}
+.weigh-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.weigh-log li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font-size: 14px;
+}
+.weigh-log li.pending {
+  opacity: 0.7;
+  border-style: dashed;
+}
+.weigh-total {
+  margin: 0;
+  font-size: 15px;
+}
+@media (max-width: 900px) {
+  .weigh-main {
+    grid-template-columns: 1fr;
+  }
+}
+@media (min-width: 901px) {
+  .keypad {
+    display: none;
+  }
+}
+/* Carga */
+.load-controls .big {
+  min-width: 56px;
+  min-height: 56px;
+  padding: 0;
+  border-radius: 14px;
+  justify-content: center;
+}
+.close-truck {
+  margin-top: 16px;
+  display: grid;
+  gap: 10px;
+}
+.close-truck .notice {
+  flex-wrap: wrap;
+  margin: 0;
+}
+.close-truck .notice input {
+  flex: 1 1 100%;
+  min-height: 40px;
+}
+/* Noticias */
+.news {
+  margin-bottom: 16px;
+}
+.news-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.news-list li {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fff8e6;
+  border-left: 4px solid #e5af1e;
+}
+.news-list li.pinned {
+  background: #fff0f0;
+  border-left-color: var(--red);
+}
+.news-list p {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.news-list small {
+  color: var(--muted);
+}
+.news-form {
+  display: flex;
+  gap: 8px;
+}
+.news-form input {
+  flex: 1;
+}
+.news-form .primary {
+  flex: 0 0 auto;
+}
+.news-toggle {
+  margin-bottom: 12px;
+}
+.news.compact .news-list li p {
+  font-size: 14px;
+}
+/* Remito 10 x 15 (calcado del talonario) */
+.remitos {
+  display: grid;
+  gap: 24px;
+  justify-items: center;
+}
+.remito {
+  width: 100mm;
+  height: 150mm;
+  padding: 3mm;
+  box-sizing: border-box;
+  background: #fff;
+  color: #111;
+  font-family: "DM Sans", Arial, sans-serif;
+  font-size: 8.5pt;
+  line-height: 1.25;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  break-after: page;
+  page-break-after: always;
+}
+.remito-head {
+  display: grid;
+  grid-template-columns: 1fr 11mm 1.05fr;
+  gap: 1.5mm;
+  align-items: start;
+  padding: 1mm 1mm 2mm;
+  border-bottom: 1.2px solid #111;
+  min-height: 28mm;
+}
+.remito-brand p {
+  margin: 0.5mm 0;
+  font-size: 7pt;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.remito-brand b {
+  color: #b91c1c;
+  font-weight: 700;
+}
+.remito-ribbon {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.8mm 2.5mm;
+  border: 1.2px solid #111;
+  font-weight: 800;
+  font-size: 8pt;
+  color: #b91c1c;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  background: #fff;
+  clip-path: polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%);
+}
+.remito-tagline {
+  display: block;
+  font-size: 7pt;
+  letter-spacing: 0.06em;
+  margin: 1mm 0;
+  white-space: nowrap;
+}
+.remito-iva {
+  color: #666;
+  font-size: 6.5pt !important;
+  letter-spacing: 0.04em;
+}
+.remito-x {
+  align-self: start;
+  justify-self: center;
+  width: 10.5mm;
+  height: 10.5mm;
+  border: 1.5px solid #111;
+  display: grid;
+  place-items: center;
+  font-size: 22pt;
+  font-weight: 800;
+  line-height: 1;
+}
+.remito-doc {
+  min-width: 0;
+}
+.remito-doc h1 {
+  margin: 0;
+  font-size: 12pt;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.remito-nv {
+  margin: 0.4mm 0 0;
+  font-size: 5.4pt;
+  color: #333;
+  letter-spacing: 0.01em;
+}
+.remito-fiscal {
+  margin: 0.8mm 0;
+  font-size: 5.4pt;
+  color: #444;
+  line-height: 1.35;
+}
+.remito-n,
+.remito-date {
+  display: flex;
+  align-items: center;
+  gap: 1.2mm;
+  margin: 0.6mm 0;
+  font-size: 8pt;
+}
+.remito-n strong {
+  font-weight: 600;
+}
+.remito-date i {
+  display: inline-grid;
+  place-items: center;
+  width: 8mm;
+  height: 5.5mm;
+  border: 1px solid #111;
+  font-style: normal;
+  font-size: 7.5pt;
+}
+.remito-date i + i {
+  border-left: 0;
+}
+.remito-client {
+  padding: 2mm 1mm 1.5mm;
+  font-size: 8pt;
+}
+.remito-client p {
+  margin: 0 0 1.2mm;
+  display: flex;
+  align-items: baseline;
+  gap: 1.5mm;
+}
+.remito-client p > span:first-child,
+.remito-client .remito-two > span > span:first-child {
+  flex: 0 0 auto;
+  color: #333;
+}
+.remito-client u {
+  flex: 1;
+  text-decoration: none;
+  border-bottom: 1px dotted #999;
+  min-height: 3.6mm;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.remito-two {
+  gap: 3mm !important;
+}
+.remito-two > span {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5mm;
+  flex: 1;
+  min-width: 0;
+}
+.remito-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+  margin-top: auto;
+  table-layout: fixed;
+}
+.remito-table th {
+  background: #d9d9d9;
+  border: 1px solid #111;
+  padding: 0.8mm 0.5mm;
+  font-size: 5.8pt;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+.remito-table td {
+  border: 1px solid #111;
+  height: 6.4mm;
+  padding: 0.3mm 1.2mm;
+  vertical-align: middle;
+  overflow: hidden;
+}
+.remito-table .kilos {
+  width: 13mm;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.remito-table .num {
+  width: 19.5mm;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.remito-table tr:first-child th:first-child,
+.remito-table tr:first-child th:last-child,
+.remito-table td:first-child,
+.remito-table td:last-child {
+  border-left-width: 0;
+  border-right-width: 0;
+}
+.remito-table td:first-child {
+  border-left: 1px solid #111;
+}
+.remito-table td:last-child {
+  border-right: 1px solid #111;
+}
+.remito-note {
+  display: block;
+  font-size: 6.2pt;
+  color: #555;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.remito-table tfoot td {
+  height: 8mm;
+  border-top: 1.5px solid #111;
+}
+.remito-boxes {
+  font-size: 6.4pt;
+  letter-spacing: 0.04em;
+}
+.remito-boxes span {
+  margin-right: 2mm;
+}
+.remito-boxes strong {
+  font-size: 12pt;
+  vertical-align: middle;
+}
+.remito-total-label {
+  font-size: 12pt;
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+.remito-total {
+  font-size: 10.5pt;
+  font-weight: 800;
+}
+.remito-balance {
+  margin: 1.2mm 0 0;
+  font-size: 6.6pt;
+  color: #444;
+  text-align: right;
+}
+.qo-table input.qo-off {
+  background: #f6f4ef;
+  color: var(--muted);
+  border-style: dashed;
+}
+@media print {
+  .remitos {
+    display: block;
+  }
+  .remito {
+    border: 0;
+    margin: 0;
+  }
+  .print-page.remitos {
+    padding: 0;
+  }
 }

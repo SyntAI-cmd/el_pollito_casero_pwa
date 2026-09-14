@@ -987,6 +987,46 @@ try {
     "consolidado en Excel",
   );
   assert.ok((await xlsx.arrayBuffer()).byteLength > 2000);
+  // Cerrar camión: si faltan cajones por pesar/cargar pide motivo; con motivo sale igual.
+  const close1 = await maxi("/dia/cerrar-camion", {
+    date: "2030-01-02",
+    driver: "Maxi",
+  });
+  assert.equal(close1.status, 409, JSON.stringify(close1.data));
+  assert.equal(close1.data.missing[0].id, team.data.id);
+  assert.equal(close1.data.missing[0].expected, 3);
+  assert.equal(
+    (
+      await franco("/dia/cerrar-camion", {
+        date: "2030-01-02",
+        driver: "Maxi",
+        reason: "x",
+      })
+    ).status,
+    403,
+    "solo el dueño del camión o administración",
+  );
+  const close2 = await maxi("/dia/cerrar-camion", {
+    date: "2030-01-02",
+    driver: "Maxi",
+    reason: "salió con 1 cajón, el resto va a la tarde",
+  });
+  assert.equal(close2.status, 200, JSON.stringify(close2.data));
+  assert.deepEqual(close2.data.departed, [team.data.id]);
+  const closedOrder = (await admin("/orders")).data.find(
+    (o) => o.id === team.data.id,
+  );
+  assert.equal(closedOrder.status, "en_camino");
+  assert.equal(
+    closedOrder.loadNote,
+    "salió con 1 cajón, el resto va a la tarde",
+  );
+  assert.equal(
+    (await maxi("/dia/cerrar-camion", { date: "2030-01-02", driver: "Maxi" }))
+      .status,
+    400,
+    "ya no queda nada por salir",
+  );
 
   // Cierre de caja: solo administración, queda guardado con diferencia y se puede corregir.
   const todayKey = new Date().toLocaleDateString("sv-SE");
@@ -1605,7 +1645,28 @@ try {
     .locator(".access-form")
     .getByRole("button", { name: "Ingresar" })
     .click();
-  await expect(ops).toHaveURL(/\/operacion/);
+  await expect(ops).toHaveURL(/\/operacion\/dia/);
+  await expect(ops.locator(".day-sheet h1")).toContainText("Reparto del");
+  // Noticias del equipo desde la nota del día.
+  await expect(ops.locator(".news-list")).toContainText(
+    "Mañana no hay reparto a La Paz",
+    { timeout: 8000 },
+  );
+  await ops.getByLabel("Nueva noticia").fill("Hoy sale primero La Paz");
+  await ops.getByRole("button", { name: "Publicar" }).click();
+  await expect(ops.locator(".news-list")).toContainText(
+    "Hoy sale primero La Paz",
+    { timeout: 8000 },
+  );
+  await ops.screenshot({
+    path: "test-results/nota-del-dia.png",
+    fullPage: true,
+  });
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: /^Pedidos/ })
+    .click();
+  await expect(ops).toHaveURL(/\/operacion$/);
   const card = ops.locator(".operation-order", { hasText: orderId });
   await expect(card).toBeVisible();
   await expect(card).toContainText("Timbre azul");
@@ -1650,11 +1711,16 @@ try {
   await expect(ops.locator(".qo-picked-card")).toContainText(
     "Cliente Navegador",
   );
-  await ops.getByLabel("Cajas de Pollo entero").fill("2");
   await ops.getByLabel("Kilos de Pollo entero").fill("3");
+  await ops.getByLabel("Cajas de Pollo entero").fill("2");
+  await expect(
+    ops.getByLabel("Kilos de Pollo entero"),
+    "cajas o kilos, no los dos",
+  ).toHaveValue("");
   await ops.getByLabel("Kilos de Suprema").fill("1.5");
   await expect(ops.locator(".qo-summary .total dd")).not.toHaveText("$ 0");
   await ops.getByLabel(/Cami/).selectOption("Franco");
+  const quickDate = await ops.getByLabel("Fecha de reparto").inputValue();
   await ops.screenshot({
     path: "test-results/operacion-cargar.png",
     fullPage: true,
@@ -1673,8 +1739,39 @@ try {
     },
   );
   await expect(ops.locator(".qo-created")).toContainText("· Franco");
+  const quickId = (await ops.locator(".qo-created").textContent()).match(
+    /PC-[A-Z0-9-]+/,
+  )[0];
   await ops.getByRole("button", { name: "Otro pedido" }).click();
   await expect(ops.locator(".qo-created")).toHaveCount(0);
+  // Pesada: primero el pedido, después el cajón; la app resta la tara y muestra el neto.
+  await ops
+    .locator(".staff-bar nav")
+    .getByRole("link", { name: "Pesada" })
+    .click();
+  await expect(ops).toHaveURL(/[\/]operacion[\/]pesada/);
+  await ops.getByLabel("Fecha de reparto").fill(quickDate);
+  await ops
+    .locator(".floor-card", { hasText: "Cliente Navegador" })
+    .first()
+    .click();
+  await expect(ops.locator(".weigh-counter")).toContainText("Cajón 1 de 2");
+  await ops.getByLabel("Peso bruto en kilos").fill("21,7");
+  await expect(ops.locator(".weigh-net strong")).toHaveText("20,0 kg");
+  await ops.getByRole("button", { name: "Confirmar cajón" }).click();
+  await expect(ops.locator(".weigh-log li").first()).toContainText("20,0 kg", {
+    timeout: 8000,
+  });
+  await expect(ops.locator(".weigh-counter")).toContainText("Cajón 2 de 2");
+  await ops.screenshot({ path: "test-results/pesada.png", fullPage: true });
+  // Remito 10 × 15 del pedido.
+  await ops.goto(base + "/imprimir?tipo=remito&pedido=" + quickId);
+  await expect(ops.locator(".remito")).toHaveCount(1);
+  await expect(ops.locator(".remito")).toContainText("REMITO INTERNO");
+  await expect(ops.locator(".remito")).toContainText("Cliente Navegador");
+  await expect(ops.locator(".remito-table")).toContainText("20,0");
+  await ops.screenshot({ path: "test-results/remito.png" });
+  await ops.goto(base + "/operacion/nuevo");
   await ops
     .locator(".staff-bar nav")
     .getByRole("link", { name: "Clientes" })
@@ -1716,7 +1813,7 @@ try {
   ).toBeVisible({ timeout: 8000 });
   await ops
     .locator(".staff-bar nav")
-    .getByRole("link", { name: "Reparto y rendición" })
+    .getByRole("link", { name: "Rendición" })
     .click();
   await expect(ops.locator(".sheet")).toContainText("Efectivo a rendir");
   await expect(ops.locator(".sheet")).toContainText("al inicio del día");
@@ -1833,11 +1930,11 @@ try {
   // Separación por rol: cada uno solo llega a sus pantallas.
   await ops.goto(base + "/");
   await expect(ops, "admin en el catálogo público → Operación").toHaveURL(
-    /[\/]operacion$/,
+    /[\/]operacion[\/]dia$/,
   );
   await ops.goto(base + "/seguimiento");
   await expect(ops, "admin no ve el seguimiento del cliente").toHaveURL(
-    /[\/]operacion$/,
+    /[\/]operacion[\/]dia$/,
   );
   await expect(ops.locator(".staff-bar")).toBeVisible();
   await expect(ops.locator(".sidebar")).toHaveCount(0);

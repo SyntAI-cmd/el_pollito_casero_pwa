@@ -24,6 +24,8 @@ export const appMode = process.env.APP_MODE || business.mode || "completo";
 /** Tara por cajón (kg) que se descuenta del bruto en la balanza. */
 export const defaultTare = Number(business.tare) || 1.7;
 export const shifts = ["manana", "tarde"];
+/** Datos fiscales impresos en el remito interno (business.json → fiscal). */
+export const fiscal = business.fiscal || {};
 export const origin = business.origin;
 /** Kilos mínimos por modalidad: los precios mayorista/intermedio no son para una compra chica. */
 export const planMinKg = business.planMinKg || {

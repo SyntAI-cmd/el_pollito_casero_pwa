@@ -6,8 +6,12 @@ import { ordersSheet, routeSheet, today } from "../lib/report.js";
 import { EmptyState, PageHead } from "../components/ui.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
 import OrdersSheet from "../components/OrdersSheet.jsx";
+import Remito from "../components/Remito.jsx";
 
-/** Vista de impresión: /imprimir?tipo=pedidos|ruta&fecha=YYYY-MM-DD&repartidor=Nombre */
+/**
+ * Vista de impresión: /imprimir?tipo=pedidos|ruta|remito|remitos&fecha=YYYY-MM-DD&repartidor=Nombre&pedido=PC-…
+ * "remito" imprime uno (10×15 cm); "remitos" todos los del camión y fecha, uno por hoja.
+ */
 export default function Print() {
   const { query } = useRoute();
   const { session, orders, customers, config, loaded } = useStore();
@@ -44,6 +48,54 @@ export default function Print() {
     tipo === "ruta"
       ? routeSheet(orders, customers, { driver: repartidor, date: fecha })
       : ordersSheet(orders, fecha);
+  const remitoOrders =
+    tipo === "remito"
+      ? orders.filter((o) => o.id === query.get("pedido"))
+      : tipo === "remitos"
+        ? orders
+            .filter(
+              (o) =>
+                o.deliveryDate === fecha &&
+                o.driver === repartidor &&
+                o.status !== "cancelado",
+            )
+            .sort(
+              (a, b) =>
+                (a.locality?.name || "").localeCompare(
+                  b.locality?.name || "",
+                ) || a.name.localeCompare(b.name),
+            )
+        : null;
+  if (remitoOrders)
+    return (
+      <div className="print-page remitos">
+        <style>{"@page { size: 100mm 150mm; margin: 0; }"}</style>
+        <div className="print-toolbar no-print">
+          <Link to="/operacion/dia" className="secondary">
+            <ArrowLeft size={15} /> Volver a la nota del día
+          </Link>
+          <span className="muted">
+            {remitoOrders.length} remito{remitoOrders.length === 1 ? "" : "s"} ·
+            papel 10 × 15 cm
+          </span>
+          <button className="primary" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
+        {remitoOrders.length === 0 ? (
+          <p className="muted">No hay pedidos para imprimir.</p>
+        ) : (
+          remitoOrders.map((o) => (
+            <Remito
+              key={o.id}
+              order={o}
+              customer={customers.find((c) => c.phone === o.customer)}
+              fiscal={config?.fiscal}
+            />
+          ))
+        )}
+      </div>
+    );
   return (
     <div className="print-page">
       <div className="print-toolbar no-print">

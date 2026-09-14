@@ -439,13 +439,12 @@ export default function QuickOrder() {
                         disabled={!picked}
                         aria-label={`Cajas de ${p.name}`}
                         aria-invalid={bad || undefined}
+                        className={lines[p.id]?.kg ? "qo-off" : ""}
+                        title="Se pesan en balanza: los kilos salen de la pesada"
                         onChange={(e) =>
                           setLines({
                             ...lines,
-                            [p.id]: {
-                              ...(lines[p.id] || {}),
-                              boxes: e.target.value,
-                            },
+                            [p.id]: { boxes: e.target.value, kg: "" },
                           })
                         }
                         onKeyDown={(e) => {
@@ -471,13 +470,12 @@ export default function QuickOrder() {
                         disabled={!picked}
                         aria-label={`Kilos de ${p.name}`}
                         aria-invalid={bad || undefined}
+                        className={lines[p.id]?.boxes ? "qo-off" : ""}
+                        title="Pedido por peso: en la pesada se cargan bruto y neto"
                         onChange={(e) =>
                           setLines({
                             ...lines,
-                            [p.id]: {
-                              ...(lines[p.id] || {}),
-                              kg: e.target.value,
-                            },
+                            [p.id]: { kg: e.target.value, boxes: "" },
                           })
                         }
                       />
@@ -488,9 +486,11 @@ export default function QuickOrder() {
             </table>
           </div>
           <p className="muted small">
-            Cajas para lo que se pesa en balanza (pollo entero, cuartos). Kilos
-            para lo que se pide por peso (suprema, alas…). Se puede indicar los
-            dos.
+            Cada producto va por <strong>cajas</strong> o por{" "}
+            <strong>kilos</strong>, no los dos: al escribir en una columna se
+            borra la otra. Las cajas se pesan después en balanza (la app
+            descuenta la tara de cada cajón); lo pedido por kilos se pesa en
+            bruto y neto. El precio siempre es por kilo.
           </p>
           {invalid.length > 0 && (
             <p className="form-error" role="alert">

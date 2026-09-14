@@ -15,6 +15,7 @@ import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
 import Customers from "./Customers.jsx";
+import News from "../components/News.jsx";
 import {
   money,
   planNames,
@@ -184,6 +185,7 @@ export default function Operations() {
           </div>
         </div>
       )}
+      {tab === "pedidos" && <News compact />}
       {tab === "pedidos" && (
         <div className="board-toolbar">
           <p className="board-hint">

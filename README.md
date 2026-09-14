@@ -36,7 +36,12 @@ Digitaliza el circuito real: pedidos por WhatsApp de noche → nota de pedidos �
 - **Pesada por cajón**: `POST /api/orders/:id/crates {productId, gross}` resta la tara (`business.tare`, 1,7 kg, editable en `PATCH /api/settings`) y acumula kilos por producto; cada cajón tiene id propio (reintentos sin duplicar), se anula con motivo y se marca cargado al camión. Recalcula el total con el precio del cliente y ajusta el saldo si el pedido ya estaba pagado.
 - **Nota del día** `GET /api/dia?fecha=`; **noticias** del equipo `GET/POST /api/news`; **consolidado en Excel** `GET /api/export/consolidado?fecha=` (una fila por pedido: preventista, cliente, razón social, CUIT, descripción, cajones, kilos, neto, IVA 10,5 %, total).
 
-Pendiente de la fase 2: pantallas de Pesada, Carga del camión y Nota del día, remito 10×15 con precio propio y cajas adeudadas, entrega con firma, noticias en pantalla y cola offline para pesadas y cobros.
+- **Nota del día** (`/operacion/dia`, pantalla de inicio de administración): la hoja amarilla hecha datos: totales para faena por producto, pedidos por camión con su estado de piso, accesos a pesar, cargar, Excel, nota impresa, remitos y hoja de ruta; arriba las **noticias del equipo**.
+- **Pesada** (`/operacion/pesada`, `/reparto/pesada`): primero se elige el pedido, después el producto y se tipea el **bruto** de cada cajón; la app resta la tara y muestra el **neto** en grande antes de confirmar. Lo pedido por **cajas** cuenta "cajón N de M" y acumula kilos; lo pedido por **kilos** se pesa como bulto (bruto y neto) contra lo pedido. Funciona sin señal: las pesadas quedan en el dispositivo y se envían solas.
+- **Carga del camión** (`/operacion/carga`, `/reparto/carga`): se marca cada cajón que sube; **Cerrar camión** avisa si falta algo por pesar o cargar y pide motivo para salir igual; los pedidos pasan a "en camino".
+- **Remito interno 10 × 15** (`/imprimir?tipo=remito&pedido=…` o `tipo=remitos&fecha=…&repartidor=…`): copia del talonario con los datos fiscales de `business.fiscal`, kilos, precio propio, total, cajas adeudadas y saldo. Se imprime uno por hoja en papel 10×15.
+
+Pendiente: entrega con firma/foto, cola offline para cobros, cajas devueltas desde la pantalla de entrega.
 
 ## Tres aplicaciones separadas por rol
 

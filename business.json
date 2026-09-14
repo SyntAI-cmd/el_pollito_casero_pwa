@@ -459,5 +459,16 @@
     "note": "Completar alias/CVU de Mercado Pago del negocio. Vacío = transferencia deshabilitada."
   },
   "mode": "equipo",
-  "tare": 1.7
+  "tare": 1.7,
+  "fiscal": {
+    "legalName": "EL POLLITO CASERO",
+    "tagline": "VENTA POR MAYOR Y MENOR",
+    "cuit": "20-38910784-1",
+    "iibb": "0713799",
+    "since": "17/11/2014",
+    "ivaCondition": "IVA RESPONSABLE INSCRIPTO",
+    "whatsapp": "+54 9 2634 56-9139",
+    "address": "Carril Norte S/N° 0 - El Ramblón, Mza.",
+    "ivaRate": 10.5
+  }
 }

@@ -8,6 +8,7 @@ import {
   normalizePhone,
   lineAmount,
   defaultTare,
+  fiscal,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
 import { str, num, oneOf, bool } from "./validate.mjs";
@@ -201,6 +202,11 @@ export function createFloor({
   /** Recalcula kilos e importes de un pedido a partir de sus cajones vigentes. */
   function applyCrates(o, session) {
     const crates = store.crates.forOrder(o.id).filter((c) => !c.voided);
+    // La primera pesada saca el pedido de "recibido": ya está en preparación.
+    if (crates.length && o.status === "recibido") {
+      o.status = "preparando";
+      o.history = [...(o.history || []), { status: "preparando", at: now() }];
+    }
     const before = Math.round(o.total * 100);
     const byProduct = {};
     for (const c of crates)
@@ -532,6 +538,81 @@ export function createFloor({
       });
     }
 
+    // ---- Cierre del camión: todo lo pesado de ese camión y fecha sale a reparto ----
+    if (path === "/api/dia/cerrar-camion" && method === "POST") {
+      staffOnly(session);
+      const date = str(body.date, { min: 10, max: 10, name: "la fecha" });
+      if (!dateRe.test(date)) fail(400, "Fecha inválida.");
+      const driver = oneOf(body.driver, driverNames(), "repartidor");
+      if (session.role === "repartidor" && session.driver !== driver)
+        fail(403, "Solo podés cerrar tu camión.");
+      const reason = str(body.reason, {
+        max: 300,
+        name: "el motivo",
+        optional: true,
+      });
+      const orders = store.orders
+        .forDate(date)
+        .filter(
+          (o) =>
+            o.driver === driver &&
+            ["recibido", "preparando"].includes(o.status),
+        );
+      if (!orders.length)
+        fail(400, "No hay pedidos pendientes de salir para ese camión.");
+      const missing = [];
+      for (const o of orders) {
+        const crates = store.crates.forOrder(o.id).filter((c) => !c.voided);
+        const expected = o.items.reduce((n, i) => n + (i.boxes || 0), 0);
+        const weighedKgItems = o.items
+          .filter((i) => !i.boxes)
+          .every((i) => crates.some((c) => c.productId === i.id));
+        const loaded = crates.filter((c) => c.loadedAt).length;
+        if (
+          !crates.length ||
+          crates.length < expected ||
+          !weighedKgItems ||
+          loaded < crates.length
+        )
+          missing.push({
+            id: o.id,
+            name: o.name,
+            crates: crates.length,
+            expected,
+            loaded,
+          });
+      }
+      if (missing.length && !reason)
+        return json(409, {
+          error:
+            "Faltan cajones por pesar o cargar. Indicá el motivo para cerrar igual.",
+          missing,
+        });
+      const departed = [];
+      for (const o of orders) {
+        await withOrderLock(o.id, async () => {
+          const current = store.orders.get(o.id);
+          if (current.status === "recibido") {
+            current.status = "preparando";
+            current.history.push({ status: "preparando", at: now() });
+          }
+          current.status = "en_camino";
+          current.history.push({ status: "en_camino", at: now() });
+          current.departedAt = now();
+          if (reason) current.loadNote = reason;
+          store.orders.save(current);
+          events.orderChanged(current);
+          departed.push(current.id);
+        });
+      }
+      store.audit.log(session, "truck.close", "truck", `${date}/${driver}`, {
+        departed,
+        missing,
+        reason,
+      });
+      return json(200, { departed, missing });
+    }
+
     // ---- Noticias del día ----
     if (path === "/api/news" && method === "GET") {
       staffOnly(session);
@@ -581,79 +662,209 @@ export function createFloor({
       return json(200, { tare: tare() });
     }
 
-    // ---- Consolidado del día en Excel ----
+    // ---- Consolidado del día en Excel (misma estética que la planilla de facturación) ----
     if (path === "/api/export/consolidado" && method === "GET") {
       adminOnly(session);
       const date = query.get("fecha");
       if (!date || !dateRe.test(date))
         fail(400, "Indicá la fecha (AAAA-MM-DD).");
+      const driverFilter = query.get("repartidor") || "";
       const { default: ExcelJS } = await import("exceljs");
+      const RED = "FFA81A1A",
+        BLACK = "FF141416",
+        ZEBRA = "FFF2F2F2",
+        GOLD = "FFE5AF1E",
+        GRID = "FFBFBFBF";
+      const thin = { style: "thin", color: { argb: GRID } };
+      const rowBorder = { top: thin, bottom: thin };
+      const font = (o = {}) => ({ name: "Arial", size: 10, ...o });
+      const fill = (argb) => ({
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb },
+      });
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Consolidado " + date);
-      ws.columns = [
-        { header: "Fecha", key: "fecha", width: 12 },
-        { header: "Preventista", key: "preventista", width: 18 },
-        { header: "Cliente", key: "cliente", width: 28 },
-        { header: "Razón social", key: "razon", width: 28 },
-        { header: "CUIT", key: "cuit", width: 14 },
-        { header: "Pedido", key: "pedido", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 40 },
-        { header: "Cajones", key: "cajones", width: 9 },
-        { header: "Kilos", key: "kilos", width: 10 },
-        { header: "Neto gravado", key: "neto", width: 14 },
-        { header: "IVA 10,5%", key: "iva", width: 12 },
-        { header: "Total", key: "total", width: 14 },
-        { header: "Pago", key: "pago", width: 14 },
-        { header: "Estado", key: "estado", width: 12 },
+      wb.creator = "El Pollito Casero";
+      const ws = wb.addWorksheet("Consolidado", {
+        views: [{ showGridLines: false, state: "frozen", ySplit: 4 }],
+        pageSetup: {
+          orientation: "landscape",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+        },
+      });
+      const cols = [
+        ["Pedido", 12],
+        ["Preventista", 16],
+        ["Cliente", 24],
+        ["CUIT", 14],
+        ["Detalle", 34],
+        ["Cajones", 9],
+        ["Kilos", 13],
+        ["Neto gravado", 16],
+        ["IVA 10,5%", 14],
+        ["Total", 16],
+        ["% del día", 10],
+        ["", 3],
+        ["", 24],
+        ["", 16],
       ];
-      ws.getRow(1).font = { bold: true };
-      const orders = store.orders
+      cols.forEach(([, w], i) => (ws.getColumn(i + 1).width = w));
+      const last = cols.length - 3; // K
+      const L = (n) => String.fromCharCode(64 + n);
+      const dmy = date.split("-").reverse().join("/");
+      ws.mergeCells(1, 1, 1, last);
+      ws.getCell("A1").value = "EL POLLITO CASERO";
+      ws.getCell("A1").font = font({
+        size: 20,
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+      });
+      ws.getCell("A1").fill = fill(RED);
+      ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+      ws.getRow(1).height = 45.75;
+      ws.mergeCells(2, 1, 2, last);
+      ws.getCell("A2").value =
+        `Consolidado del reparto  ·  Fecha: ${dmy}${driverFilter ? "  ·  Preventista: " + driverFilter : ""}  ·  Un renglón por pedido`;
+      ws.getCell("A2").font = font({ bold: true, color: { argb: "FFFFFFFF" } });
+      ws.getCell("A2").fill = fill(BLACK);
+      ws.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+      ws.getRow(2).height = 21.75;
+      ws.getRow(3).height = 7.5;
+      const head = ws.getRow(4);
+      cols.slice(0, last).forEach(([name], i) => {
+        const c = head.getCell(i + 1);
+        c.value = name;
+        c.font = font({ bold: true, color: { argb: "FFFFFFFF" } });
+        c.fill = fill(BLACK);
+        c.alignment = { horizontal: "center", vertical: "middle" };
+        c.border = rowBorder;
+      });
+      head.height = 24;
+      let orders = store.orders
         .forDate(date)
         .filter((o) => o.status !== "cancelado");
-      for (const o of orders) {
+      if (driverFilter)
+        orders = orders.filter((o) => o.driver === driverFilter);
+      orders.sort(
+        (a, b) =>
+          (a.driver || "").localeCompare(b.driver || "") ||
+          a.name.localeCompare(b.name),
+      );
+      const first = 5;
+      const lastData = first + Math.max(orders.length, 1) - 1;
+      const totalRow = lastData + 1;
+      const rate = 1 + (Number(fiscal.ivaRate) || 10.5) / 100;
+      orders.forEach((o, i) => {
         const c = store.customers.get(o.customer) || {};
-        const kilos = round2(o.items.reduce((s, i) => s + i.kg, 0));
+        const r = ws.getRow(first + i);
+        const kilos = round2(o.items.reduce((s2, it) => s2 + it.kg, 0));
+        // Cajones: solo los de lo pedido por cajas; lo pedido por kilo va como bulto y no cuenta acá.
+        const boxed = new Set(
+          o.items.filter((it) => it.boxes).map((it) => it.id),
+        );
         const crates = store.crates
           .forOrder(o.id)
-          .filter((x) => !x.voided).length;
-        const neto = round2(o.total / 1.105);
-        ws.addRow({
-          fecha: date,
-          preventista: o.driver || "",
-          cliente: c.alias || o.name,
-          razon: c.legalName || c.name || o.name,
-          cuit: c.cuit || "",
-          pedido: o.id,
-          descripcion: o.items
+          .filter((x) => !x.voided && boxed.has(x.productId)).length;
+        const neto = round2(o.total / rate);
+        const kgEs = (n) =>
+          Number(n).toLocaleString("es-AR", {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 2,
+          });
+        const values = [
+          o.id,
+          o.driver || "",
+          c.alias || o.name,
+          c.cuit || "",
+          o.items
             .map(
-              (i) => `${i.name} ${i.kg} kg${i.boxes ? ` (${i.boxes} cj)` : ""}`,
+              (it) =>
+                `${it.name} ${kgEs(it.kg)} kg${it.boxes ? ` (${it.boxes} cj)` : ""}`,
             )
             .join(" · "),
-          cajones: crates,
+          crates,
           kilos,
           neto,
-          iva: round2(o.total - neto),
-          total: o.total,
-          pago:
-            o.payment === "cuenta"
-              ? "Cuenta corriente"
-              : o.paid
-                ? `Cobrado (${o.paidMethod || o.payment})`
-                : o.payment,
-          estado: o.status,
+          round2(o.total - neto),
+          { formula: `H${first + i}+I${first + i}` },
+          { formula: `J${first + i}/$J$${totalRow}` },
+        ];
+        values.forEach((v, j) => {
+          const cell = r.getCell(j + 1);
+          cell.value = v;
+          cell.font = font();
+          cell.border = rowBorder;
+          if (i % 2 === 1) cell.fill = fill(ZEBRA);
         });
+        r.getCell(1).alignment = { horizontal: "center" };
+        r.getCell(6).numFmt = "0";
+        r.getCell(7).numFmt = '#,##0.00" kg"';
+        for (const k of [8, 9, 10]) r.getCell(k).numFmt = "\\$#,##0.00";
+        r.getCell(11).numFmt = "0.0%";
+      });
+      const t = ws.getRow(totalRow);
+      t.height = 21.75;
+      const totals = {
+        2: `TOTAL (${orders.length} pedidos)`,
+        6: { formula: `SUM(F${first}:F${lastData})` },
+        7: { formula: `SUM(G${first}:G${lastData})` },
+        8: { formula: `SUM(H${first}:H${lastData})` },
+        9: { formula: `SUM(I${first}:I${lastData})` },
+        10: { formula: `SUM(J${first}:J${lastData})` },
+        11: { formula: `SUM(K${first}:K${lastData})` },
+      };
+      for (let k = 1; k <= last; k++) {
+        const cell = t.getCell(k);
+        if (totals[k] !== undefined) cell.value = totals[k];
+        cell.font = font({ size: 11, bold: true, color: { argb: "FFFFFFFF" } });
+        cell.fill = fill(RED);
+        cell.border = rowBorder;
       }
-      ws.addRow({});
-      ws.addRow({
-        cliente: "TOTAL",
-        kilos: round2(
-          orders.reduce((s, o) => s + o.items.reduce((a, i) => a + i.kg, 0), 0),
-        ),
-        total: round2(orders.reduce((s, o) => s + o.total, 0)),
-      }).font = { bold: true };
-      for (const col of ["neto", "iva", "total"])
-        ws.getColumn(col).numFmt = '"$" #,##0.00';
-      ws.getColumn("kilos").numFmt = "0.00";
+      t.getCell(7).numFmt = '#,##0.00" kg"';
+      for (const k of [8, 9, 10]) t.getCell(k).numFmt = "\\$#,##0.00";
+      t.getCell(11).numFmt = "0.0%";
+      // Resumen del día a la derecha, como en la planilla de facturación.
+      const M = last + 2,
+        N = last + 3;
+      ws.mergeCells(4, M, 4, N);
+      const rh = ws.getCell(4, M);
+      rh.value = "RESUMEN DEL DÍA";
+      rh.font = font({ size: 11, bold: true, color: { argb: "FFFFFFFF" } });
+      rh.fill = fill(BLACK);
+      rh.alignment = { horizontal: "center", vertical: "middle" };
+      const summary = [
+        ["Pedidos", { formula: `COUNTA(A${first}:A${lastData})` }, "0"],
+        ["Clientes", new Set(orders.map((o) => o.customer)).size, "0"],
+        ["Cajones", { formula: `F${totalRow}` }, "0"],
+        ["Kilos", { formula: `G${totalRow}` }, '#,##0.00" kg"'],
+        [
+          "Precio por kg (neto)",
+          { formula: `IF(G${totalRow}=0,0,H${totalRow}/G${totalRow})` },
+          "\\$#,##0.00",
+        ],
+        ["Neto gravado", { formula: `H${totalRow}` }, "\\$#,##0.00"],
+        ["IVA 10,5%", { formula: `I${totalRow}` }, "\\$#,##0.00"],
+        ["Facturado total", { formula: `J${totalRow}` }, "\\$#,##0.00", true],
+      ];
+      summary.forEach(([label, value, fmt, gold], i) => {
+        const a = ws.getCell(first + i, M),
+          v = ws.getCell(first + i, N);
+        a.value = label;
+        a.font = font({ bold: true });
+        v.value = value;
+        v.font = font({ bold: !!gold });
+        v.numFmt = fmt;
+        v.alignment = { horizontal: "right" };
+        for (const c of [a, v]) {
+          c.border = rowBorder;
+          if (gold) c.fill = fill(GOLD);
+        }
+      });
+      const note = ws.getCell(first + summary.length + 1, M);
+      note.value = `Consolidado del ${dmy}. Neto = total / ${rate.toFixed(3)} (IVA ${Number(fiscal.ivaRate) || 10.5}% incluido en el precio por kg).`;
+      note.font = font({ size: 9, italic: true, color: { argb: "FF666666" } });
       const buffer = Buffer.from(await wb.xlsx.writeBuffer());
       return {
         status: 200,
@@ -661,7 +872,7 @@ export function createFloor({
         headers: {
           "Content-Type":
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "Content-Disposition": `attachment; filename="Consolidado_${date}_El_Pollito_Casero.xlsx"`,
+          "Content-Disposition": `attachment; filename="Consolidado_${dmy.replace(/\//g, "-")}_El_Pollito_Casero.xlsx"`,
         },
       };
     }
