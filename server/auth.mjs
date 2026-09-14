@@ -226,16 +226,31 @@ export async function seedStaff(store, drivers, log) {
     role: "admin",
     passwordHash: hash,
   });
-  for (const d of drivers)
+  const username = (name) =>
+    String(name)
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .trim()
+      .split(/\s+/)[0];
+  const used = new Set(["admin"]);
+  const created = [];
+  for (const d of drivers) {
+    let u = username(d.name);
+    let n = 2;
+    while (used.has(u)) u = username(d.name) + n++;
+    used.add(u);
     store.staff.create({
-      username: d.name.toLowerCase(),
+      username: u,
       name: d.name,
       role: "repartidor",
       driver: d.name,
       passwordHash: hash,
     });
+    created.push(u);
+  }
   log.info?.(
-    `Usuarios del equipo creados: admin y ${drivers.map((d) => d.name.toLowerCase()).join(", ")} (${process.env.ADMIN_PASSWORD ? "contraseña de ADMIN_PASSWORD" : "contraseña de demostración pollito2026"}).`,
+    `Usuarios del equipo creados: admin y ${created.join(", ")} (${process.env.ADMIN_PASSWORD ? "contraseña de ADMIN_PASSWORD" : "contraseña de demostración pollito2026"}).`,
   );
 }
 

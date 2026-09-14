@@ -17,7 +17,13 @@ export const products = business.products.map((p) => ({
   unit: "Por kg",
 }));
 export const localities = business.localities;
+/** Repartidores iniciales (business.json); en producción viven en la tabla drivers. */
 export const drivers = business.drivers;
+/** Modo de la app: "completo" (portal de clientes + equipo) o "equipo" (solo administración y reparto). */
+export const appMode = process.env.APP_MODE || business.mode || "completo";
+/** Tara por cajón (kg) que se descuenta del bruto en la balanza. */
+export const defaultTare = Number(business.tare) || 1.7;
+export const shifts = ["manana", "tarde"];
 export const origin = business.origin;
 /** Kilos mínimos por modalidad: los precios mayorista/intermedio no son para una compra chica. */
 export const planMinKg = business.planMinKg || {
@@ -58,7 +64,14 @@ export function normalizePhone(raw) {
   return "549" + d;
 }
 
-export function priceOrder(input, { enforceMin = true } = {}) {
+/**
+ * Precia un pedido. `prices` (opcional) son los precios propios del cliente por producto: pisan la lista
+ * de la modalidad. `staff` permite pedidos por cajas (kg pendientes de balanza) y sin teléfono de contacto.
+ */
+export function priceOrder(
+  input,
+  { enforceMin = true, prices = null, staff = false, locality: forced } = {},
+) {
   if (!plans.includes(input.plan)) throw Error("Elegí una modalidad válida.");
   if (
     !Array.isArray(input.items) ||
@@ -69,38 +82,68 @@ export function priceOrder(input, { enforceMin = true } = {}) {
   const ids = new Set();
   const items = input.items.map((item) => {
     const p = products.find((p) => p.id === item.id);
+    if (!p || ids.has(item.id))
+      throw Error("Elegí productos válidos, sin repetir.");
+    // Pedido por cajas (equipo): los kilos los pone la balanza; hasta entonces la línea vale 0.
+    const boxes = staff && item.boxes !== undefined ? Number(item.boxes) : null;
     if (
-      !p ||
-      ids.has(item.id) ||
-      !Number.isFinite(item.kg) ||
-      item.kg < 1 ||
-      item.kg > 1000 ||
-      !Number.isInteger(item.kg * 2)
+      boxes !== null &&
+      (!Number.isFinite(boxes) ||
+        boxes < 0 ||
+        boxes > 500 ||
+        !Number.isInteger(boxes))
     )
-      throw Error("La cantidad debe ser de 1 a 1000 kg, en pasos de 0,5 kg.");
-    const price = productPrice(p, input.plan);
+      throw Error("Las cajas deben ser un número entero (0 a 500).");
+    const kg =
+      item.kg === undefined || item.kg === null || item.kg === ""
+        ? 0
+        : Number(item.kg);
+    if (boxes === null || kg > 0) {
+      if (
+        !Number.isFinite(kg) ||
+        kg < (staff ? 0.05 : 1) ||
+        kg > (staff ? 5000 : 1000) ||
+        (!staff && !Number.isInteger(kg * 2))
+      )
+        throw Error(
+          staff
+            ? "Los kilos deben ser un número válido (hasta 5000 kg)."
+            : "La cantidad debe ser de 1 a 1000 kg, en pasos de 0,5 kg.",
+        );
+    }
+    if (boxes === null && kg <= 0) throw Error("Indicá cajas o kilos.");
+    const own =
+      prices && Number.isFinite(Number(prices[p.id]))
+        ? Number(prices[p.id])
+        : null;
+    const price = own ?? productPrice(p, input.plan);
     if (!Number.isFinite(price) || price <= 0)
-      throw Error(`El precio de ${p.name} está pendiente para esta modalidad.`);
+      throw Error(`El precio de ${p.name} está pendiente para este cliente.`);
     ids.add(item.id);
     return {
       id: p.id,
       name: p.name,
-      kg: item.kg,
+      kg,
+      ...(boxes !== null ? { boxes } : {}),
       price,
-      lineTotal: lineAmount(price, item.kg),
+      ownPrice: own !== null,
+      lineTotal: lineAmount(price, kg),
     };
   });
   const kg = items.reduce((n, p) => n + p.kg, 0);
-  if (enforceMin && kg < (planMinKg[input.plan] || 0))
+  if (enforceMin && !staff && kg < (planMinKg[input.plan] || 0))
     throw Error(
       `La modalidad ${input.plan} es a partir de ${planMinKg[input.plan]} kg. Para menos, elegí minorista.`,
     );
-  const allowed = paymentMethods(input.plan);
+  // Para el equipo, la cuenta corriente depende de la ficha (crédito habilitado), no de la modalidad de precios.
+  const allowed = staff
+    ? ["cuenta", "entrega", "transferencia", "mercadopago"]
+    : paymentMethods(input.plan);
   if (!allowed.includes(input.payment))
     throw Error("Medio de pago no disponible para esta modalidad.");
   if (
     typeof input.address !== "string" ||
-    input.address.trim().length < 8 ||
+    (!staff && input.address.trim().length < 8) ||
     input.address.length > 250
   )
     throw Error("Ingresá una dirección completa.");
@@ -110,13 +153,13 @@ export function priceOrder(input, { enforceMin = true } = {}) {
     input.name.length > 100
   )
     throw Error("Ingresá tu nombre.");
+  const phone = String(input.phone || "").trim();
   if (
-    typeof input.phone !== "string" ||
-    !/^[+\d ()-]{8,25}$/.test(input.phone) ||
-    !normalizePhone(input.phone)
+    (!staff || phone) &&
+    (!/^[+\d ()-]{8,25}$/.test(phone) || !normalizePhone(phone))
   )
     throw Error("Ingresá un teléfono válido, con código de área.");
-  const locality = localities.find((l) => l.id === input.localityId);
+  const locality = forced || localities.find((l) => l.id === input.localityId);
   if (!locality) throw Error("Elegí una localidad de la lista de Mendoza.");
   const subtotal =
     items.reduce((n, p) => n + Math.round(p.lineTotal * 100), 0) / 100;

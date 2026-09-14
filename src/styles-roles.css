@@ -1585,3 +1585,150 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ---- Fichas de clientes (GC) ---- */
+.customers-filters {
+  margin-bottom: 14px;
+}
+.customers-filters .search-field {
+  flex: 1 1 260px;
+}
+.customers-filters .search-field input {
+  min-height: 38px;
+}
+.gc-customers td small {
+  color: var(--muted);
+}
+.gc-customers .pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f0ede3;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #4a4842;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #e7f5ea;
+  color: #1c6b34;
+}
+.status-pill.incompleto {
+  background: #fff4d6;
+  color: #7a5200;
+}
+.status-pill.revisar {
+  background: #fce8e6;
+  color: #a91b25;
+}
+.status-pill.inactivo {
+  background: #eee;
+  color: var(--muted);
+}
+.gc-customers tr.status-revisar td:first-child {
+  box-shadow: inset 3px 0 0 #c9262e;
+}
+.ficha-form {
+  display: grid;
+  gap: 14px;
+}
+.ficha-form .qo-grid label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4842;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+.ficha-form .toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+dialog.wide-dialog {
+  width: min(720px, calc(100vw - 32px));
+}
+.prices-table .own {
+  font-weight: 700;
+}
+.qo-price.own {
+  color: var(--red);
+  font-weight: 700;
+}
+.qo-table .qo-box {
+  width: 84px;
+}
+.qo-table .qo-box input {
+  width: 72px;
+  text-align: right;
+  min-height: 40px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+.qo-picked-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #e7f5ea;
+  color: #1c6b34;
+}
+.qo-picked-card small {
+  display: block;
+  color: #2a5a37;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.qo-picked-actions {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  white-space: nowrap;
+}
+.qo-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.driver-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  padding: 12px 0 16px;
+}
+.driver-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4a4842;
+}
+.driver-form .wide,
+.driver-form .actions-row {
+  grid-column: 1 / -1;
+}
+.driver-form .toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: end;
+}
+@media (max-width: 720px) {
+  .qo-table .qo-box {
+    width: 74px;
+  }
+  .qo-table .qo-box input {
+    width: 64px;
+    min-height: 44px;
+  }
+}

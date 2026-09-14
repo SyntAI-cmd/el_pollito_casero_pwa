@@ -3,8 +3,195 @@ import { UserPlus, KeyRound, ShieldCheck, Truck, Check } from "lucide-react";
 import { api, post, patch } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
 import { dateText, timeText } from "../lib/format.js";
+import { shiftNames } from "./Customers.jsx";
 
 /** Usuarios del equipo: quién entra, con qué rol y con qué contraseña. Solo administración. */
+/** Camiones / preventistas: quién reparte, con qué zonas y turno. */
+function Drivers() {
+  const { config, saveDriver, busy, customers } = useStore();
+  const [editing, setEditing] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const list = config?.driverList || [];
+  const zones = [
+    ...new Set(customers.map((c) => c.zone).filter(Boolean)),
+  ].sort();
+  const parseZones = (v) =>
+    String(v || "")
+      .split(/[,;\n]/)
+      .map((z) => z.trim())
+      .filter(Boolean);
+  const Form = ({ d, onDone }) => (
+    <form
+      className="driver-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = Object.fromEntries(new FormData(e.target));
+        const ok = await saveDriver(d?.name || null, {
+          ...(d ? {} : { name: f.name }),
+          phone: f.phone,
+          cuit: f.cuit,
+          shift: f.shift,
+          zones: parseZones(f.zones),
+          ...(d ? { active: f.active === "on" } : {}),
+        });
+        if (ok) onDone();
+      }}
+    >
+      {!d && (
+        <label>
+          Nombre
+          <input
+            name="name"
+            required
+            minLength="2"
+            maxLength="60"
+            autoComplete="off"
+            placeholder="Nombre y apellido"
+          />
+        </label>
+      )}
+      <label>
+        WhatsApp
+        <input
+          name="phone"
+          type="tel"
+          defaultValue={(d?.phone || "").replace(/^549/, "")}
+          autoComplete="off"
+          placeholder="263 4 55-1234"
+        />
+      </label>
+      <label>
+        CUIT
+        <input
+          name="cuit"
+          inputMode="numeric"
+          defaultValue={d?.cuit || ""}
+          autoComplete="off"
+          pattern="[0-9]{11}|"
+        />
+      </label>
+      <label>
+        Turno
+        <select name="shift" defaultValue={d?.shift || ""}>
+          <option value="">Ambos</option>
+          <option value="manana">Mañana</option>
+          <option value="tarde">Tarde</option>
+        </select>
+      </label>
+      <label className="wide">
+        Zonas <small>(separadas por coma)</small>
+        <input
+          name="zones"
+          defaultValue={(d?.zones || []).join(", ")}
+          list="zonas-camion"
+          autoComplete="off"
+          placeholder="Rivadavia, Junín, La Colonia"
+        />
+      </label>
+      {d && (
+        <label className="toggle">
+          <input type="checkbox" name="active" defaultChecked={d.active} />{" "}
+          Activo
+        </label>
+      )}
+      <div className="actions-row">
+        <button className="primary" disabled={busy}>
+          <Check size={14} /> Guardar
+        </button>
+        <button type="button" className="link-button" onClick={onDone}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+  return (
+    <section className="panel">
+      <div className="section-line">
+        <h2>
+          <Truck size={18} /> Camiones y preventistas
+        </h2>
+        <button className="secondary small" onClick={() => setAdding(true)}>
+          <UserPlus size={13} /> Agregar
+        </button>
+      </div>
+      <datalist id="zonas-camion">
+        {zones.map((z) => (
+          <option key={z} value={z} />
+        ))}
+      </datalist>
+      {adding && <Form onDone={() => setAdding(false)} />}
+      <div className="table-scroll">
+        <table className="customers drivers-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>WhatsApp</th>
+              <th>CUIT</th>
+              <th>Turno</th>
+              <th>Zonas</th>
+              <th>Clientes</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((d) =>
+              editing === d.name ? (
+                <tr key={d.name}>
+                  <td colSpan="8">
+                    <strong>{d.name}</strong>
+                    <Form d={d} onDone={() => setEditing(null)} />
+                  </td>
+                </tr>
+              ) : (
+                <tr key={d.name} className={d.active ? "" : "inactive"}>
+                  <td>
+                    <strong>{d.name}</strong>
+                  </td>
+                  <td>{d.phone ? d.phone.replace(/^549/, "") : "—"}</td>
+                  <td>{d.cuit || <span className="muted">pendiente</span>}</td>
+                  <td>
+                    {shiftNames[d.shift || ""] === "—"
+                      ? "Ambos"
+                      : shiftNames[d.shift]}
+                  </td>
+                  <td>
+                    {d.zones.length ? (
+                      d.zones.join(", ")
+                    ) : (
+                      <span className="muted">sin zonas</span>
+                    )}
+                  </td>
+                  <td>
+                    {
+                      customers.filter((c) => (c.truck || c.driver) === d.name)
+                        .length
+                    }
+                  </td>
+                  <td>{d.active ? "Activo" : "Inactivo"}</td>
+                  <td>
+                    <button
+                      className="secondary small"
+                      onClick={() => setEditing(d.name)}
+                    >
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="demo-note">
+        Cada camión tiene sus zonas y turno: los clientes de esas zonas le
+        quedan preasignados al cargar pedidos. El usuario con el que entra el
+        preventista se administra abajo.
+      </p>
+    </section>
+  );
+}
+
 export default function Team() {
   const { config, notify, session } = useStore();
   const [users, setUsers] = useState([]);
@@ -37,6 +224,7 @@ export default function Team() {
   };
   return (
     <div className="team">
+      <Drivers />
       <section className="panel">
         <div className="section-line">
           <h2>Usuarios del equipo</h2>
@@ -328,8 +516,6 @@ export default function Team() {
         <p className="demo-note">
           Tocá el nombre de un usuario para editar su nombre, rol o repartidor.
           Cambiar el rol o desactivar a alguien cierra sus sesiones al instante.
-          Los repartidores disponibles se definen en la configuración del
-          negocio.
         </p>
       </section>
     </div>

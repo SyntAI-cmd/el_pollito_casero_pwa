@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 const SESSION_DAYS = 90;
 const now = () => new Date().toISOString();
 const j = (v) => (v === undefined || v === null ? null : JSON.stringify(v));
@@ -88,6 +88,21 @@ CREATE TABLE IF NOT EXISTS messages(
   id INTEGER PRIMARY KEY AUTOINCREMENT, thread TEXT NOT NULL, from_role TEXT NOT NULL, from_name TEXT NOT NULL,
   text TEXT NOT NULL, at TEXT NOT NULL, read_at TEXT);
 CREATE INDEX IF NOT EXISTS messages_thread ON messages(thread, id);
+CREATE TABLE IF NOT EXISTS customer_prices(
+  customer TEXT NOT NULL REFERENCES customers(phone) ON DELETE CASCADE, product_id TEXT NOT NULL,
+  price REAL NOT NULL CHECK(price >= 0), updated TEXT NOT NULL, by_actor TEXT, PRIMARY KEY(customer, product_id));
+CREATE TABLE IF NOT EXISTS drivers(
+  name TEXT PRIMARY KEY, phone TEXT, cuit TEXT, zones TEXT NOT NULL DEFAULT '[]', shift TEXT,
+  active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS crates(
+  id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, product_id TEXT NOT NULL,
+  gross REAL NOT NULL, tare REAL NOT NULL, net REAL NOT NULL, by_actor TEXT NOT NULL, at TEXT NOT NULL,
+  loaded_at TEXT, loaded_by TEXT, voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT);
+CREATE INDEX IF NOT EXISTS crates_order ON crates(order_id, at);
+CREATE TABLE IF NOT EXISTS news(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL, by_actor TEXT NOT NULL, at TEXT NOT NULL,
+  pinned INTEGER NOT NULL DEFAULT 0, archived INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL, updated TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS cash_closures(
   id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL, driver TEXT NOT NULL,
   expected REAL NOT NULL, received REAL NOT NULL, transfers REAL NOT NULL DEFAULT 0, account_cash REAL NOT NULL DEFAULT 0,
@@ -148,6 +163,20 @@ export async function openStore(path, { log = console } = {}) {
   db.exec(
     "CREATE INDEX IF NOT EXISTS orders_account ON orders(account_id); CREATE INDEX IF NOT EXISTS orders_session ON orders(session_id)",
   );
+  // v5: reparto por fecha y turno; ítems pedidos por cajas (los kilos nacen en la balanza).
+  if (!orderCols.includes("delivery_date"))
+    db.exec("ALTER TABLE orders ADD COLUMN delivery_date TEXT");
+  if (!orderCols.includes("shift"))
+    db.exec("ALTER TABLE orders ADD COLUMN shift TEXT");
+  db.exec(
+    "CREATE INDEX IF NOT EXISTS orders_delivery ON orders(delivery_date)",
+  );
+  const itemCols = db
+    .prepare("PRAGMA table_info(order_items)")
+    .all()
+    .map((c) => c.name);
+  if (!itemCols.includes("boxes"))
+    db.exec("ALTER TABLE order_items ADD COLUMN boxes REAL");
   const applied = new Set(
     db
       .prepare("SELECT version FROM schema_migrations")
@@ -178,6 +207,9 @@ export async function openStore(path, { log = console } = {}) {
       "SELECT * FROM orders WHERE session_id = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersCount: db.prepare("SELECT COUNT(*) AS n FROM orders"),
+    ordersForDate: db.prepare(
+      "SELECT * FROM orders WHERE delivery_date = ? ORDER BY created",
+    ),
     ordersCustomerCount: db.prepare(
       "SELECT COUNT(*) AS n FROM orders WHERE customer = ?",
     ),
@@ -196,10 +228,10 @@ export async function openStore(path, { log = console } = {}) {
     upsertOrder:
       db.prepare(`INSERT INTO orders(id, idem_key, customer, name, phone, address, locality, notes, plan, payment, paid, paid_at, paid_by, payment_id,
         status, driver, subtotal, shipping, total, boxes, returned, created, updated, created_by, departed_at, delivered_at, delivered_by,
-        weighed, weighed_at, weighed_by, cancelled, demo, destination, location, eta, transfer, data, account_id, session_id)
+        weighed, weighed_at, weighed_by, cancelled, demo, destination, location, eta, transfer, data, account_id, session_id, delivery_date, shift)
       VALUES(@id, @idem_key, @customer, @name, @phone, @address, @locality, @notes, @plan, @payment, @paid, @paid_at, @paid_by, @payment_id,
         @status, @driver, @subtotal, @shipping, @total, @boxes, @returned, @created, @updated, @created_by, @departed_at, @delivered_at, @delivered_by,
-        @weighed, @weighed_at, @weighed_by, @cancelled, @demo, @destination, @location, @eta, @transfer, @data, @account_id, @session_id)
+        @weighed, @weighed_at, @weighed_by, @cancelled, @demo, @destination, @location, @eta, @transfer, @data, @account_id, @session_id, @delivery_date, @shift)
       ON CONFLICT(id) DO UPDATE SET idem_key=excluded.idem_key, customer=excluded.customer, name=excluded.name, phone=excluded.phone,
         address=excluded.address, locality=excluded.locality, notes=excluded.notes, plan=excluded.plan, payment=excluded.payment,
         paid=excluded.paid, paid_at=excluded.paid_at, paid_by=excluded.paid_by, payment_id=excluded.payment_id, status=excluded.status,
@@ -207,10 +239,61 @@ export async function openStore(path, { log = console } = {}) {
         returned=excluded.returned, updated=excluded.updated, departed_at=excluded.departed_at, delivered_at=excluded.delivered_at,
         delivered_by=excluded.delivered_by, weighed=excluded.weighed, weighed_at=excluded.weighed_at, weighed_by=excluded.weighed_by,
         cancelled=excluded.cancelled, demo=excluded.demo, destination=excluded.destination, location=excluded.location, eta=excluded.eta,
-        transfer=excluded.transfer, data=excluded.data, account_id=excluded.account_id, session_id=excluded.session_id`),
+        transfer=excluded.transfer, data=excluded.data, account_id=excluded.account_id, session_id=excluded.session_id,
+        delivery_date=excluded.delivery_date, shift=excluded.shift`),
     deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
     insertItem: db.prepare(
-      "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed) VALUES(?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed, boxes) VALUES(?,?,?,?,?,?,?,?,?,?)",
+    ),
+    pricesFor: db.prepare(
+      "SELECT product_id AS productId, price, updated FROM customer_prices WHERE customer = ?",
+    ),
+    pricesAll: db.prepare(
+      "SELECT customer, product_id AS productId, price FROM customer_prices",
+    ),
+    upsertPrice: db.prepare(
+      "INSERT INTO customer_prices(customer, product_id, price, updated, by_actor) VALUES(?,?,?,?,?) ON CONFLICT(customer, product_id) DO UPDATE SET price=excluded.price, updated=excluded.updated, by_actor=excluded.by_actor",
+    ),
+    deletePrice: db.prepare(
+      "DELETE FROM customer_prices WHERE customer = ? AND product_id = ?",
+    ),
+    driversAll: db.prepare("SELECT * FROM drivers ORDER BY sort, name"),
+    driver: db.prepare("SELECT * FROM drivers WHERE name = ?"),
+    upsertDriver: db.prepare(
+      `INSERT INTO drivers(name, phone, cuit, zones, shift, active, sort, created) VALUES(?,?,?,?,?,?,?,?)
+       ON CONFLICT(name) DO UPDATE SET phone=excluded.phone, cuit=excluded.cuit, zones=excluded.zones, shift=excluded.shift, active=excluded.active, sort=excluded.sort`,
+    ),
+    cratesFor: db.prepare(
+      "SELECT * FROM crates WHERE order_id = ? ORDER BY at, rowid",
+    ),
+    cratesForDate: db.prepare(
+      "SELECT c.* FROM crates c JOIN orders o ON o.id = c.order_id WHERE o.delivery_date = ? ORDER BY c.at",
+    ),
+    crate: db.prepare("SELECT * FROM crates WHERE id = ?"),
+    insertCrate: db.prepare(
+      "INSERT OR IGNORE INTO crates(id, order_id, product_id, gross, tare, net, by_actor, at) VALUES(?,?,?,?,?,?,?,?)",
+    ),
+    voidCrate: db.prepare(
+      "UPDATE crates SET voided = 1, void_reason = ? WHERE id = ? AND voided = 0",
+    ),
+    loadCrate: db.prepare(
+      "UPDATE crates SET loaded_at = ?, loaded_by = ? WHERE id = ? AND voided = 0",
+    ),
+    unloadCrate: db.prepare(
+      "UPDATE crates SET loaded_at = NULL, loaded_by = NULL WHERE id = ?",
+    ),
+    newsList: db.prepare(
+      "SELECT id, text, by_actor AS by, at, pinned FROM news WHERE archived = 0 ORDER BY pinned DESC, id DESC LIMIT ?",
+    ),
+    insertNews: db.prepare(
+      "INSERT INTO news(text, by_actor, at, pinned) VALUES(?,?,?,?)",
+    ),
+    updateNews: db.prepare(
+      "UPDATE news SET pinned = COALESCE(?, pinned), archived = COALESCE(?, archived) WHERE id = ?",
+    ),
+    setting: db.prepare("SELECT value FROM settings WHERE key = ?"),
+    setSetting: db.prepare(
+      "INSERT INTO settings(key, value, updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated",
     ),
     countEvents: db.prepare(
       "SELECT COUNT(*) AS n FROM order_events WHERE order_id = ?",
@@ -238,6 +321,7 @@ export async function openStore(path, { log = console } = {}) {
     ),
     customer: db.prepare("SELECT * FROM customers WHERE phone = ?"),
     customersAll: db.prepare("SELECT * FROM customers ORDER BY updated DESC"),
+    deleteCustomer: db.prepare("DELETE FROM customers WHERE phone = ?"),
     upsertCustomer:
       db.prepare(`INSERT INTO customers(phone, name, plan, credit, driver, address, locality_id, lat, lng, credit_balance, created, updated, data)
       VALUES(@phone, @name, @plan, @credit, @driver, @address, @locality_id, @lat, @lng, @credit_balance, @created, @updated, @data)
@@ -407,6 +491,9 @@ export async function openStore(path, { log = console } = {}) {
         price: i.price,
         lineTotal: i.line_total,
         ...(i.ordered !== null ? { ordered: i.ordered } : {}),
+        ...(i.boxes !== null && i.boxes !== undefined
+          ? { boxes: i.boxes }
+          : {}),
         ...(i.weighed ? { weighed: true } : {}),
       })),
       history: q.events.all(r.id),
@@ -427,6 +514,8 @@ export async function openStore(path, { log = console } = {}) {
     if (r.demo) o.demo = true;
     if (r.account_id) o.accountId = r.account_id;
     if (r.session_id) o.sessionId = r.session_id;
+    if (r.delivery_date) o.deliveryDate = r.delivery_date;
+    if (r.shift) o.shift = r.shift;
     if (r.destination !== null) o.destination = p(r.destination);
     if (r.location) o.location = p(r.location);
     if (r.eta) o.eta = p(r.eta);
@@ -481,6 +570,8 @@ export async function openStore(path, { log = console } = {}) {
     "driverContact",
     "accountId",
     "sessionId",
+    "deliveryDate",
+    "shift",
   ]);
 
   function saveOrder(o) {
@@ -529,6 +620,8 @@ export async function openStore(path, { log = console } = {}) {
         data: Object.keys(extra).length ? JSON.stringify(extra) : null,
         account_id: o.accountId || null,
         session_id: o.sessionId || null,
+        delivery_date: o.deliveryDate || null,
+        shift: o.shift || null,
       });
       // `destination: null` (no ubicable) se distingue de "sin geocodificar" (undefined) guardando la cadena "null".
       q.deleteItems.run(o.id);
@@ -543,6 +636,7 @@ export async function openStore(path, { log = console } = {}) {
           i.price,
           i.lineTotal ?? Math.round(i.price * i.kg * 100) / 100,
           i.weighed ? 1 : 0,
+          i.boxes ?? null,
         ),
       );
       // Historial, recorrido y devoluciones son "solo agregar": se insertan las entradas nuevas.
@@ -642,6 +736,23 @@ export async function openStore(path, { log = console } = {}) {
     return c;
   }
 
+  const rowToCrate = (r) =>
+    r
+      ? {
+          id: r.id,
+          orderId: r.order_id,
+          productId: r.product_id,
+          gross: r.gross,
+          tare: r.tare,
+          net: r.net,
+          by: r.by_actor,
+          at: r.at,
+          loadedAt: r.loaded_at || null,
+          loadedBy: r.loaded_by || null,
+          voided: !!r.voided,
+          voidReason: r.void_reason || null,
+        }
+      : null;
   const rowToAccount = (r) =>
     r
       ? {
@@ -696,6 +807,7 @@ export async function openStore(path, { log = console } = {}) {
       get: (id) => rowToOrder(q.order.get(id)),
       byKey: (key) => rowToOrder(q.orderByKey.get(key)),
       forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),
+      forDate: (date) => q.ordersForDate.all(date).map(rowToOrder),
       forSession: (id) => q.ordersSession.all(id).map(rowToOrder),
       save: saveOrder,
       count: () => q.ordersCount.get().n,
@@ -712,6 +824,12 @@ export async function openStore(path, { log = console } = {}) {
       all: () => q.customersAll.all().map(rowToCustomer),
       save: saveCustomer,
       boxMovements: (phone) => q.boxMovements.all(phone),
+      /** Borra una ficha sin pedidos ni pagos (p. ej. importada por error). */
+      remove: (key) =>
+        q.ordersCustomerCount.get(key).n === 0 &&
+        q.payments.all(key).length === 0
+          ? q.deleteCustomer.run(key).changes
+          : 0,
     },
     payments: {
       forCustomer: (phone) => q.payments.all(phone).map(rowToPayment),
@@ -875,6 +993,85 @@ export async function openStore(path, { log = console } = {}) {
         ),
       used: (id, counter) => q.usePasskey.run(counter, now(), id),
       remove: (id, accountId) => q.deletePasskey.run(id, accountId).changes,
+    },
+    /** Precio propio de cada cliente por producto (la lista de mañana/tarde hecha datos). */
+    prices: {
+      forCustomer: (key) => q.pricesFor.all(key),
+      all: () => {
+        const map = {};
+        for (const r of q.pricesAll.all())
+          (map[r.customer] ||= {})[r.productId] = r.price;
+        return map;
+      },
+      set: (key, productId, price, by) =>
+        price === null || price === undefined || price === ""
+          ? q.deletePrice.run(key, productId)
+          : q.upsertPrice.run(key, productId, Number(price), now(), by || null),
+    },
+    /** Repartidores / preventistas (camiones), con zonas y turno. */
+    drivers: {
+      all: () =>
+        q.driversAll.all().map((d) => ({
+          ...d,
+          zones: p(d.zones, []),
+          active: !!d.active,
+        })),
+      get: (name) => {
+        const d = q.driver.get(name);
+        return d ? { ...d, zones: p(d.zones, []), active: !!d.active } : null;
+      },
+      save: (d) =>
+        q.upsertDriver.run(
+          d.name,
+          d.phone || null,
+          d.cuit || null,
+          JSON.stringify(d.zones || []),
+          d.shift || null,
+          d.active === false ? 0 : 1,
+          d.sort || 0,
+          d.created || now(),
+        ),
+    },
+    /** Cajones pesados: cada uno con bruto, tara y neto; se anulan, nunca se borran. */
+    crates: {
+      forOrder: (orderId) => q.cratesFor.all(orderId).map(rowToCrate),
+      forDate: (date) => q.cratesForDate.all(date).map(rowToCrate),
+      get: (id) => rowToCrate(q.crate.get(id)),
+      add: (c) =>
+        q.insertCrate.run(
+          c.id,
+          c.orderId,
+          c.productId,
+          c.gross,
+          c.tare,
+          c.net,
+          c.by,
+          c.at || now(),
+        ).changes,
+      void: (id, reason) => q.voidCrate.run(reason || null, id).changes,
+      load: (id, by) => q.loadCrate.run(now(), by, id).changes,
+      unload: (id) => q.unloadCrate.run(id).changes,
+    },
+    news: {
+      list: (limit = 50) =>
+        q.newsList.all(limit).map((n) => ({ ...n, pinned: !!n.pinned })),
+      add: (text, by, pinned = false) =>
+        Number(
+          q.insertNews.run(text, by, now(), pinned ? 1 : 0).lastInsertRowid,
+        ),
+      update: (id, { pinned, archived } = {}) =>
+        q.updateNews.run(
+          pinned === undefined ? null : pinned ? 1 : 0,
+          archived === undefined ? null : archived ? 1 : 0,
+          id,
+        ).changes,
+    },
+    settings: {
+      get: (key, fallback = null) => {
+        const r = q.setting.get(key);
+        return r ? p(r.value, fallback) : fallback;
+      },
+      set: (key, value) => q.setSetting.run(key, JSON.stringify(value), now()),
     },
     /** Cierres de caja por repartidor y día: efectivo esperado vs. recibido, con quién y cuándo. */
     closures: {

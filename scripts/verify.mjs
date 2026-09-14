@@ -21,6 +21,7 @@ const server = spawn(process.execPath, ["server.mjs"], {
     LOGIN_LIMIT: "100",
     TRANSFER_ALIAS: "pollito.casero.mp",
     TRANSFER_HOLDER: "El Pollito Casero",
+    APP_MODE: "completo", // la E2E cubre el portal de clientes y el módulo del equipo
   },
   stdio: "pipe",
   windowsHide: true,
@@ -31,9 +32,12 @@ let browser;
 const step = (name) => console.log("· " + name);
 
 // Cliente HTTP mínimo con cookies por "usuario".
+let lastAdminCookie = "";
+const adminCookie = () => lastAdminCookie;
 function client() {
   let cookie = "";
   return async (path, data, method = data ? "POST" : "GET", headers = {}) => {
+    if (path === "__cookie") return cookie;
     const r = await fetch(base + "/api" + path, {
       method,
       headers: {
@@ -45,6 +49,8 @@ function client() {
     });
     const set = r.headers.get("set-cookie");
     if (set) cookie = set.split(";")[0];
+    if (path === "/session/staff" && data?.username === "admin" && r.ok)
+      lastAdminCookie = cookie;
     return { status: r.status, data: await r.json() };
   };
 }
@@ -790,6 +796,198 @@ try {
     403,
     "la sesión vieja ya no tiene permisos",
   );
+  // ---- Módulo de piso: fichas GC, precios propios, pedidos por cajas, pesada con tara ----
+  const ficha = await admin("/customers", {
+    name: "Almacén La Paz",
+    alias: "Chacho",
+    zone: "La Paz",
+    shift: "tarde",
+    truck: "Maxi",
+    cuit: "",
+  });
+  assert.equal(ficha.status, 201, JSON.stringify(ficha.data));
+  assert.equal(ficha.data.status, "incompleto", "sin CUIT queda incompleta");
+  const key = ficha.data.phone;
+  assert.equal(
+    (
+      await admin(
+        "/customers/" + key + "/ficha",
+        { cuit: "20123456789" },
+        "PATCH",
+      )
+    ).data.status,
+    "ok",
+    "con CUIT pasa a completa",
+  );
+  assert.equal(
+    (await franco("/customers/" + key + "/ficha", { cuit: "1" }, "PATCH"))
+      .status,
+    403,
+    "la ficha la edita administración",
+  );
+  assert.deepEqual(
+    (
+      await admin(
+        "/customers/" + key + "/prices",
+        { prices: { entero: 4400, suprema: 9980 } },
+        "PUT",
+      )
+    ).data,
+    { entero: 4400, suprema: 9980 },
+    "precios propios por producto",
+  );
+  const team = await admin("/orders", {
+    customer: key,
+    key: "piso-1",
+    deliveryDate: "2030-01-02",
+    shift: "tarde",
+    items: [
+      { id: "entero", boxes: 3 },
+      { id: "suprema", kg: 2 },
+    ],
+  });
+  assert.equal(team.status, 201, JSON.stringify(team.data));
+  assert.equal(team.data.driver, "Maxi", "camión del cliente preasignado");
+  assert.equal(team.data.payment, "cuenta");
+  assert.equal(team.data.items[0].boxes, 3);
+  assert.equal(team.data.items[0].kg, 0, "las cajas se pesan después");
+  assert.equal(team.data.items[1].price, 9980, "precio propio de suprema");
+  assert.equal(team.data.total, 2 * 9980);
+  assert.equal(
+    (
+      await admin("/orders", {
+        customer: key,
+        key: "piso-1",
+        deliveryDate: "2030-01-02",
+        items: [{ id: "entero", boxes: 9 }],
+      })
+    ).data.id,
+    team.data.id,
+    "idempotente por cliente + clave",
+  );
+  // Pesada: bruto − tara = neto; reintentar con la misma id no duplica.
+  const t1 = await maxi("/orders/" + team.data.id + "/crates", {
+    id: "cajon-a",
+    productId: "entero",
+    gross: 21.7,
+  });
+  assert.equal(t1.status, 201, JSON.stringify(t1.data));
+  assert.equal(t1.data.crates[0].net, 20, "resta la tara de 1,7 kg");
+  assert.equal(t1.data.items[0].kg, 20);
+  assert.equal(
+    t1.data.total,
+    20 * 4400 + 2 * 9980,
+    "el total usa el precio propio del cliente",
+  );
+  assert.equal(
+    (
+      await maxi("/orders/" + team.data.id + "/crates", {
+        id: "cajon-a",
+        productId: "entero",
+        gross: 21.7,
+      })
+    ).status,
+    200,
+  );
+  await maxi("/orders/" + team.data.id + "/crates", {
+    id: "cajon-b",
+    productId: "entero",
+    gross: 19.2,
+  });
+  const afterTwo = (await admin("/orders")).data.find(
+    (o) => o.id === team.data.id,
+  );
+  assert.equal(
+    afterTwo.crates.filter((c) => !c.voided).length,
+    2,
+    "dos cajones, uno por reintento ignorado",
+  );
+  assert.equal(afterTwo.items[0].kg, 37.5);
+  assert.equal(
+    (
+      await maxi("/orders/" + team.data.id + "/crates", {
+        productId: "entero",
+        gross: 1.2,
+      })
+    ).status,
+    400,
+    "bruto menor que la tara",
+  );
+  assert.equal(
+    (
+      await franco("/orders/" + team.data.id + "/crates", {
+        productId: "entero",
+        gross: 20,
+      })
+    ).status,
+    403,
+    "otro camión no pesa este pedido",
+  );
+  assert.equal(
+    (await maxi("/crates/cajon-b", { reason: "se cayó" }, "DELETE")).data
+      .items[0].kg,
+    20,
+    "anular un cajón descuenta",
+  );
+  assert.equal(
+    (await maxi("/crates/cajon-a/load", {})).data.crates[0].loadedAt !== null,
+    true,
+    "cajón cargado al camión",
+  );
+  assert.equal(
+    (await maxi("/crates/cajon-a", {}, "DELETE")).status,
+    400,
+    "cargado no se anula",
+  );
+  const dia = await admin("/dia?fecha=2030-01-02");
+  assert.equal(dia.data.orders.length, 1);
+  assert.equal(dia.data.tare, 1.7);
+  assert.equal(
+    (await admin("/settings", { tare: 1.8 }, "PATCH")).data.tare,
+    1.8,
+    "tara configurable",
+  );
+  await admin("/settings", { tare: 1.7 }, "PATCH");
+  // Noticias y repartidores.
+  assert.equal(
+    (await maxi("/news", { text: "Mañana no hay reparto a La Paz" })).status,
+    201,
+  );
+  assert.equal(
+    (await admin("/news")).data[0].text,
+    "Mañana no hay reparto a La Paz",
+  );
+  assert.equal((await ana("/news")).status, 403, "las noticias son del equipo");
+  assert.equal(
+    (await admin("/drivers")).data.some((d) => d.name === "Maxi"),
+    true,
+  );
+  assert.equal(
+    (
+      await admin(
+        "/drivers/Maxi",
+        { zones: ["La Paz", "Catitas"], shift: "tarde" },
+        "PATCH",
+      )
+    ).data.zones.length,
+    2,
+  );
+  assert.equal(
+    (await maxi("/customers")).data.some((c) => c.phone === key),
+    true,
+    "el preventista ve los clientes de sus zonas",
+  );
+  const xlsx = await fetch(base + "/api/export/consolidado?fecha=2030-01-02", {
+    headers: { Cookie: adminCookie() },
+  });
+  assert.equal(xlsx.status, 200);
+  assert.match(
+    xlsx.headers.get("content-type"),
+    /spreadsheetml/,
+    "consolidado en Excel",
+  );
+  assert.ok((await xlsx.arrayBuffer()).byteLength > 2000);
+
   // Cierre de caja: solo administración, queda guardado con diferencia y se puede corregir.
   const todayKey = new Date().toLocaleDateString("sv-SE");
   assert.equal((await franco("/closures?date=" + todayKey)).status, 403);
@@ -1141,8 +1339,8 @@ try {
   const staffList = (await admin("/staff")).data;
   assert.equal(
     staffList.filter((u) => u.username !== "temporal").length,
-    3,
-    "admin, franco y maxi creados al inicio",
+    1 + (await admin("/drivers")).data.length,
+    "admin y un usuario por repartidor creados al inicio",
   );
   const newUser = await admin("/staff", {
     username: "lucas",
@@ -1447,28 +1645,34 @@ try {
     .getByRole("link", { name: "Cargar pedido" })
     .click();
   await expect(ops).toHaveURL(/[\/]operacion[\/]nuevo$/);
-  await ops.getByLabel("Buscar cliente por nombre o WhatsApp").fill("naveg");
+  await ops.getByLabel("Buscar cliente por nombre, zona o CUIT").fill("naveg");
   await ops.locator(".qo-search .suggestions button").first().click();
-  await expect(ops.locator(".qo-picked")).toContainText("Cliente Navegador");
-  await expect(ops.getByLabel("WhatsApp", { exact: true })).toHaveValue(
-    /2634667788/,
+  await expect(ops.locator(".qo-picked-card")).toContainText(
+    "Cliente Navegador",
   );
+  await ops.getByLabel("Cajas de Pollo entero").fill("2");
   await ops.getByLabel("Kilos de Pollo entero").fill("3");
   await ops.getByLabel("Kilos de Suprema").fill("1.5");
   await expect(ops.locator(".qo-summary .total dd")).not.toHaveText("$ 0");
-  await ops.getByLabel(/Repartidor/).selectOption("Franco");
+  await ops.getByLabel(/Cami/).selectOption("Franco");
   await ops.screenshot({
     path: "test-results/operacion-cargar.png",
     fullPage: true,
   });
   await ops.getByRole("button", { name: "Cargar pedido" }).click();
+  await ops.waitForTimeout(1500);
+  if (!(await ops.locator(".qo-created").count()))
+    console.log(
+      "Cargar pedido no creó:",
+      await ops.locator(".form-error, .toast").allTextContents(),
+    );
   await expect(ops.locator(".qo-created")).toContainText(
-    "cargado para Cliente Navegador",
+    "de Cliente Navegador",
     {
       timeout: 8000,
     },
   );
-  await expect(ops.locator(".qo-created")).toContainText("asignado a Franco");
+  await expect(ops.locator(".qo-created")).toContainText("· Franco");
   await ops.getByRole("button", { name: "Otro pedido" }).click();
   await expect(ops.locator(".qo-created")).toHaveCount(0);
   await ops

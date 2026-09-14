@@ -5,11 +5,58 @@
   "drivers": [
     {
       "name": "Franco",
-      "phone": "5492634953267"
+      "phone": "5492634953267",
+      "zones": [],
+      "shift": ""
     },
     {
       "name": "Maxi",
-      "phone": "5492634547359"
+      "phone": "5492634547359",
+      "zones": [],
+      "shift": ""
+    },
+    {
+      "name": "Nahuel Castro",
+      "phone": "5492634716951",
+      "cuit": "20459649345",
+      "zones": [],
+      "shift": ""
+    },
+    {
+      "name": "Andrés Reyes",
+      "phone": "5492634739227",
+      "cuit": "20448208134",
+      "zones": [],
+      "shift": ""
+    },
+    {
+      "name": "Miguel Gilardi",
+      "phone": "5492634306619",
+      "cuit": "",
+      "zones": [],
+      "shift": "",
+      "note": "CUIT pendiente: vino igual al de Andrés Reyes"
+    },
+    {
+      "name": "Brian Salafia",
+      "phone": "5492615165323",
+      "cuit": "20400722671",
+      "zones": [],
+      "shift": ""
+    },
+    {
+      "name": "Nicolás Gómez",
+      "phone": "5492634354796",
+      "cuit": "20396018994",
+      "zones": [],
+      "shift": ""
+    },
+    {
+      "name": "Carlos Fuentes",
+      "phone": "5492634276857",
+      "cuit": "20236303056",
+      "zones": [],
+      "shift": ""
     }
   ],
   "prices": {
@@ -411,7 +458,6 @@
     "bank": "Mercado Pago",
     "note": "Completar alias/CVU de Mercado Pago del negocio. Vacío = transferencia deshabilitada."
   },
-  "staff": {
-    "note": "PINs por persona en la variable de entorno STAFF_PINS (JSON), p. ej. {\"admin\":\"...\",\"Franco\":\"...\",\"Maxi\":\"...\"}. Si falta, se usa STAFF_PIN para todos (demo: 1234)."
-  }
+  "mode": "equipo",
+  "tare": 1.7
 }

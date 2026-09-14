@@ -14,6 +14,7 @@ import {
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
+import Customers from "./Customers.jsx";
 import {
   money,
   planNames,
@@ -308,147 +309,7 @@ export default function Operations() {
         </section>
       )}
 
-      {tab === "clientes" && (
-        <section className="panel">
-          <div className="section-line">
-            <h2>Clientes</h2>
-            <span className="muted">
-              Modalidad, cuenta corriente y repartidor habitual
-            </span>
-          </div>
-          {customers.length === 0 ? (
-            <p className="muted">
-              Los clientes aparecen acá con su primer pedido.
-            </p>
-          ) : (
-            <div className="table-scroll">
-              <table className="customers">
-                <thead>
-                  <tr>
-                    <th>Cliente</th>
-                    <th>WhatsApp</th>
-                    <th>Modalidad</th>
-                    <th>Cuenta corriente</th>
-                    <th>Repartidor habitual</th>
-                    <th>Saldo</th>
-                    <th>Envases</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {customers.map((c) => (
-                    <tr key={c.phone}>
-                      <td>
-                        <strong>{c.name}</strong>
-                        <br />
-                        <small>
-                          {c.address
-                            ? `${c.address} · ${config?.localities?.find((l) => l.id === c.localityId)?.name || ""}`
-                            : "Sin dirección"}
-                        </small>
-                      </td>
-                      <td>
-                        <a
-                          href={waLink(
-                            c.phone,
-                            `Hola ${c.name.split(" ")[0]}, te escribo de Pollito Casero.`,
-                          )}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          +{c.phone}
-                        </a>
-                      </td>
-                      <td>
-                        <select
-                          value={c.plan}
-                          disabled={busy}
-                          aria-label={"Modalidad de " + c.name}
-                          onChange={(e) =>
-                            updateCustomer(c, { plan: e.target.value })
-                          }
-                        >
-                          {Object.entries(planNames).map(([v, n]) => (
-                            <option key={v} value={v}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <label className="toggle">
-                          <input
-                            type="checkbox"
-                            checked={!!c.credit}
-                            disabled={busy}
-                            onChange={(e) =>
-                              updateCustomer(c, { credit: e.target.checked })
-                            }
-                          />
-                          {c.credit ? "Habilitada" : "No habilitada"}
-                        </label>
-                      </td>
-                      <td>
-                        <select
-                          value={c.driver || ""}
-                          disabled={busy}
-                          aria-label={"Repartidor habitual de " + c.name}
-                          onChange={(e) =>
-                            updateCustomer(c, { driver: e.target.value })
-                          }
-                        >
-                          <option value="">Sin asignar</option>
-                          {drivers.map((d) => (
-                            <option key={d}>{d}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td
-                        className={
-                          c.summary.balance > 0
-                            ? "red"
-                            : c.summary.balance < 0
-                              ? "green"
-                              : ""
-                        }
-                      >
-                        {money(Math.abs(c.summary.balance))}
-                        {c.summary.balance < 0 ? <small> a favor</small> : ""}
-                      </td>
-                      <td>{c.summary.boxes}</td>
-                      <td className="row-actions">
-                        {c.summary.balance > 0 && (
-                          <button
-                            className="secondary small"
-                            disabled={busy}
-                            onClick={() =>
-                              setModal({ type: "account-payment", customer: c })
-                            }
-                          >
-                            Cobrar
-                          </button>
-                        )}
-                        <button
-                          className="link-button small"
-                          onClick={() =>
-                            setModal({ type: "statement", customer: c })
-                          }
-                        >
-                          Extracto
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <p className="demo-note">
-            Los pedidos nuevos de un cliente con repartidor habitual salen ya
-            asignados; podés cambiarlo en cada pedido.
-          </p>
-        </section>
-      )}
+      {tab === "clientes" && <Customers />}
       {tab === "equipo" && <Team />}
     </>
   );

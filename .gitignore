@@ -13,3 +13,5 @@ SKILLS-INSTALADAS.md
 .claude/agents/
 .claude/skills/
 .claude/settings.local.json
+# Datos de clientes (CUIT, teléfonos): se importan, no se versionan
+import/

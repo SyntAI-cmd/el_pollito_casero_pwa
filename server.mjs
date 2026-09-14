@@ -31,7 +31,20 @@ const push = await createPush({
   contact: `mailto:pedidos@${baseHost.split(":")[0] === "localhost" ? "pollitocasero.local" : baseHost}`,
 });
 const api = createApi({ store, events, push, base });
-await seedStaff(store, drivers, log);
+// Repartidores: la tabla se siembra desde business.json y después se administra desde Equipo.
+if (!store.drivers.all().length)
+  drivers.forEach((d, i) =>
+    store.drivers.save({
+      name: d.name,
+      phone: d.phone || "",
+      cuit: d.cuit || "",
+      zones: d.zones || [],
+      shift: d.shift || "",
+      active: true,
+      sort: i + 1,
+    }),
+  );
+await seedStaff(store, store.drivers.all(), log);
 
 // Copias de seguridad diarias (data/backups) y limpieza de sesiones vencidas.
 if (dbPath !== ":memory:") {
@@ -330,6 +343,13 @@ const server = http.createServer(async (req, res) => {
       const headers = {};
       if ("session" in result)
         headers["Set-Cookie"] = sessionCookie(result.session?.id);
+      if (result.raw) {
+        res.writeHead(result.status || 200, {
+          "Cache-Control": "no-store",
+          ...(result.headers || {}),
+        });
+        return res.end(result.raw);
+      }
       if (result.redirect) {
         res.writeHead(result.status || 302, {
           Location: result.redirect,

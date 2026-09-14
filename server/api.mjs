@@ -23,6 +23,8 @@ import {
 } from "./geo.mjs";
 import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
+import { createFloor } from "./floor.mjs";
+import { appMode, defaultTare, shifts } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
   transferInfo,
@@ -84,10 +86,27 @@ export function createApi({
   const geoLimit = rateLimiter({ limit: attempts || 30, windowMs: 60000 });
   const OTP_SENDS = 3; // códigos por teléfono cada 15 minutos
   const passkeys = createPasskeys({ base });
+  // Repartidores: tabla drivers (sembrada desde business.json); nombres activos para validar.
+  const driverNames = () =>
+    store.drivers
+      .all()
+      .filter((d) => d.active)
+      .map((d) => d.name);
+  const driverByName = (name) => store.drivers.get(name);
   const config = {
     products,
     localities,
-    drivers: drivers.map((d) => d.name),
+    get drivers() {
+      return driverNames();
+    },
+    get driverList() {
+      return store.drivers.all();
+    },
+    get tare() {
+      return Number(store.settings.get("tare", defaultTare)) || defaultTare;
+    },
+    mode: appMode,
+    shifts,
     origin,
     shipping: shippingByPlan,
     planMinKg,
@@ -130,8 +149,16 @@ export function createApi({
       : null;
   const publicConfig = (session) => ({
     ...config,
+    drivers: config.drivers,
+    driverList: config.driverList,
+    tare: config.tare,
     session: publicSession(session),
   });
+  const portalClosed = () =>
+    fail(
+      404,
+      "El portal de clientes está desactivado. El equipo ingresa por /admin.",
+    );
 
   function ensureCustomer(phone, data, { trusted = true } = {}) {
     const existing = store.customers.get(phone);
@@ -240,21 +267,30 @@ export function createApi({
     const mine = new Set(
       store.orders.forDriver(session.driver).map((o) => o.customer),
     );
+    const me = store.drivers.get(session.driver);
+    const zones = new Set((me?.zones || []).map((z) => z.toLowerCase()));
     return store.customers
       .all()
-      .filter((c) => mine.has(c.phone) || c.driver === session.driver);
+      .filter(
+        (c) =>
+          mine.has(c.phone) ||
+          c.driver === session.driver ||
+          c.truck === session.driver ||
+          (c.zone && zones.has(String(c.zone).toLowerCase())),
+      );
   };
   const driverServes = (session, phone) =>
     session.role === "admin" ||
     driverCustomers(session).some((c) => c.phone === phone);
 
   const driverContact = (o) => {
-    const d = drivers.find((d) => d.name === o.driver);
+    const d = o.driver ? driverByName(o.driver) : null;
     return d ? { name: d.name, phone: d.phone } : null;
   };
   /** Lo que ve cada rol de un pedido: el cliente no recibe datos internos. */
   const view = (o, session) => {
     const out = { ...o, driverContact: driverContact(o) };
+    if (isStaff(session)) out.crates = store.crates.forOrder(o.id);
     if (session?.role !== "admin") {
       delete out.key;
       delete out.accountId;
@@ -374,9 +410,9 @@ export function createApi({
           nextSession.role === "cliente" ? nextSession.accountId || null : null,
         sessionId: nextSession.role === "cliente" ? nextSession.id : null,
         driver:
-          session?.role === "admin" && drivers.some((d) => d.name === b.driver)
+          session?.role === "admin" && driverNames().includes(b.driver)
             ? b.driver
-            : drivers.some((d) => d.name === customer.driver)
+            : driverNames().includes(customer.driver)
               ? customer.driver
               : "",
         boxes: 0,
@@ -763,9 +799,34 @@ export function createApi({
     fail(403, "El chat interno es del equipo.");
   };
 
+  const floor = createFloor({
+    store,
+    events,
+    config,
+    isStaff,
+    actorOf,
+    view,
+    withOrderLock,
+    driverNames,
+  });
+
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
   return async function handle({ method, path, body, query, session, ip }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
+    const fromFloor = await floor({ method, path, body, query, session, ip });
+    if (fromFloor) return fromFloor;
+    // Modo equipo: sin cuentas de clientes, sin pedidos anónimos, sin ingreso por celular.
+    if (
+      appMode === "equipo" &&
+      !isStaff(session) &&
+      (path.startsWith("/api/auth/") ||
+        path === "/api/me" ||
+        (path === "/api/orders" && method !== "GET") ||
+        (path === "/api/session" && method === "POST") ||
+        path.startsWith("/api/geo/") ||
+        path === "/api/push/subscribe")
+    )
+      portalClosed();
 
     if (path === "/api/health" && method === "GET")
       return json(200, { ...store.health(), at: now() });
@@ -907,9 +968,7 @@ export function createApi({
         fail(401, "Usuario o contraseña incorrectos.");
       }
       const driverInfo =
-        user.role === "repartidor"
-          ? drivers.find((d) => d.name === user.driver)
-          : null;
+        user.role === "repartidor" ? driverByName(user.driver) : null;
       if (user.role === "repartidor" && !driverInfo)
         fail(
           403,
@@ -1288,7 +1347,10 @@ export function createApi({
       );
     if (path === "/api/orders" && method === "POST") {
       if (session?.role === "repartidor")
-        fail(403, "Los repartidores no crean pedidos.");
+        fail(
+          403,
+          "Los repartidores cargan pedidos eligiendo un cliente de la lista.",
+        );
       if (session?.role !== "admin") orderLimit(ip);
       const { order, session: s, created } = createOrder(body, session);
       if (created) afterCreate(order);
@@ -1389,11 +1451,12 @@ export function createApi({
     // ---- Clientes (equipo) ----
     if (path === "/api/customers" && method === "GET") {
       if (!isStaff(session)) fail(403, "Solo el equipo.");
+      const prices = store.prices.all();
       const list = (
         session.role === "admin"
           ? store.customers.all()
           : driverCustomers(session)
-      ).map(withSummary);
+      ).map((c) => ({ ...withSummary(c), prices: prices[c.phone] || {} }));
       if (session.role === "repartidor")
         for (const c of list) delete c.payments;
       return json(200, list);
@@ -1664,6 +1727,11 @@ export function createEvents() {
           (c.session.role === "cliente" && c.session.phone === customer.phone)
         )
           send(c, "customer", { phone: customer.phone });
+    },
+    newsChanged() {
+      for (const c of clients)
+        if (c.session.role === "admin" || c.session.role === "repartidor")
+          send(c, "news", { at: now() });
     },
     messageAdded(message, driver) {
       for (const c of clients)

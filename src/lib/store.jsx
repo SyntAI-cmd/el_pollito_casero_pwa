@@ -528,6 +528,63 @@ export function StoreProvider({ children }) {
     notify("Sesión cerrada en este dispositivo.");
   };
 
+  /** Fichas de clientes (GC), precios propios y repartidores. */
+  const saveFicha = (customer, fields) =>
+    run(
+      async () => {
+        await patch(
+          "/customers/" + encodeURIComponent(customer.phone) + "/ficha",
+          fields,
+        );
+        await loadCustomers();
+        setModal(null);
+        notify("Ficha guardada.");
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const createCustomer = (fields) =>
+    run(async () => {
+      const c = await post("/customers", fields);
+      await loadCustomers();
+      setModal(null);
+      notify(
+        `Cliente ${c.name} creado${c.status === "incompleto" ? " (CUIT pendiente)" : ""}.`,
+      );
+      return c;
+    });
+  const savePrices = (customer, prices) =>
+    run(
+      async () => {
+        await api(
+          "/customers/" + encodeURIComponent(customer.phone) + "/prices",
+          {
+            method: "PUT",
+            body: JSON.stringify({ prices }),
+          },
+        );
+        await loadCustomers();
+        setModal(null);
+        notify("Precios guardados.");
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const saveDriver = (name, fields) =>
+    run(
+      async () => {
+        if (name) await patch("/drivers/" + encodeURIComponent(name), fields);
+        else await post("/drivers", fields);
+        const c = await api("/config");
+        const { session: _s, ...rest } = c;
+        setConfig(rest);
+        persist("pc-config-v3", rest);
+        notify(name ? "Repartidor actualizado." : "Repartidor creado.");
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+
   /** Pedido cargado por administración desde la pantalla rápida. */
   const createStaffOrder = (payload) =>
     run(async () => {
@@ -752,6 +809,10 @@ export function StoreProvider({ children }) {
     verifyPhone,
     setPassword,
     createStaffOrder,
+    saveFicha,
+    createCustomer,
+    savePrices,
+    saveDriver,
     saveProfile,
     emailLogin,
     emailRegister,

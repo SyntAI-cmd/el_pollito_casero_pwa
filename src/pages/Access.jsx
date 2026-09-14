@@ -90,7 +90,13 @@ export default function Access() {
             )}
           </form>
         )}
-        {session?.role === "cliente" && (
+        {config?.mode === "equipo" && !inside && (
+          <p className="staff-note">
+            Esta app es de uso interno de El Pollito Casero. Los pedidos los
+            cargan administración y los preventistas.
+          </p>
+        )}
+        {session?.role === "cliente" && config?.mode !== "equipo" && (
           <p className="staff-note">
             Estás ingresado como cliente ({session.name}). Al entrar como equipo
             se cierra esa sesión en este dispositivo.

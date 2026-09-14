@@ -65,7 +65,11 @@ const ADMIN_ROUTES = {
   "/imprimir": Print,
   "/ayuda": Help,
 };
-const DRIVER_ROUTES = { "/reparto": Delivery, "/ayuda": Help };
+const DRIVER_ROUTES = {
+  "/reparto": Delivery,
+  "/reparto/nuevo": QuickOrder,
+  "/ayuda": Help,
+};
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
 const homeFor = (role) =>
   role === "admin" ? "/operacion" : role === "repartidor" ? "/reparto" : "/";
@@ -367,7 +371,10 @@ function StaffShell({ Page, path }) {
         ["/operacion/clientes", "Clientes", Users],
         ["/operacion/equipo", "Equipo", ShieldCheck],
       ]
-    : [["/reparto", "Mis entregas", Truck]];
+    : [
+        ["/reparto", "Mis entregas", Truck],
+        ["/reparto/nuevo", "Cargar pedido", Plus],
+      ];
   const received = orders.filter((o) => o.status === "recibido").length;
   return (
     <div className="staff-app">
@@ -426,9 +433,12 @@ function StaffShell({ Page, path }) {
 
 export default function App() {
   const { path, navigate } = useRoute();
-  const { session, loaded } = useStore();
+  const { session, loaded, config } = useStore();
   useDocumentMeta(path);
-  const role = session?.role || "anon";
+  // Modo equipo: el portal de clientes queda apagado; todo el mundo entra por /admin.
+  const teamOnly = config?.mode === "equipo";
+  const role =
+    teamOnly && session?.role === "cliente" ? "anon" : session?.role || "anon";
   const staff = role === "admin" || role === "repartidor";
 
   // Redirecciones por rol: nadie llega a una pantalla que no le corresponde.
@@ -438,6 +448,10 @@ export default function App() {
     const inAdmin = path in ADMIN_ROUTES;
     const inDriver = path in DRIVER_ROUTES;
     const inLogin = path in STAFF_LOGIN;
+    if (teamOnly && !staff && !inLogin) {
+      navigate("/admin", { replace: true });
+      return;
+    }
     if (role === "admin" && !inAdmin && !inLogin)
       navigate("/operacion", { replace: true });
     else if (role === "repartidor" && !inDriver && !inLogin)
@@ -451,7 +465,7 @@ export default function App() {
         "/ingresar?volver=" + encodeURIComponent(path + location.search),
         { replace: true },
       );
-  }, [path, role, loaded]);
+  }, [path, role, loaded, teamOnly]);
 
   if (!loaded && !session) return <div className="loading">Preparando…</div>;
   const chrome = (
@@ -461,6 +475,13 @@ export default function App() {
     </>
   );
   if (path in STAFF_LOGIN)
+    return (
+      <>
+        <Access />
+        {chrome}
+      </>
+    );
+  if (teamOnly && !staff)
     return (
       <>
         <Access />

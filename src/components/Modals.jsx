@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import DeliveryPoint from "./DeliveryPoint.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
+import { FichaForm } from "../pages/Customers.jsx";
 import { passkeyAvailable } from "../lib/auth.js";
 import {
   X,
@@ -26,6 +27,7 @@ import {
   planNames,
   lineAmount,
   dateText,
+  productPrice as productPriceOf,
 } from "../lib/format.js";
 import { CartLines, CartTotals } from "./Cart.jsx";
 import { ledger } from "../lib/ledger.js";
@@ -470,6 +472,111 @@ function Profile() {
         </button>
       )}
     </form>
+  );
+}
+
+/** Ficha GC: alta rápida (sin CUIT queda "incompleto") y edición. */
+function Ficha({ customer }) {
+  const { saveFicha, createCustomer, busy, customers } = useStore();
+  const zones = [
+    ...new Set(customers.map((c) => c.zone).filter(Boolean)),
+  ].sort();
+  return (
+    <>
+      <span className="eyebrow">
+        {customer ? "FICHA DEL CLIENTE" : "CLIENTE NUEVO"}
+      </span>
+      <h2>{customer ? customer.name : "Alta rápida"}</h2>
+      {!customer && (
+        <p>
+          Con nombre, zona y camión alcanza para cargarle pedidos. El CUIT puede
+          venir después: la ficha queda marcada como incompleta.
+        </p>
+      )}
+      <datalist id="zonas">
+        {zones.map((z) => (
+          <option key={z} value={z} />
+        ))}
+      </datalist>
+      <FichaForm
+        customer={customer}
+        submitting={busy}
+        onSubmit={(f) =>
+          customer ? saveFicha(customer, f) : createCustomer(f)
+        }
+      />
+    </>
+  );
+}
+
+/** Precios propios por producto; vacío = precio de lista de la modalidad. */
+function Prices({ customer }) {
+  const { products, savePrices, busy } = useStore();
+  const [values, setValues] = useState(() => ({ ...(customer.prices || {}) }));
+  const listPrice = (p) => productPriceOf(p, customer.plan || "mayorista");
+  return (
+    <>
+      <span className="eyebrow">PRECIOS DE {customer.name.toUpperCase()}</span>
+      <h2>Precio por kilo</h2>
+      <p>
+        Lo que este cliente paga por cada corte. Dejá vacío para usar la lista{" "}
+        {planNames[customer.plan || "mayorista"].toLowerCase()}.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const clean = Object.fromEntries(
+            products.map((p) => [
+              p.id,
+              values[p.id] === "" ||
+              values[p.id] === undefined ||
+              values[p.id] === null
+                ? null
+                : Number(String(values[p.id]).replace(",", ".")),
+            ]),
+          );
+          savePrices(customer, clean);
+        }}
+      >
+        <div className="table-scroll">
+          <table className="qo-table prices-table">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th className="num">Lista</th>
+                <th className="num qo-kg">Propio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((p) => (
+                <tr key={p.id} className={values[p.id] ? "on" : ""}>
+                  <td>{p.name}</td>
+                  <td className="num muted">
+                    {Number.isFinite(listPrice(p)) ? money(listPrice(p)) : "—"}
+                  </td>
+                  <td className="num qo-kg">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={values[p.id] ?? ""}
+                      placeholder="lista"
+                      aria-label={"Precio de " + p.name}
+                      onChange={(e) =>
+                        setValues({ ...values, [p.id]: e.target.value })
+                      }
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button className="primary full" disabled={busy}>
+          Guardar precios <Check size={16} />
+        </button>
+      </form>
+    </>
   );
 }
 
@@ -968,7 +1075,13 @@ export default function Modals() {
     !["delivery", "return", "account-payment", "boxes-return"].includes(type);
   return (
     <dialog
-      className={type === "cart" ? "sheet" : ""}
+      className={
+        type === "cart"
+          ? "sheet"
+          : ["ficha", "new-customer", "statement"].includes(type)
+            ? "wide-dialog"
+            : ""
+      }
       aria-label="Ventana de Pollito Casero"
       ref={dialog}
       onCancel={(e) => {
@@ -1022,6 +1135,12 @@ export default function Modals() {
         <Cancel order={modal.order} />
       ) : type === "statement" ? (
         <Statement customer={modal.customer} />
+      ) : type === "ficha" ? (
+        <Ficha customer={modal.customer} />
+      ) : type === "new-customer" ? (
+        <Ficha />
+      ) : type === "prices" ? (
+        <Prices customer={modal.customer} />
       ) : type === "contact" ? (
         <>
           <MessageCircle size={32} />
