@@ -1732,3 +1732,11 @@ dialog.wide-dialog {
     min-height: 44px;
   }
 }
+.customers-filters select,
+.customers-filters .primary {
+  width: auto;
+  flex: 0 0 auto;
+}
+.customers-filters .search-field {
+  min-width: 240px;
+}

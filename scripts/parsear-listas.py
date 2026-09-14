@@ -11,8 +11,19 @@ PRODUCTS = {
     "menudos": "menudos", "garra": "garras", "garras": "garras", "rancho": "rancho",
 }
 
+FIXES = [("av�cola", "avícola"), ("andr�s", "andrés"), ("jos�", "josé"), ("agust�n", "agustín"),
+         ("mat�as", "matías"), ("hern�n", "hernán"), ("n�stor", "néstor"), ("rub�n", "rubén"),
+         ("porte�as", "porteñas"), ("mar�a", "maría"), ("an�bal", "aníbal"), ("luj�n", "luján"),
+         ("jun�n", "junín"), ("gui�azu", "guiñazú"), ("tap�n", "tapón"), ("ag�ero", "agüero")]
+
+def fix(t):
+    out = t or ""
+    for bad, good in FIXES:
+        out = re.sub(bad, lambda m: good.capitalize() if m.group(0)[0].isupper() else good, out, flags=re.I)
+    return out.replace("�", "")
+
 def norm(s):
-    s = unicodedata.normalize("NFD", s or "").encode("ascii", "ignore").decode()
+    s = unicodedata.normalize("NFD", fix(s)).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", s).strip().lower()
 
 def parse(path, shift):
@@ -28,27 +39,27 @@ def parse(path, shift):
         left = item_re.sub("", line).strip()
         left_is_zone = bool(left) and left == left.upper() and len(left) > 3 and not re.search(r"\d", left)
         if left_is_zone:
-            zone = left.title()
+            zone = fix(left).title()
             pending = []  # los items en la línea de la zona son del próximo cliente
             for name, price in items:
                 pending.append((name, price))
             client = None
             continue
         if left and not raw.startswith(" "):
-            client = {"shift": shift, "zone": zone, "name": left, "prices": {}, "raw": []}
+            client = {"shift": shift, "zone": zone, "name": fix(left), "prices": {}, "raw": []}
             out.append(client)
             for name, price in pending:
                 _add(client, name, price)
             pending = []
         elif left and raw.startswith(" ") and client is None:
             # nombre con sangría (columna derecha del PDF)
-            client = {"shift": shift, "zone": zone, "name": left, "prices": {}, "raw": []}
+            client = {"shift": shift, "zone": zone, "name": fix(left), "prices": {}, "raw": []}
             out.append(client)
         elif left and raw.startswith(" ") and client is not None and not items:
-            client = {"shift": shift, "zone": zone, "name": left, "prices": {}, "raw": []}
+            client = {"shift": shift, "zone": zone, "name": fix(left), "prices": {}, "raw": []}
             out.append(client)
         elif left and raw.startswith(" ") and client is not None and items:
-            client = {"shift": shift, "zone": zone, "name": left, "prices": {}, "raw": []}
+            client = {"shift": shift, "zone": zone, "name": fix(left), "prices": {}, "raw": []}
             out.append(client)
         if client is None:
             for name, price in items:

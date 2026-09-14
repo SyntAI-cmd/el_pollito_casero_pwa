@@ -22,6 +22,22 @@ npm start
 
 Desarrollo con recarga: `npm run dev`.
 
+## Modo de la app
+
+`business.json → mode`: **`equipo`** (actual) apaga el portal de clientes: todo el mundo entra por `/admin` y la app es la herramienta de piso de administración y preventistas. `completo` vuelve a habilitar catálogo, checkout y cuentas de clientes (la E2E corre con `APP_MODE=completo`).
+
+## Módulo de piso (administración y reparto)
+
+Digitaliza el circuito real: pedidos por WhatsApp de noche → nota de pedidos → pesada de cajones con tara → carga por camión → remito → cobro y saldos.
+
+- **Clientes** (Operación → Clientes): fichas al estilo GC/Atuq (código, CUIT, razón social, apodo, sucursal, zona, turno mañana/tarde, camión, dirección, teléfono opcional, estado *completa / sin CUIT / revisar*), **precios propios por producto** (las listas de mañana/tarde hechas datos), extracto y cobro. `scripts/importar-gc.mjs` importa la planilla de clientes de GC y `scripts/parsear-listas.py` lee las listas de precios en PDF y las cruza por apodo y zona (lo que no cruza queda "a revisar").
+- **Camiones y preventistas** (Equipo): nombre, WhatsApp, CUIT, turno y zonas; sus clientes les quedan preasignados. Cada uno entra con su usuario.
+- **Cargar pedido** (administración y preventistas, `/operacion/nuevo` y `/reparto/nuevo`): cliente de la lista, **cajas** y/o kilos por producto al precio propio, fecha y turno de reparto, camión, pago, observaciones para el remito, "repetir último".
+- **Pesada por cajón**: `POST /api/orders/:id/crates {productId, gross}` resta la tara (`business.tare`, 1,7 kg, editable en `PATCH /api/settings`) y acumula kilos por producto; cada cajón tiene id propio (reintentos sin duplicar), se anula con motivo y se marca cargado al camión. Recalcula el total con el precio del cliente y ajusta el saldo si el pedido ya estaba pagado.
+- **Nota del día** `GET /api/dia?fecha=`; **noticias** del equipo `GET/POST /api/news`; **consolidado en Excel** `GET /api/export/consolidado?fecha=` (una fila por pedido: preventista, cliente, razón social, CUIT, descripción, cajones, kilos, neto, IVA 10,5 %, total).
+
+Pendiente de la fase 2: pantallas de Pesada, Carga del camión y Nota del día, remito 10×15 con precio propio y cajas adeudadas, entrega con firma, noticias en pantalla y cola offline para pesadas y cobros.
+
 ## Tres aplicaciones separadas por rol
 
 | Rol | Entra por | Ve | No ve |

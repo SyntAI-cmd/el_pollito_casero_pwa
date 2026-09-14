@@ -78,6 +78,15 @@ const ZONE_ALIASES = {
   montecaseros: "San Martín",
   "la colonia": "La Colonia",
 };
+/** Zona con nombre canónico (misma grafía para GC y listas). */
+const canonicalZone = (z) => {
+  const n = norm(z);
+  if (!n) return "";
+  const hit = Object.entries(ZONE_ALIASES).find(
+    ([k, v]) => k === n || norm(v) === n,
+  );
+  return hit ? hit[1] : title(n);
+};
 const zoneFromDistrict = (district) => {
   const first = norm(String(district || "").split(",")[0]);
   return ZONE_ALIASES[first] || title(first);
@@ -111,6 +120,35 @@ const stats = {
   precios: 0,
   revisar: 0,
   sucursales: 0,
+};
+// pdftotext pierde algunas tildes (quedan como U+FFFD): se reponen las más comunes en nombres.
+const FIXES = [
+  ["av�cola", "avícola"],
+  ["andr�s", "andrés"],
+  ["jos�", "josé"],
+  ["agust�n", "agustín"],
+  ["mat�as", "matías"],
+  ["hern�n", "hernán"],
+  ["n�stor", "néstor"],
+  ["rub�n", "rubén"],
+  ["porte�as", "porteñas"],
+  ["mar�a", "maría"],
+  ["an�bal", "aníbal"],
+  ["luj�n", "luján"],
+  ["jun�n", "junín"],
+  ["gui�azu", "guiñazú"],
+  ["tap�n", "tapón"],
+  ["ag�ero", "agüero"],
+];
+const fixText = (t) => {
+  let out = String(t || "");
+  for (const [bad, good] of FIXES)
+    out = out.replace(new RegExp(bad, "gi"), (m) =>
+      m[0] === m[0].toUpperCase()
+        ? good[0].toUpperCase() + good.slice(1)
+        : good,
+    );
+  return out.replace(/�/g, "");
 };
 const store = await openStore(
   args.db || process.env.DB_PATH || "data/pollito.sqlite",
@@ -163,9 +201,21 @@ if (args.clientes) {
       .join(" ")
       .replace(/\s+/g, " ")
       .trim();
-    const alias = String(v("descripcion") || "").trim();
+    let alias = String(v("descripcion") || "").trim();
     const district = v("distrito");
-    const zone = district ? zoneFromDistrict(district) : "";
+    let zone = district ? zoneFromDistrict(district) : "";
+    // En GC a veces la "descripción" trae la zona en vez del apodo.
+    if (
+      alias &&
+      canonicalZone(alias) &&
+      Object.values(ZONE_ALIASES).some(
+        (z) => norm(z) === norm(canonicalZone(alias)),
+      ) &&
+      !norm(alias).includes(" ")
+    ) {
+      zone = zone || canonicalZone(alias);
+      alias = "";
+    }
     const data = {
       code: id,
       cuit: String(v("cuit") || "").replace(/\D/g, ""),
@@ -191,6 +241,8 @@ if (args.precios) {
   const productIds = new Set(products.map((p) => p.id));
   const junk = /^(pollo|pechuga c\/?|suprema|alas|cuarto)/i;
   for (const item of lists) {
+    item.name = fixText(item.name);
+    item.zone = canonicalZone(fixText(item.zone));
     if (junk.test(item.name)) continue; // renglón de producto leído como cliente
     const prices = Object.fromEntries(
       Object.entries(item.prices || {}).filter(
@@ -212,9 +264,17 @@ if (args.precios) {
       });
       stats.revisar++;
     } else {
+      // Si la zona de la lista no coincide con la de GC, puede ser otro cliente con el mismo apodo: a revisar.
+      const conflict = c.zone && item.zone && norm(c.zone) !== norm(item.zone);
       c = upsert(c.phone, {
         zone: item.zone || c.zone,
         shift: item.shift || c.shift,
+        ...(conflict
+          ? {
+              status: "revisar",
+              notes: `Zona GC: ${c.zone} · zona lista: ${item.zone}. Confirmar que sea el mismo cliente.`,
+            }
+          : {}),
       });
     }
     for (const [productId, price] of Object.entries(prices)) {

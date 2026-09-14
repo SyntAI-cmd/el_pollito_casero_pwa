@@ -110,3 +110,11 @@ Dos evaluaciones aisladas (revisión de diseño + detector/Playwright). Ambas pa
 ## Etapa 11 · 13 de septiembre de 2026 · revisión de código (`/code-review`)
 
 Seis hallazgos, todos corregidos: `PATCH {paid:true}` sobre un pedido a cuenta ya no se acepta (se registra el pago desde la cuenta corriente, así el extracto y el resumen coinciden); el webhook de Mercado Pago y `POST /orders/:id/mp` entran por el bloqueo por pedido; la modalidad ligada a la ficha bloquea solo *subir* (bajar a un precio más alto se permite); el mínimo de kilos no aplica a los pedidos que carga administración; verificar un celular con sesión de equipo se rechaza en vez de cerrarla; Enter en los kilos salta al siguiente input habilitado. E2E ajustada (pago a cuenta por registro, bajada permitida, subida bloqueada con Eva, pedido chico de administración).
+
+## Etapa 12 · 14 de septiembre de 2026 · módulo de piso, fase 1
+
+- Pivot a MVP de administración y reparto (modo `equipo`); el portal de clientes queda apagado por interruptor.
+- Esquema v5; `server/floor.mjs` (fichas, precios propios, camiones, pedidos por cajas, cajones con tara, nota del día, noticias, tara, export).
+- Importación: 75 fichas GC, 83 cruces con las listas de precios, 62 fichas "a revisar" (apodos sin ficha), 15 sucursales de ALMA S.R.L., 114 precios propios. Corrección de tildes perdidas por pdftotext; zonas con nombre canónico; conflicto zona GC/lista → "revisar".
+- UI: Clientes con filtros y ficha/precios; Camiones en Equipo; Cargar pedido por cajas para admin y preventistas.
+- Unit 16/16; E2E correcta (incluye el piso por API: ficha sin CUIT, precios, pedido por cajas idempotente, pesada 21,7 − 1,7 = 20, reintento sin duplicar, anulación, carga, tara configurable, noticias, zonas del preventista, Excel).
