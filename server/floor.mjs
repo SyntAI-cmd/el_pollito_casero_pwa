@@ -9,6 +9,7 @@ import {
   lineAmount,
   defaultTare,
   fiscal,
+  validateLists,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
 import { str, num, oneOf, bool } from "./validate.mjs";
@@ -154,7 +155,13 @@ export function createFloor({
         phone: customer.contactPhone ? customer.contactPhone : "",
         localityId: locality.id,
       },
-      { enforceMin: false, prices, staff: true, locality },
+      {
+        enforceMin: false,
+        prices,
+        staff: true,
+        locality,
+        lists: store.settings.get("priceLists", null),
+      },
     );
     return store.transaction(() => {
       const o = {
@@ -645,6 +652,28 @@ export function createFloor({
       });
       events.newsChanged?.();
       return json(200, { ok: true });
+    }
+
+    // ---- Listas de precios (mayorista / intermedio / minorista), editables desde Administración ----
+    if (path === "/api/precios/listas" && method === "GET") {
+      staffOnly(session);
+      return json(200, {
+        lists: store.settings.get("priceLists", null) || {},
+        products: config.products,
+      });
+    }
+    if (path === "/api/precios/listas" && method === "PUT") {
+      adminOnly(session);
+      const lists = validateLists(body.lists);
+      store.settings.set("priceLists", lists);
+      store.audit.log(
+        session,
+        "settings.priceLists",
+        "settings",
+        "priceLists",
+        { lists },
+      );
+      return json(200, { lists, products: config.products });
     }
 
     // ---- Ajustes ----

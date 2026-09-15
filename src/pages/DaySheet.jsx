@@ -7,6 +7,7 @@ import {
   Truck,
   Package,
   Megaphone,
+  Trash2,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
@@ -32,7 +33,7 @@ import News from "../components/News.jsx";
  * cada uno. Desde acá se va a pesar, a cargar, se imprimen remitos y se baja el consolidado.
  */
 export default function DaySheet() {
-  const { config } = useStore();
+  const { config, session, deleteOrder } = useStore();
   const { query } = useRoute();
   const [date, setDate] = useState(query.get("fecha") || todayKey());
   const { day, loading, error } = useDay(date);
@@ -250,6 +251,21 @@ export default function DaySheet() {
                           >
                             <Printer size={13} /> Remito
                           </Link>
+                          {session?.role === "admin" && (
+                            <button
+                              type="button"
+                              className="link-button small danger"
+                              onClick={() => {
+                                const reason = window.prompt(
+                                  `¿Eliminar el pedido ${o.id} de ${o.name}? Se borra con sus cajones.
+Motivo (opcional):`,
+                                );
+                                if (reason !== null) deleteOrder(o, reason);
+                              }}
+                            >
+                              <Trash2 size={13} /> Borrar
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

@@ -6,6 +6,9 @@ import {
   accountSummary,
   applyWeights,
   applyPayment,
+  validateLists,
+  withLists,
+  applyPrices,
 } from "../domain.mjs";
 
 const base = {
@@ -19,14 +22,14 @@ const base = {
 };
 
 test("precios por modalidad calculados por el servidor", () => {
-  assert.equal(priceOrder(base).total, 35000);
+  assert.equal(priceOrder(base).total, 55000);
   assert.equal(
     priceOrder({ ...base, plan: "intermedio", payment: "entrega" }).total,
-    41500,
+    61500,
   );
   assert.equal(
     priceOrder({ ...base, plan: "minorista", payment: "entrega" }).total,
-    46500,
+    66500,
   );
 });
 
@@ -37,7 +40,7 @@ test("ignora importes alterados por el cliente", () =>
       total: 1,
       items: [{ id: "entero", kg: 10, price: 1 }],
     }).total,
-    35000,
+    55000,
   ));
 
 test("minorista e intermedio no tienen crédito", () => {
@@ -70,7 +73,7 @@ test("acepta medios kilos y suma varios cortes", () => {
       { id: "suprema", kg: 2 },
     ],
   });
-  assert.equal(priced.total, 8.5 * 3500 + 2 * 7440);
+  assert.equal(priced.total, 8.5 * 5500 + 2 * 11690);
   assert.equal(priced.shipping, 0);
 });
 
@@ -96,7 +99,7 @@ test("las modalidades mayorista e intermedio tienen un mínimo de kilos", () => 
       payment: "entrega",
       items: [{ id: "entero", kg: 1 }],
     }).subtotal,
-    4500,
+    6500,
   );
 });
 
@@ -236,4 +239,40 @@ test("un pago a cuenta cubre los pedidos más viejos y deja saldo a favor", () =
   const s = accountSummary(orders, { creditBalance: 10000 });
   assert.equal(s.owed, 50000);
   assert.equal(s.balance, 40000);
+});
+
+test("listas editadas pisan business.json y se validan", () => {
+  const lists = validateLists({
+    entero: { mayorista: "6000", minorista: 7000 },
+  });
+  assert.deepEqual(lists, { entero: { mayorista: 6000, minorista: 7000 } });
+  assert.equal(priceOrder(base, { lists }).total, 60000);
+  assert.equal(withLists(lists).find((p) => p.id === "entero").wholesale, 6000);
+  assert.equal(
+    withLists(lists).find((p) => p.id === "entero").intermediate,
+    6000,
+  );
+  assert.throws(() => validateLists({ entero: { mayorista: -1 } }), /inválido/);
+});
+
+test("cambio de precio en el pedido recalcula renglones y total", () => {
+  const order = {
+    shipping: 0,
+    items: [
+      {
+        id: "entero",
+        name: "Pollo entero",
+        kg: 20,
+        price: 5500,
+        lineTotal: 110000,
+      },
+      { id: "alas", name: "Alas", kg: 1, price: 4150, lineTotal: 4150 },
+    ],
+  };
+  const r = applyPrices(order, { entero: 5200 });
+  assert.equal(r.items[0].price, 5200);
+  assert.equal(r.items[0].ownPrice, true);
+  assert.equal(r.items[0].lineTotal, 104000);
+  assert.equal(r.total, 108150);
+  assert.throws(() => applyPrices(order, { entero: 0 }), /inválido/);
 });

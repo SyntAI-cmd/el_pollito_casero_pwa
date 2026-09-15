@@ -22,6 +22,7 @@ const server = spawn(process.execPath, ["server.mjs"], {
     TRANSFER_ALIAS: "pollito.casero.mp",
     TRANSFER_HOLDER: "El Pollito Casero",
     APP_MODE: "completo", // la E2E cubre el portal de clientes y el módulo del equipo
+    DEMO: "1", // códigos y enlaces de prueba visibles
   },
   stdio: "pipe",
   windowsHide: true,
@@ -106,7 +107,7 @@ try {
   );
   const created = await ana("/orders", sample);
   assert.equal(created.status, 201);
-  assert.equal(created.data.total, 35000, "precio calculado por el servidor");
+  assert.equal(created.data.total, 55000, "precio calculado por el servidor");
   assert.equal(created.data.customer, "5492635000000");
   assert.equal(
     (await ana("/orders", sample)).data.id,
@@ -311,7 +312,7 @@ try {
     2,
   );
   const me = (await ana("/me")).data;
-  assert.equal(me.summary.balance, 35000, "saldo a cuenta");
+  assert.equal(me.summary.balance, 55000, "saldo a cuenta");
   assert.equal(me.summary.boxes, 1, "envases pendientes");
   assert.equal(
     (await admin("/orders/" + id, { paid: true }, "PATCH")).status,
@@ -321,7 +322,7 @@ try {
   assert.equal(
     (
       await admin("/customers/5492635000000/payments", {
-        amount: 35000,
+        amount: 55000,
         method: "efectivo",
       })
     ).status,
@@ -343,7 +344,7 @@ try {
     phone: "263 455-1234",
     name: "Ana Prueba",
   });
-  assert.equal(retail.data.total, 46500);
+  assert.equal(retail.data.total, 66500);
   assert.equal(
     (await anon("/orders/" + retail.data.id, { cancel: true }, "PATCH")).data
       .status,
@@ -552,7 +553,7 @@ try {
       { id: "suprema", kg: 2 },
     ],
   });
-  assert.equal(w.data.total, 35000 + 14880);
+  assert.equal(w.data.total, 55000 + 23380);
   assert.equal(
     (await ana("/orders/" + w.data.id, { weights: { entero: 9.5 } }, "PATCH"))
       .status,
@@ -581,7 +582,7 @@ try {
   assert.equal(weighed.items[0].ordered, 10);
   assert.equal(
     weighed.total,
-    Math.round((9.52 * 3500 + 2.1 * 7440) * 100) / 100,
+    Math.round((9.52 * 5500 + 2.1 * 11690) * 100) / 100,
     "total recalculado con peso real",
   );
   assert.ok(
@@ -628,26 +629,26 @@ try {
     items: [{ id: "rancho", kg: 10 }],
   });
   assert.equal(small.status, 201, JSON.stringify(small.data));
-  assert.equal(small.data.total, 4800);
+  assert.equal(small.data.total, 7500);
   assert.equal(
     small.data.paid,
     true,
     "pedido chico a cuenta pagado con saldo a favor",
   );
   assert.equal(small.data.paidBy, "saldo a favor");
-  assert.equal((await ana("/me")).data.creditBalance, 3200);
+  assert.equal((await ana("/me")).data.creditBalance, 500);
   // Pesar un pedido a cuenta ya saldado: la diferencia se descuenta del saldo a favor, no se pierde.
   const reweigh = await admin(
     "/orders/" + small.data.id,
-    { weights: { rancho: 11 } },
+    { weights: { rancho: 10.5 } },
     "PATCH",
   );
   assert.equal(reweigh.status, 200);
-  assert.equal(reweigh.data.total, 5280);
+  assert.equal(reweigh.data.total, 7875);
   assert.equal(reweigh.data.paid, true);
   assert.equal(
     (await ana("/me")).data.creditBalance,
-    2720,
+    125,
     "la diferencia de peso de un pedido pagado ajusta el saldo",
   );
   // Cancelar un pedido pagado con saldo a favor lo repone, una sola vez.
@@ -1026,6 +1027,120 @@ try {
       .status,
     400,
     "ya no queda nada por salir",
+  );
+
+  // Listas de precios: el equipo las lee, administración las edita; rigen para pedidos nuevos.
+  assert.equal((await ana("/precios/listas")).status, 403);
+  assert.equal(
+    (await maxi("/precios/listas")).data.products.find((p) => p.id === "entero")
+      .wholesale,
+    5500,
+    "precio base de lista",
+  );
+  assert.equal(
+    (
+      await maxi(
+        "/precios/listas",
+        { lists: { entero: { mayorista: 5600 } } },
+        "PUT",
+      )
+    ).status,
+    403,
+  );
+  const listsRes = await admin(
+    "/precios/listas",
+    { lists: { entero: { mayorista: 5600, intermedio: 6100 } } },
+    "PUT",
+  );
+  assert.equal(listsRes.status, 200, JSON.stringify(listsRes.data));
+  assert.equal(
+    listsRes.data.products.find((p) => p.id === "entero").wholesale,
+    5600,
+  );
+  assert.equal(
+    (await fetch(base + "/api/config").then((r) => r.json())).products.find(
+      (p) => p.id === "entero",
+    ).intermediate,
+    6100,
+    "la configuración pública refleja la lista editada",
+  );
+  const listOrder = await admin("/orders", {
+    customer: "5492635000000",
+    key: "lista-1",
+    deliveryDate: "2030-01-03",
+    items: [{ id: "entero", kg: 10 }],
+  });
+  assert.equal(listOrder.status, 201, JSON.stringify(listOrder.data));
+  assert.equal(
+    listOrder.data.total,
+    56000,
+    "pedido nuevo con la lista editada",
+  );
+  assert.equal(
+    (
+      await admin(
+        "/precios/listas",
+        { lists: { entero: { mayorista: -3 } } },
+        "PUT",
+      )
+    ).status,
+    400,
+  );
+  await admin("/precios/listas", { lists: {} }, "PUT");
+  // Precio corregido desde el pedido (administración): recalcula y puede quedar como precio del cliente.
+  assert.ok(
+    [403, 404].includes(
+      (
+        await maxi(
+          "/orders/" + listOrder.data.id,
+          { prices: { entero: 5000 } },
+          "PATCH",
+        )
+      ).status,
+    ),
+    "el repartidor no cambia precios",
+  );
+  const repriced = await admin(
+    "/orders/" + listOrder.data.id,
+    { prices: { entero: 5000 }, savePrices: true },
+    "PATCH",
+  );
+  assert.equal(repriced.status, 200, JSON.stringify(repriced.data));
+  assert.equal(repriced.data.total, 50000);
+  assert.equal(repriced.data.items[0].ownPrice, true);
+  assert.equal(
+    (await admin("/customers/5492635000000/prices")).data.entero,
+    5000,
+    "quedó como precio propio",
+  );
+  // Borrar pedido: solo administración; desaparece con sus cajones y queda en auditoría.
+  assert.equal(
+    (await maxi("/orders/" + listOrder.data.id, {}, "DELETE")).status,
+    403,
+  );
+  assert.equal(
+    (
+      await admin(
+        "/orders/" + listOrder.data.id,
+        { reason: "cargado dos veces" },
+        "DELETE",
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await admin("/orders")).data.some((o) => o.id === listOrder.data.id),
+    false,
+    "el pedido ya no está",
+  );
+  assert.equal(
+    (await admin("/orders/" + listOrder.data.id, {}, "DELETE")).status,
+    404,
+  );
+  await admin(
+    "/customers/5492635000000/prices",
+    { prices: { entero: null } },
+    "PUT",
   );
 
   // Cierre de caja: solo administración, queda guardado con diferencia y se puede corregir.
@@ -1546,11 +1661,11 @@ try {
   await page.getByRole("button", { name: "Mayorista Para tu negocio" }).click();
   await expect(
     page.locator(".product").first().locator(".price"),
-  ).toContainText("3.500");
+  ).toContainText("5.500");
   await page.getByRole("button", { name: "Minorista Para tu casa" }).click();
   await expect(
     page.locator(".product").first().locator(".price"),
-  ).toContainText("4.500");
+  ).toContainText("6.500");
   await page.getByLabel("Kilogramos de Pollo entero").fill("1.5");
   await page
     .getByRole("button", { name: "Agregar", exact: true })
@@ -1560,7 +1675,7 @@ try {
   await page
     .getByRole("button", { name: "Sumar medio kilo de Pollo entero" })
     .click();
-  await expect(page.locator("#carrito .total")).toContainText("10.500");
+  await expect(page.locator("#carrito .total")).toContainText("14.500");
   await page.getByRole("button", { name: "Eliminar Pollo entero" }).click();
   await page.getByLabel("Kilogramos de Pollo entero").fill("999.5");
   await page
@@ -1579,7 +1694,7 @@ try {
     .locator(".product", { hasText: "Suprema" })
     .getByRole("button", { name: "Agregar" })
     .click();
-  await expect(page.locator("#carrito .total")).toContainText("19.800");
+  await expect(page.locator("#carrito .total")).toContainText("28.320");
   await page.getByRole("button", { name: "Continuar pedido" }).click();
   await page.getByLabel("Nombre y apellido").fill("Cliente Navegador");
   await page.getByLabel("WhatsApp de contacto").fill("263 466-7788");
@@ -1672,15 +1787,24 @@ try {
   await expect(card).toContainText("Timbre azul");
   await card.getByRole("button", { name: "Preparar pedido" }).click();
   await expect(card).toContainText("En preparación");
+  // Precio corregido desde el pedido: recalcula el total y queda como precio propio del cliente.
+  await card.getByRole("button", { name: "Precios" }).click();
+  await ops.getByLabel("Precio por kilo de Pollo entero").fill("6000");
+  await expect(ops.locator("dialog .weights-total")).toContainText("27.320");
+  await ops
+    .locator("dialog")
+    .getByRole("button", { name: "Aplicar precios" })
+    .click();
+  await expect(card).toContainText("$ 27.320", { timeout: 8000 });
   await card.getByRole("button", { name: "Pesar" }).click();
   await ops.getByLabel("Kilos pesados de Pollo entero").fill("1.9");
-  await expect(ops.locator("dialog .checkout-total")).toContainText("19.350");
+  await expect(ops.locator("dialog .checkout-total")).toContainText("26.720");
   await ops
     .locator("dialog")
     .getByRole("button", { name: "Guardar pesaje" })
     .click();
   await expect(card).toContainText("Pesado en balanza");
-  await expect(card).toContainText("$ 19.350");
+  await expect(card).toContainText("$ 26.720");
   await expect(
     page.locator(".order-detail"),
     "el cliente ve el peso real",

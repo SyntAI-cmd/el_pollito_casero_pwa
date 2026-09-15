@@ -94,6 +94,7 @@ const meta = {
   ],
   "/operacion/nuevo": ["Cargar pedido", "Pedido telefónico."],
   "/operacion/dia": ["Nota del día", "Pedidos, pesada y camiones de la fecha."],
+  "/operacion/precios": ["Listas de precios", "Mayorista, intermedio y minorista."],
   "/operacion/pesada": ["Pesada", "Cajones en balanza."],
   "/operacion/carga": ["Carga de camiones", "Panel interno."],
   "/reparto/pesada": ["Pesada", "Cajones en balanza."],

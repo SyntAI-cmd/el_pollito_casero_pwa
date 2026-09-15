@@ -15,6 +15,7 @@ import {
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
 import business from "../business.json" with { type: "json" };
+import { demo } from "../domain.mjs";
 
 const scryptAsync = promisify(scrypt);
 
@@ -57,7 +58,7 @@ export async function sendMagicLink(email, link) {
     new Date().toISOString(),
     `Enlace de acceso para ${email}: ${link}`,
   );
-  return { sent: false, demoLink: business.demo ? link : undefined };
+  return { sent: false, demoLink: demo ? link : undefined };
 }
 
 /**
@@ -67,7 +68,7 @@ export async function sendMagicLink(email, link) {
  */
 export const otpConfigured = () =>
   !!(process.env.WHATSAPP_TOKEN && process.env.WHATSAPP_PHONE_ID);
-export const phoneLoginEnabled = () => otpConfigured() || !!business.demo;
+export const phoneLoginEnabled = () => otpConfigured() || !!demo;
 export const newOtpCode = () =>
   String(randomBytes(4).readUInt32BE(0) % 1000000).padStart(6, "0");
 export async function sendOtp(phone, code) {
@@ -104,7 +105,7 @@ export async function sendOtp(phone, code) {
     if (!r.ok) throw Error("No pudimos enviar el código por WhatsApp.");
     return { sent: true };
   }
-  if (!business.demo)
+  if (!demo)
     throw Error(
       "El ingreso por celular no está habilitado. Ingresá con tu email.",
     );
@@ -212,7 +213,7 @@ export function createPasskeys({ base }) {
 export async function seedStaff(store, drivers, log) {
   if (store.staff.count() > 0) return;
   const demoPassword =
-    process.env.ADMIN_PASSWORD || (business.demo ? "pollito2026" : null);
+    process.env.ADMIN_PASSWORD || (demo ? "pollito2026" : null);
   if (!demoPassword) {
     log.warn?.(
       "Sin usuarios del equipo: definí ADMIN_PASSWORD para crear el administrador inicial.",

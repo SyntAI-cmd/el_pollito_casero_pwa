@@ -5,7 +5,7 @@ import { openStore } from "./server/store.mjs";
 import { createApi, createEvents, ApiError } from "./server/api.mjs";
 import { createPush } from "./server/push.mjs";
 import { seedStaff } from "./server/auth.mjs";
-import { statuses, origin, drivers } from "./domain.mjs";
+import { statuses, origin, drivers, demo } from "./domain.mjs";
 import pkg from "./package.json" with { type: "json" };
 import business from "./business.json" with { type: "json" };
 
@@ -17,7 +17,9 @@ const base = (process.env.SITE_URL || `http://localhost:${port}`).replace(
 );
 const baseHost = new URL(base).host;
 const secure = base.startsWith("https://");
-const dbPath = process.env.DB_PATH || "data/pollito.sqlite";
+// Carpeta de datos (base, copias, claves push): DATA_DIR (en Railway/Docker, el volumen montado en /data).
+const dataDir = (process.env.DATA_DIR || "data").replace(/\/$/, "");
+const dbPath = process.env.DB_PATH || `${dataDir}/pollito.sqlite`;
 const log = {
   info: (...a) => console.log(new Date().toISOString(), ...a),
   warn: (...a) => console.warn(new Date().toISOString(), ...a),
@@ -28,6 +30,7 @@ const events = createEvents();
 const push = await createPush({
   store,
   dbPath,
+  dataDir,
   contact: `mailto:pedidos@${baseHost.split(":")[0] === "localhost" ? "pollitocasero.local" : baseHost}`,
 });
 const api = createApi({ store, events, push, base });
@@ -50,7 +53,7 @@ await seedStaff(store, store.drivers.all(), log);
 if (dbPath !== ":memory:") {
   const backup = () =>
     store
-      .backup()
+      .backup(`${dataDir}/backups`)
       .then((f) => f && log.info("Copia de seguridad:", f))
       .catch((e) => log.warn("Backup falló:", e.message));
   backup();
@@ -59,7 +62,7 @@ if (dbPath !== ":memory:") {
 }
 
 // Pedido de ejemplo para la demostración: visible en Operación y para el repartidor Franco.
-if (business.demo && !store.orders.count() && !process.env.DB_PATH) {
+if (demo && !store.orders.count() && !process.env.DB_PATH) {
   const at = new Date().toISOString();
   const track = [
     [-33.0725, -68.4905],

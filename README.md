@@ -22,6 +22,23 @@ npm start
 
 Desarrollo con recarga: `npm run dev`.
 
+## Subir a internet (Railway) y usarla en los celulares
+
+La app es **un solo servidor Node con SQLite**: no sirve para Vercel/Netlify (funciones sin disco). Va en un host con disco persistente; la más simple es **Railway** (≈ USD 5/mes). El repo ya trae `Dockerfile`, `railway.json` y `.env.example`.
+
+1. **GitHub**: `git push -u origin main` (remoto `origin` = https://github.com/SyntAI-cmd/el_pollito_casero_pwa).
+2. **Railway** → https://railway.com/new → *Deploy from GitHub repo* → elegir el repo. Detecta el `Dockerfile`.
+3. En el servicio → **Variables**: `ADMIN_PASSWORD` (clave larga), `SITE_URL` (la URL pública que Railway te da en *Settings → Networking → Generate domain*, con `https://`), `APP_MODE=equipo`. El resto es opcional (`.env.example`).
+4. **Volumen**: *Settings → Volumes → Add volume* montado en **`/data`**. Ahí viven la base (`pollito.sqlite`), las copias diarias (`/data/backups`, 14 días) y las claves push. Sin volumen, los datos se pierden en cada deploy.
+5. Deploy. Con `ADMIN_PASSWORD` se crean `admin` y un usuario por camión/preventista (Franco, Maxi, Nahuel, Andrés, Miguel, Brian, Nicolás, Carlos) con esa misma clave: cambiarlas desde **Equipo**.
+6. Cada `git push` a `main` vuelve a desplegar; las migraciones de la base corren solas al arrancar.
+
+**Repartidores y preventistas** ("¿APK?"): no hace falta una APK. Cada uno abre `https://tu-dominio/admin` en Chrome (Android) → menú ⋮ → **"Instalar aplicación"** (o "Agregar a pantalla de inicio"). Queda con ícono propio, pantalla completa, funciona con mala señal (las pesadas se guardan y se envían solas) y **todo se guarda en el servidor**, no en el teléfono: si cambian de celular, entran de nuevo y siguen. Si más adelante querés una APK real para Play Store, se genera desde la misma PWA con [PWABuilder](https://www.pwabuilder.com) (Trusted Web Activity) sin tocar el código.
+
+**Antes de empezar en serio**: `node scripts/limpiar.mjs` borra pedidos, cajones, pagos, chat, noticias y fichas de prueba (conserva clientes importados, precios propios, camiones y usuarios); `--todo` deja la base vacía. Siempre guarda una copia previa en `data/backups/`.
+
+**Copias de seguridad**: además de las diarias en el volumen, cada tanto descargá una con `railway run node -e "…"` o desde Railway → Volume → *Download*; localmente `data/backups/`.
+
 ## Modo de la app
 
 `business.json → mode`: **`equipo`** (actual) apaga el portal de clientes: todo el mundo entra por `/admin` y la app es la herramienta de piso de administración y preventistas. `completo` vuelve a habilitar catálogo, checkout y cuentas de clientes (la E2E corre con `APP_MODE=completo`).
@@ -32,7 +49,9 @@ Digitaliza el circuito real: pedidos por WhatsApp de noche → nota de pedidos �
 
 - **Clientes** (Operación → Clientes): fichas al estilo GC/Atuq (código, CUIT, razón social, apodo, sucursal, zona, turno mañana/tarde, camión, dirección, teléfono opcional, estado *completa / sin CUIT / revisar*), **precios propios por producto** (las listas de mañana/tarde hechas datos), extracto y cobro. `scripts/importar-gc.mjs` importa la planilla de clientes de GC y `scripts/parsear-listas.py` lee las listas de precios en PDF y las cruza por apodo y zona (lo que no cruza queda "a revisar").
 - **Camiones y preventistas** (Equipo): nombre, WhatsApp, CUIT, turno y zonas; sus clientes les quedan preasignados. Cada uno entra con su usuario.
-- **Cargar pedido** (administración y preventistas, `/operacion/nuevo` y `/reparto/nuevo`): cliente de la lista, **cajas** y/o kilos por producto al precio propio, fecha y turno de reparto, camión, pago, observaciones para el remito, "repetir último".
+- **Cargar pedido** (administración y preventistas, `/operacion/nuevo` y `/reparto/nuevo`): cliente de la lista, **cajas o kilos** por producto al precio propio, fecha y turno de reparto, camión, pago, observaciones para el remito, "repetir último". Administración puede **tocar el precio por kilo en la misma fila** (lápiz): queda como precio propio del cliente y se usa en ese pedido.
+- **Listas de precios** (`/operacion/precios`, botón en Clientes): mayorista / intermedio / minorista por producto; precio base = pollo entero mayorista ($5.500 al 14/09/2026). Se guardan en `settings` (`PUT /api/precios/listas`) y pisan `business.json`; los precios propios por cliente pisan la lista.
+- **Precios y borrado desde el pedido** (administración, tarjeta del pedido): **Precios** cambia el precio por kilo de cada renglón y recalcula (opción de guardarlo como precio del cliente); **Eliminar** borra el pedido con sus cajones (`DELETE /api/orders/:id`, queda en auditoría; lo cobrado en efectivo/transferencia vuelve como saldo a favor).
 - **Pesada por cajón**: `POST /api/orders/:id/crates {productId, gross}` resta la tara (`business.tare`, 1,7 kg, editable en `PATCH /api/settings`) y acumula kilos por producto; cada cajón tiene id propio (reintentos sin duplicar), se anula con motivo y se marca cargado al camión. Recalcula el total con el precio del cliente y ajusta el saldo si el pedido ya estaba pagado.
 - **Nota del día** `GET /api/dia?fecha=`; **noticias** del equipo `GET/POST /api/news`; **consolidado en Excel** `GET /api/export/consolidado?fecha=` (una fila por pedido: preventista, cliente, razón social, CUIT, descripción, cajones, kilos, neto, IVA 10,5 %, total).
 
@@ -165,7 +184,7 @@ Los scripts de navegador usan Chromium de Playwright (`npx playwright install ch
 
 ## Para operar con clientes reales
 
-1. **Cambiar las contraseñas demo** del equipo desde Operación → Equipo (o arrancar con `ADMIN_PASSWORD`) y poner `business.demo: false`. Configurar **`WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID`** con una plantilla de autenticación aprobada para que el código de verificación llegue por WhatsApp (sin eso, el ingreso por celular queda apagado y los clientes entran por email, Google o passkey).
+1. **Cambiar las contraseñas** del equipo desde Operación → Equipo (o arrancar con `ADMIN_PASSWORD`). `business.demo` ya está en `false` (códigos y enlaces de prueba solo con `DEMO=1`). Configurar **`WHATSAPP_TOKEN` / `WHATSAPP_PHONE_ID`** con una plantilla de autenticación aprobada para que el código de verificación llegue por WhatsApp (sin eso, el ingreso por celular queda apagado y los clientes entran por email, Google o passkey).
 2. **`GOOGLE_CLIENT_ID`** (consola de Google Cloud, orígenes autorizados = `SITE_URL`) para el botón de Google y **`SMTP_URL`** para que los enlaces de acceso lleguen por correo. Las passkeys (huella/Face ID) y los avisos push requieren HTTPS fuera de localhost.
 3. **HTTPS y dominio** (`SITE_URL`), copias de seguridad de `data/pollito.sqlite`, `HOST=0.0.0.0` detrás de un proxy.
 4. **Plantillas de WhatsApp** automáticas (API de WhatsApp Business) si se quiere avisar también por WhatsApp además de los push.

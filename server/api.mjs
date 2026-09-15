@@ -12,7 +12,9 @@ import {
   normalizePhone,
   accountSummary,
   applyWeights,
+  applyPrices,
   applyPayment,
+  withLists,
 } from "../domain.mjs";
 import business from "../business.json" with { type: "json" };
 import {
@@ -24,7 +26,7 @@ import {
 import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { createFloor } from "./floor.mjs";
-import { appMode, defaultTare, shifts, fiscal } from "../domain.mjs";
+import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
   transferInfo,
@@ -93,8 +95,11 @@ export function createApi({
       .filter((d) => d.active)
       .map((d) => d.name);
   const driverByName = (name) => store.drivers.get(name);
+  const priceLists = () => store.settings.get("priceLists", null);
   const config = {
-    products,
+    get products() {
+      return withLists(priceLists());
+    },
     localities,
     get drivers() {
       return driverNames();
@@ -111,7 +116,7 @@ export function createApi({
     origin,
     shipping: shippingByPlan,
     planMinKg,
-    demo: !!business.demo,
+    demo: !!demo,
     adminName: business.adminName,
     adminPhone: process.env.ADMIN_WHATSAPP || business.adminPhone,
     transfer: transferInfo(),
@@ -169,7 +174,7 @@ export function createApi({
       phone,
       name: String(data.name || "Cliente").trim(),
       plan: plans.includes(data.plan) ? data.plan : "minorista",
-      credit: !!business.demo,
+      credit: !!demo,
       creditBalance: 0,
       created: now(),
     };
@@ -331,7 +336,10 @@ export function createApi({
 
   function createOrder(b, session) {
     // Administración carga lo que el cliente pidió por teléfono; el mínimo por modalidad es para el autoservicio.
-    const priced = priceOrder(b, { enforceMin: session?.role !== "admin" });
+    const priced = priceOrder(b, {
+      enforceMin: session?.role !== "admin",
+      lists: priceLists(),
+    });
     if (b.payment === "transferencia" && !config.transfer)
       fail(
         400,
@@ -642,6 +650,47 @@ export function createApi({
       store.orders.addTrack(o.id, lat, lng, o.location.at);
       if ((!o.eta || Date.now() - new Date(o.eta.at) > 45000) && o.destination)
         after.push(() => refreshEta(o));
+    }
+    if (b.prices !== undefined) {
+      if (role !== "admin") fail(403, "Solo administración cambia precios.");
+      if (o.paid && o.payment !== "cuenta")
+        fail(
+          400,
+          "El pedido ya fue cobrado; registrá la diferencia como pago.",
+        );
+      const before = Math.round(o.total * 100);
+      Object.assign(o, applyPrices(o, b.prices));
+      o.repriced = { at: now(), by: actorOf(session) };
+      const diff = Math.round(o.total * 100) - before;
+      const customer = store.customers.get(o.customer);
+      if (customer) {
+        if (o.paid && diff !== 0) {
+          customer.creditBalance =
+            Math.round((customer.creditBalance || 0) * 100 - diff) / 100;
+          o.adjustments = [
+            ...(o.adjustments || []),
+            {
+              amount: diff / 100,
+              at: now(),
+              by: actorOf(session),
+              reason: "precio",
+            },
+          ];
+        }
+        // Opcional: el precio nuevo queda como precio propio del cliente para los próximos pedidos.
+        if (b.savePrices === true)
+          for (const [pid, price] of Object.entries(b.prices))
+            if (o.items.some((i) => i.id === pid))
+              store.prices.set(
+                customer.phone,
+                pid,
+                Number(price),
+                actorOf(session),
+              );
+        if (o.paid && diff !== 0) store.customers.save(customer);
+        if ((o.paid && diff !== 0) || b.savePrices === true)
+          after.push(() => events.customerChanged(customer));
+      }
     }
     if (b.weights !== undefined) {
       if (o.status === "recibido" && role !== "admin")
@@ -1365,6 +1414,47 @@ export function createApi({
       );
     }
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
+    if (orderMatch && method === "DELETE" && !orderMatch[2]) {
+      if (session?.role !== "admin")
+        fail(403, "Solo administración elimina pedidos.");
+      const id = decodeURIComponent(orderMatch[1]);
+      return withOrderLock(id, async () => {
+        const o = store.orders.get(id);
+        if (!o) fail(404, "Pedido no encontrado.");
+        const reason = str(body?.reason, {
+          max: 300,
+          name: "el motivo",
+          optional: true,
+        });
+        let customer = null;
+        store.transaction(() => {
+          if (o.paid && !o.refunded && o.payment !== "cuenta") {
+            customer = store.customers.get(o.customer);
+            if (customer) {
+              customer.creditBalance =
+                Math.round(((customer.creditBalance || 0) + o.total) * 100) /
+                100;
+              store.customers.save(customer);
+            }
+          }
+          store.audit.log(session, "order.delete", "order", o.id, {
+            reason,
+            order: {
+              name: o.name,
+              customer: o.customer,
+              total: o.total,
+              status: o.status,
+              items: o.items,
+              paid: o.paid,
+            },
+          });
+          store.orders.remove(o.id);
+        });
+        events.orderChanged({ ...o, status: "eliminado", deleted: true });
+        if (customer) events.customerChanged(customer);
+        return json(200, { ok: true, id: o.id });
+      });
+    }
     if (orderMatch && method === "PATCH" && !orderMatch[2]) {
       if (!session) fail(401, "Ingresá para gestionar pedidos.");
       const id = decodeURIComponent(orderMatch[1]);

@@ -831,6 +831,85 @@ function Boxes({ order, kind }) {
   );
 }
 
+/** Cambio del precio por kilo de cada renglón del pedido; opcionalmente queda como precio del cliente. */
+function OrderPrices({ order }) {
+  const { busy, update, setModal } = useStore();
+  const [price, setPrice] = useState(
+    Object.fromEntries(order.items.map((p) => [p.id, String(p.price)])),
+  );
+  const [savePrices, setSavePrices] = useState(true);
+  const val = (id) => Number(String(price[id]).replace(",", "."));
+  const total =
+    order.items.reduce(
+      (s, p) =>
+        s +
+        Math.round(
+          (Number.isFinite(val(p.id)) && val(p.id) > 0
+            ? lineAmount(val(p.id), p.kg)
+            : p.lineTotal) * 100,
+        ),
+      0,
+    ) /
+      100 +
+    (order.shipping || 0);
+  return (
+    <form
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const prices = Object.fromEntries(
+          order.items
+            .filter((p) => val(p.id) !== p.price)
+            .map((p) => [p.id, Math.round(val(p.id) * 100) / 100]),
+        );
+        if (!Object.keys(prices).length) return setModal(null);
+        if (await update(order, { prices, savePrices })) setModal(null);
+      }}
+    >
+      <span className="eyebrow">PRECIOS</span>
+      <h2>Precio por kilo del pedido</h2>
+      <p>
+        {order.id} · {order.name}. El importe se recalcula con los kilos
+        actuales; si el pedido ya estaba pesado, el remito sale con el precio
+        nuevo.
+      </p>
+      <div className="weights">
+        {order.items.map((p) => (
+          <label key={p.id} className="weight-row">
+            <span>
+              {p.name}
+              <small>
+                {kgText(p.kg)}
+                {p.ownPrice ? " · precio propio" : " · precio de lista"}
+              </small>
+            </span>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={price[p.id]}
+              aria-label={"Precio por kilo de " + p.name}
+              onChange={(e) => setPrice({ ...price, [p.id]: e.target.value })}
+            />
+          </label>
+        ))}
+      </div>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={savePrices}
+          onChange={(e) => setSavePrices(e.target.checked)}
+        />
+        Guardar como precio propio de {order.name} para los próximos pedidos
+      </label>
+      <p className="weights-total">
+        Total: <strong>{money(total)}</strong>
+      </p>
+      <button className="primary full" disabled={busy}>
+        Aplicar precios <Check size={16} />
+      </button>
+    </form>
+  );
+}
+
 /** Carga del peso real de balanza por corte; recalcula el total en vivo. */
 function Weights({ order }) {
   const { busy, update, setModal } = useStore();
@@ -1127,6 +1206,8 @@ export default function Modals() {
         <Boxes order={modal.order} kind={type} />
       ) : type === "weights" ? (
         <Weights order={modal.order} />
+      ) : type === "order-prices" ? (
+        <OrderPrices order={modal.order} />
       ) : type === "boxes-return" ? (
         <BoxesReturn customer={modal.customer} />
       ) : type === "account-payment" ? (

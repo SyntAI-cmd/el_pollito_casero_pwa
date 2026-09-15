@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import {
   Search,
   UserPlus,
+  Tags,
   Tag,
   FileText,
   Wallet,
@@ -10,6 +11,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { money, normalize, waLink } from "../lib/format.js";
+import { Link } from "../lib/router.jsx";
 
 export const shiftNames = { manana: "Mañana", tarde: "Tarde", "": "—" };
 export const statusNames = {
@@ -117,6 +119,9 @@ export default function Customers() {
             </option>
           ))}
         </select>
+        <Link to="/operacion/precios" className="secondary">
+          <Tags size={15} /> Listas de precios
+        </Link>
         <button
           className="primary"
           onClick={() => setModal({ type: "new-customer" })}

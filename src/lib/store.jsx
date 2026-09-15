@@ -586,8 +586,38 @@ export function StoreProvider({ children }) {
     );
 
   /** Pedido cargado por administración desde la pantalla rápida. */
-  const createStaffOrder = (payload) =>
+  const refreshConfig = async () => {
+    const c = await api("/config");
+    const { session: _s, ...rest } = c;
+    setConfig(rest);
+    persist("pc-config-v3", rest);
+    return rest;
+  };
+  /** Borra un pedido (administración). Lo cobrado con efectivo/transferencia vuelve como saldo a favor. */
+  const deleteOrder = (o, reason) =>
+    run(
+      async () => {
+        await api("/orders/" + o.id, {
+          method: "DELETE",
+          body: JSON.stringify({ reason: reason || "" }),
+        });
+        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        notify(`Pedido ${o.id} eliminado.`);
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  const createStaffOrder = ({ prices, ...payload }) =>
     run(async () => {
+      // Precios corregidos en la pantalla: quedan como precios propios del cliente antes de cargar el pedido.
+      if (prices && Object.keys(prices).length)
+        await api(
+          "/customers/" + encodeURIComponent(payload.customer) + "/prices",
+          {
+            method: "PUT",
+            body: JSON.stringify({ prices }),
+          },
+        );
       const order = await post("/orders", {
         ...payload,
         key: crypto.randomUUID(),
@@ -813,6 +843,8 @@ export function StoreProvider({ children }) {
     createCustomer,
     savePrices,
     saveDriver,
+    refreshConfig,
+    deleteOrder,
     saveProfile,
     emailLogin,
     emailRegister,

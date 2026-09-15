@@ -1,5 +1,5 @@
 {
-  "demo": true,
+  "demo": false,
   "adminName": "Mauro",
   "adminPhone": "5492635037286",
   "drivers": [
@@ -61,54 +61,54 @@
   ],
   "prices": {
     "entero": {
-      "wholesale": 3500,
-      "intermediate": 4000,
-      "retail": 4500
+      "wholesale": 5500,
+      "intermediate": 6000,
+      "retail": 6500
     },
     "cuarto-trasero": {
-      "wholesale": 3280,
-      "intermediate": 3690,
-      "retail": 4100
+      "wholesale": 5150,
+      "intermediate": 5620,
+      "retail": 6090
     },
     "alas": {
-      "wholesale": 2640,
-      "intermediate": 2970,
-      "retail": 3300
+      "wholesale": 4150,
+      "intermediate": 4530,
+      "retail": 4900
     },
     "pechuga": {
-      "wholesale": 5270,
-      "intermediate": 5930,
-      "retail": 6590
+      "wholesale": 8280,
+      "intermediate": 9030,
+      "retail": 9790
     },
     "suprema": {
-      "wholesale": 7440,
-      "intermediate": 8370,
-      "retail": 9300
+      "wholesale": 11690,
+      "intermediate": 12750,
+      "retail": 13820
     },
     "menudos": {
-      "wholesale": 1480,
-      "intermediate": 1670,
-      "retail": 1850
+      "wholesale": 2330,
+      "intermediate": 2540,
+      "retail": 2750
     },
     "rancho": {
-      "wholesale": 480,
-      "intermediate": 540,
-      "retail": 600
+      "wholesale": 750,
+      "intermediate": 820,
+      "retail": 890
     },
     "pechuga-con-alas": {
-      "wholesale": 3870,
-      "intermediate": 4360,
-      "retail": 4840
+      "wholesale": 6080,
+      "intermediate": 6630,
+      "retail": 7190
     },
     "muslo": {
-      "wholesale": 3780,
-      "intermediate": 4260,
-      "retail": 4730
+      "wholesale": 5940,
+      "intermediate": 6480,
+      "retail": 7020
     },
     "garras": {
-      "wholesale": 480,
-      "intermediate": 540,
-      "retail": 600
+      "wholesale": 750,
+      "intermediate": 820,
+      "retail": 890
     }
   },
   "products": [
@@ -430,11 +430,7 @@
     }
   ],
   "priceSource": {
-    "file": "Precios.png",
-    "modified": "2026-09-03",
-    "plan": "minorista",
-    "planInferred": true,
-    "otherCutPlans": "Tarifas ficticias autorizadas: mayorista -20%, intermedio -10%, redondeo a $10."
+    "note": "Listas base del 14/09/2026: pollo entero mayorista $5.500 (precio base), intermedio $6.000, minorista $6.500; el resto de los cortes conserva su proporción. Se editan desde Administración → Listas de precios (quedan en la tabla settings). Los precios propios por cliente pisan la lista."
   },
   "brand": "EL POLLITO CASERO",
   "origin": {

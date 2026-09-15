@@ -46,6 +46,7 @@ import QuickOrder from "./pages/QuickOrder.jsx";
 import Weighing from "./pages/Weighing.jsx";
 import TruckLoading from "./pages/TruckLoading.jsx";
 import DaySheet from "./pages/DaySheet.jsx";
+import PriceLists from "./pages/PriceLists.jsx";
 
 /**
  * Tres aplicaciones en una, separadas por rol. El servidor ya filtra los datos;
@@ -68,6 +69,7 @@ const ADMIN_ROUTES = {
   "/operacion/equipo": Operations,
   "/operacion/nuevo": QuickOrder,
   "/operacion/dia": DaySheet,
+  "/operacion/precios": PriceLists,
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
   "/imprimir": Print,

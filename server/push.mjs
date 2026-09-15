@@ -7,7 +7,7 @@
 import webpush from "web-push";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 
-export async function createPush({ store, contact, dbPath }) {
+export async function createPush({ store, contact, dbPath, dataDir = "data" }) {
   let keys;
   if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
     keys = {
@@ -16,12 +16,12 @@ export async function createPush({ store, contact, dbPath }) {
     };
   else if (dbPath === ":memory:") keys = webpush.generateVAPIDKeys();
   else {
-    await mkdir("data", { recursive: true });
+    await mkdir(dataDir, { recursive: true });
     try {
-      keys = JSON.parse(await readFile("data/vapid.json", "utf8"));
+      keys = JSON.parse(await readFile(`${dataDir}/vapid.json`, "utf8"));
     } catch {
       keys = webpush.generateVAPIDKeys();
-      await writeFile("data/vapid.json", JSON.stringify(keys, null, 2));
+      await writeFile(`${dataDir}/vapid.json`, JSON.stringify(keys, null, 2));
     }
   }
   webpush.setVapidDetails(contact, keys.publicKey, keys.privateKey);

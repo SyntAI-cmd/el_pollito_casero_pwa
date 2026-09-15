@@ -322,6 +322,7 @@ export async function openStore(path, { log = console } = {}) {
     customer: db.prepare("SELECT * FROM customers WHERE phone = ?"),
     customersAll: db.prepare("SELECT * FROM customers ORDER BY updated DESC"),
     deleteCustomer: db.prepare("DELETE FROM customers WHERE phone = ?"),
+    deleteOrder: db.prepare("DELETE FROM orders WHERE id = ?"),
     upsertCustomer:
       db.prepare(`INSERT INTO customers(phone, name, plan, credit, driver, address, locality_id, lat, lng, credit_balance, created, updated, data)
       VALUES(@phone, @name, @plan, @credit, @driver, @address, @locality_id, @lat, @lng, @credit_balance, @created, @updated, @data)
@@ -809,6 +810,8 @@ export async function openStore(path, { log = console } = {}) {
       forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),
       forDate: (date) => q.ordersForDate.all(date).map(rowToOrder),
       forSession: (id) => q.ordersSession.all(id).map(rowToOrder),
+      /** Borra el pedido con sus renglones, eventos, recorrido y cajones (FK en cascada). */
+      remove: (id) => q.deleteOrder.run(id).changes,
       save: saveOrder,
       count: () => q.ordersCount.get().n,
       countFor: (phone) => q.ordersCustomerCount.get(phone).n,

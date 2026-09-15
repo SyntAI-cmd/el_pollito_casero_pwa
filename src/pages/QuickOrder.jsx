@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Package,
   CalendarDays,
+  Pencil,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
@@ -52,6 +53,8 @@ export default function QuickOrder() {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState(null);
   const [lines, setLines] = useState({}); // productId → { boxes, kg }
+  const [priceEdits, setPriceEdits] = useState({}); // productId → "5500" (solo administración)
+  const [editingPrice, setEditingPrice] = useState(null);
   const [deliveryDate, setDeliveryDate] = useState(defaultDelivery());
   const [shift, setShift] = useState("");
   const [driver, setDriver] = useState("");
@@ -123,6 +126,11 @@ export default function QuickOrder() {
         .replace(",", "."),
     );
   const priceOf = (p) => {
+    const edited = priceEdits[p.id];
+    if (edited !== undefined && String(edited).trim() !== "") {
+      const v = Number(String(edited).replace(",", "."));
+      return Number.isFinite(v) ? v : NaN;
+    }
     const own = picked?.prices?.[p.id];
     return Number.isFinite(Number(own)) && own !== null && own !== ""
       ? Number(own)
@@ -156,8 +164,15 @@ export default function QuickOrder() {
   async function submit(e) {
     e?.preventDefault();
     if (!canSubmit) return;
+    const editedPrices = Object.fromEntries(
+      Object.entries(priceEdits)
+        .filter(([, v]) => String(v).trim() !== "")
+        .map(([id, v]) => [id, Number(String(v).replace(",", "."))])
+        .filter(([, v]) => Number.isFinite(v) && v > 0),
+    );
     const order = await createStaffOrder({
       customer: picked.phone,
+      prices: editedPrices,
       items: items.map((r) => ({
         id: r.p.id,
         ...(r.boxes !== null ? { boxes: r.boxes } : {}),
@@ -173,6 +188,7 @@ export default function QuickOrder() {
     if (order) {
       setCreated(order);
       setLines({});
+      setPriceEdits({});
       setNotes("");
     }
   }
@@ -421,10 +437,52 @@ export default function QuickOrder() {
                     </td>
                     <td
                       className={
-                        "num qo-price " + (picked?.prices?.[p.id] ? "own" : "")
+                        "num qo-price " +
+                        (priceEdits[p.id] !== undefined
+                          ? "edited"
+                          : picked?.prices?.[p.id]
+                            ? "own"
+                            : "")
                       }
                     >
-                      {Number.isFinite(price) && price > 0 ? (
+                      {isAdmin && picked && editingPrice === p.id ? (
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoFocus
+                          className="qo-price-input"
+                          aria-label={`Precio por kilo de ${p.name}`}
+                          value={priceEdits[p.id] ?? String(price || "")}
+                          onChange={(e) =>
+                            setPriceEdits({
+                              ...priceEdits,
+                              [p.id]: e.target.value,
+                            })
+                          }
+                          onBlur={() => setEditingPrice(null)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === "Escape") {
+                              e.preventDefault();
+                              setEditingPrice(null);
+                            }
+                          }}
+                        />
+                      ) : isAdmin && picked ? (
+                        <button
+                          type="button"
+                          className="qo-price-btn"
+                          title="Cambiar el precio por kilo para este cliente"
+                          aria-label={`Cambiar precio de ${p.name}`}
+                          onClick={() => setEditingPrice(p.id)}
+                        >
+                          {Number.isFinite(price) && price > 0 ? (
+                            money(price)
+                          ) : (
+                            <em className="qo-bad">sin precio</em>
+                          )}
+                          <Pencil size={11} />
+                        </button>
+                      ) : Number.isFinite(price) && price > 0 ? (
                         money(price)
                       ) : (
                         <em className="qo-bad">sin precio</em>

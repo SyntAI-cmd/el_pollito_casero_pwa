@@ -21,6 +21,9 @@ export const localities = business.localities;
 export const drivers = business.drivers;
 /** Modo de la app: "completo" (portal de clientes + equipo) o "equipo" (solo administración y reparto). */
 export const appMode = process.env.APP_MODE || business.mode || "completo";
+/** Modo demostración (códigos y enlaces visibles, pedido de ejemplo): business.demo, o DEMO=1 / DEMO=0 por entorno. */
+export const demo =
+  process.env.DEMO === "1" || (process.env.DEMO !== "0" && !!business.demo);
 /** Tara por cajón (kg) que se descuenta del bruto en la balanza. */
 export const defaultTare = Number(business.tare) || 1.7;
 export const shifts = ["manana", "tarde"];
@@ -48,7 +51,44 @@ export const roles = ["cliente", "admin", "repartidor"];
 
 export const lineAmount = (price, kg) =>
   Math.round(Math.round(price * 100) * kg) / 100;
-export const productPrice = (product, plan) => product[planKey[plan]];
+/**
+ * Precio de lista de un producto para una modalidad. `lists` (opcional) son las listas editadas desde
+ * Administración → Listas de precios ({productId: {mayorista, intermedio, minorista}}) y pisan business.json.
+ */
+export const productPrice = (product, plan, lists = null) => {
+  const edited = lists?.[product.id]?.[plan];
+  return Number.isFinite(Number(edited)) && Number(edited) > 0
+    ? Number(edited)
+    : product[planKey[plan]];
+};
+/** Productos con las listas editadas aplicadas (lo que ve el cliente en /api/config). */
+export const withLists = (lists) =>
+  !lists
+    ? products
+    : products.map((p) => ({
+        ...p,
+        wholesale: productPrice(p, "mayorista", lists),
+        intermediate: productPrice(p, "intermedio", lists),
+        retail: productPrice(p, "minorista", lists),
+      }));
+/** Valida listas editadas: precios de 1 a 1.000.000 por producto y modalidad; devuelve el objeto limpio. */
+export function validateLists(input) {
+  if (!input || typeof input !== "object") throw Error("Listas inválidas.");
+  const out = {};
+  for (const p of products) {
+    const row = input[p.id];
+    if (!row) continue;
+    for (const plan of plans) {
+      if (row[plan] === undefined || row[plan] === null || row[plan] === "")
+        continue;
+      const v = Math.round(Number(row[plan]) * 100) / 100;
+      if (!Number.isFinite(v) || v <= 0 || v > 1000000)
+        throw Error(`Precio inválido para ${p.name} (${plan}).`);
+      (out[p.id] ||= {})[plan] = v;
+    }
+  }
+  return out;
+}
 
 /** Teléfono argentino normalizado a formato internacional sin símbolos (para WhatsApp e identidad). */
 export function normalizePhone(raw) {
@@ -72,7 +112,13 @@ export function normalizePhone(raw) {
  */
 export function priceOrder(
   input,
-  { enforceMin = true, prices = null, staff = false, locality: forced } = {},
+  {
+    enforceMin = true,
+    prices = null,
+    staff = false,
+    locality: forced,
+    lists = null,
+  } = {},
 ) {
   if (!plans.includes(input.plan)) throw Error("Elegí una modalidad válida.");
   if (
@@ -118,7 +164,7 @@ export function priceOrder(
       prices && Number.isFinite(Number(prices[p.id]))
         ? Number(prices[p.id])
         : null;
-    const price = own ?? productPrice(p, input.plan);
+    const price = own ?? productPrice(p, input.plan, lists);
     if (!Number.isFinite(price) || price <= 0)
       throw Error(`El precio de ${p.name} está pendiente para este cliente.`);
     ids.add(item.id);
@@ -194,6 +240,33 @@ export function accountSummary(orders, customer = {}) {
  * Aplica el peso real de balanza a las líneas de un pedido y recalcula importes.
  * `weights` es { [productId]: kg } con hasta dos decimales, de 0,05 a 1000 kg.
  */
+/** Cambia el precio por kilo de uno o más renglones de un pedido y recalcula importes (administración). */
+export function applyPrices(order, prices) {
+  if (!prices || typeof prices !== "object")
+    throw Error("Indicá los precios nuevos.");
+  const items = order.items.map((item) => {
+    if (!(item.id in prices)) return item;
+    const price = Math.round(Number(prices[item.id]) * 100) / 100;
+    if (!Number.isFinite(price) || price <= 0 || price > 1000000)
+      throw Error(`Precio inválido para ${item.name}.`);
+    return {
+      ...item,
+      price,
+      ownPrice: true,
+      lineTotal: lineAmount(price, item.kg),
+    };
+  });
+  const subtotal =
+    items.reduce((n, p) => n + Math.round(p.lineTotal * 100), 0) / 100;
+  return {
+    items,
+    subtotal,
+    total:
+      (Math.round(subtotal * 100) + Math.round((order.shipping || 0) * 100)) /
+      100,
+  };
+}
+
 export function applyWeights(order, weights) {
   if (!weights || typeof weights !== "object")
     throw Error("Ingresá los kilos pesados.");

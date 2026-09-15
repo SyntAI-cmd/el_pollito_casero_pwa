@@ -45,6 +45,7 @@ try {
     ["Administración", "/operacion"],
     ["Administración", "/operacion/nuevo"],
     ["Administración", "/operacion/dia"],
+    ["Administración", "/operacion/precios"],
     ["Administración", "/operacion/pesada"],
     ["Administración", "/operacion/carga"],
     ["Administración", "/operacion/reparto"],

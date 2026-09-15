@@ -23,6 +23,7 @@ import {
   planNames,
 } from "../lib/format.js";
 import { StatusBadge } from "./ui.jsx";
+import { Tags, Trash2 } from "lucide-react";
 
 const mapsLink = (o) =>
   o.destination
@@ -31,8 +32,16 @@ const mapsLink = (o) =>
 
 /** Tarjeta operativa de un pedido, con acciones según el rol (admin o repartidor). */
 export default function OrderCard({ order: o, role }) {
-  const { config, busy, update, setModal, share, sharing, customers } =
-    useStore();
+  const {
+    config,
+    busy,
+    update,
+    setModal,
+    share,
+    sharing,
+    customers,
+    deleteOrder,
+  } = useStore();
   const customer = customers.find((x) => x.phone === o.customer);
   const admin = role === "admin";
   const canWeigh =
@@ -242,6 +251,17 @@ export default function OrderCard({ order: o, role }) {
               <Scale size={15} /> {o.weighed ? "Corregir peso" : "Pesar"}
             </button>
           )}
+          {admin &&
+            o.status !== "cancelado" &&
+            !(o.paid && o.payment !== "cuenta") && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() => setModal({ type: "order-prices", order: o })}
+              >
+                <Tags size={15} /> Precios
+              </button>
+            )}
           {unpaid && o.payment !== "cuenta" && (
             <button
               className="secondary"
@@ -249,6 +269,20 @@ export default function OrderCard({ order: o, role }) {
               onClick={() => setModal({ type: "payment", order: o })}
             >
               Registrar cobro
+            </button>
+          )}
+          {admin && (
+            <button
+              className="link-button danger"
+              disabled={busy}
+              onClick={() => {
+                const reason = window.prompt(
+                  `¿Eliminar el pedido ${o.id} de ${o.name}? Se borra con sus cajones y no se puede recuperar.\nMotivo (opcional):`,
+                );
+                if (reason !== null) deleteOrder(o, reason);
+              }}
+            >
+              <Trash2 size={14} /> Eliminar
             </button>
           )}
           {o.payment === "cuenta" && customer && accountBalance > 0 && (
