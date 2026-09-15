@@ -1,5 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  Users,
   Truck,
   Plus,
   Minus,
@@ -25,7 +32,8 @@ import {
   floorLabels,
 } from "../lib/day.js";
 import { send } from "../lib/outbox.js";
-import { post } from "../lib/api.js";
+import { api, post, put, subscribe } from "../lib/api.js";
+import { vehicleLabel } from "../components/Vehicles.jsx";
 
 /**
  * Carga del camión: un camión por pantalla, sus clientes con la cantidad de cajones pesados, y un
@@ -42,6 +50,63 @@ export default function TruckLoading() {
     isAdmin ? query.get("camion") || drivers[0] || "" : session?.driver || "",
   );
   const { day, loading, reload, setDay } = useDay(date);
+  // Flota: vehículos y salidas del día (vehículo + preventistas + hora). Si no hay vehículos
+  // cargados en Equipo, la pantalla sigue funcionando por preventista como antes.
+  const [vehicles, setVehicles] = useState([]);
+  const [trips, setTrips] = useState([]);
+  const [vehicleId, setVehicleId] = useState(query.get("vehiculo") || "");
+  const loadTrips = useCallback(
+    () =>
+      api("/salidas?fecha=" + date)
+        .then(setTrips)
+        .catch(() => {}),
+    [date],
+  );
+  useEffect(() => {
+    api("/vehicles")
+      .then((v) => setVehicles(v.filter((x) => x.active)))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadTrips();
+    return subscribe((type) => type === "fleet" && loadTrips());
+  }, [loadTrips]);
+  // Vehículo inicial: el que ya tiene salida con este preventista, si no el primero.
+  useEffect(() => {
+    if (vehicleId || !vehicles.length) return;
+    const mine = trips.find((t) => t.drivers.includes(driver));
+    setVehicleId(mine?.vehicleId || vehicles[0].id);
+  }, [vehicles, trips, driver, vehicleId]);
+  const vehicle = vehicles.find((v) => v.id === vehicleId) || null;
+  const trip = vehicle ? trips.find((t) => t.vehicleId === vehicle.id) : null;
+  const byVehicle = !!vehicle;
+  // Tripulación: los preventistas de la salida; sin salida armada, el preventista elegido.
+  const crew = byVehicle
+    ? trip?.drivers || (driver ? [driver] : [])
+    : driver
+      ? [driver]
+      : [];
+  async function saveTrip(patchBody) {
+    if (!vehicle) return;
+    try {
+      const t = await put("/salidas", {
+        date,
+        vehicleId: vehicle.id,
+        drivers: crew,
+        departure: trip?.departure || "",
+        ...patchBody,
+      });
+      setTrips((list) => [...list.filter((x) => x.id !== t.id), t]);
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+  const toggleCrew = (name) =>
+    saveTrip({
+      drivers: crew.includes(name)
+        ? crew.filter((d) => d !== name)
+        : [...crew, name],
+    });
   const [reason, setReason] = useState("");
   const [closing, setClosing] = useState(false);
   const [missing, setMissing] = useState(null);
@@ -49,13 +114,14 @@ export default function TruckLoading() {
   const orders = useMemo(
     () =>
       day.orders
-        .filter((o) => o.driver === driver)
+        .filter((o) => crew.includes(o.driver))
         .sort(
           (a, b) =>
             (a.locality?.name || "").localeCompare(b.locality?.name || "") ||
             a.name.localeCompare(b.name),
         ),
-    [day.orders, driver],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [day.orders, crew.join("|")],
   );
   const pendingOut = orders.filter(
     (o) => !["en_camino", "entregado"].includes(o.status),
@@ -170,17 +236,39 @@ export default function TruckLoading() {
   async function closeTruck() {
     setClosing(true);
     try {
-      const r = await post("/dia/cerrar-camion", { date, driver, reason });
+      // Cierra el camión de cada preventista que va en el vehículo (los que tengan pedidos por salir).
+      const names = crew.filter((d) => pendingOut.some((o) => o.driver === d));
+      let departed = 0;
+      const blocked = [];
+      for (const d of names) {
+        try {
+          const r = await post("/dia/cerrar-camion", {
+            date,
+            driver: d,
+            reason,
+          });
+          departed += r.departed.length;
+        } catch (e) {
+          if (e.status === 409) blocked.push(e.message);
+          else throw e;
+        }
+      }
+      if (blocked.length) {
+        setMissing(blocked.join(" "));
+        if (departed)
+          notify(`${departed} pedidos en camino; otros quedaron pendientes.`);
+        return;
+      }
+      if (trip && !trip.departedAt) await post(`/salidas/${trip.id}/salir`, {});
       setMissing(null);
       setReason("");
       notify(
-        `Camión de ${driver} cerrado: ${r.departed.length} pedidos en camino.`,
+        `${byVehicle ? vehicleLabel(vehicle) : "Camión de " + driver} cerrado: ${departed} pedidos en camino.`,
       );
       reload({ silent: true });
+      loadTrips();
     } catch (e) {
-      if (e.status === 409) {
-        setMissing(e.message);
-      } else notify(e.message);
+      notify(e.message);
     } finally {
       setClosing(false);
     }
@@ -190,20 +278,40 @@ export default function TruckLoading() {
     <div className="floor loading-page">
       <PageHead
         eyebrow="PISO · CARGA DEL CAMIÓN"
-        title={driver ? `Camión de ${driver}.` : "Carga."}
-        description={`${dmy(date)} · ${totals.loaded} de ${totals.crates} cajones arriba${orders.length ? ` · ${orders.length} pedido${orders.length === 1 ? "" : "s"}` : ""} · ${kgText(totals.kg)}`}
+        title={
+          byVehicle
+            ? `${vehicleLabel(vehicle)}.`
+            : driver
+              ? `Camión de ${driver}.`
+              : "Carga."
+        }
+        description={`${dmy(date)}${byVehicle ? ` · ${crew.length ? crew.join(", ") : "sin preventistas"}${trip?.departure ? ` · sale ${trip.departure}` : ""}` : ""} · ${totals.loaded} de ${totals.crates} cajones arriba${orders.length ? ` · ${orders.length} pedido${orders.length === 1 ? "" : "s"}` : ""} · ${kgText(totals.kg)}`}
       >
         <div className="head-actions">
-          {isAdmin && (
+          {vehicles.length > 0 ? (
             <select
-              value={driver}
-              onChange={(e) => setDriver(e.target.value)}
-              aria-label="Camión"
+              value={vehicleId}
+              onChange={(e) => setVehicleId(e.target.value)}
+              aria-label="Vehículo"
             >
-              {drivers.map((d) => (
-                <option key={d}>{d}</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {vehicleLabel(v)}
+                </option>
               ))}
             </select>
+          ) : (
+            isAdmin && (
+              <select
+                value={driver}
+                onChange={(e) => setDriver(e.target.value)}
+                aria-label="Camión"
+              >
+                {drivers.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
+            )
           )}
           <input
             type="date"
@@ -215,7 +323,7 @@ export default function TruckLoading() {
             <RemitoActions
               orders={orders}
               date={date}
-              driver={driver}
+              driver={byVehicle ? vehicleLabel(vehicle) : driver}
               actions={["open", "share"]}
               labels={{ open: "Remitos PDF" }}
             />
@@ -230,11 +338,64 @@ export default function TruckLoading() {
           )}
         </div>
       </PageHead>
+      {byVehicle && (
+        <section className="panel trip-crew">
+          <div className="section-line">
+            <h2>
+              <Users size={16} /> Quiénes van y a qué hora
+            </h2>
+            <label className="trip-departure">
+              Hora de salida
+              <input
+                type="time"
+                value={trip?.departure || ""}
+                onChange={(e) => saveTrip({ departure: e.target.value })}
+                aria-label="Hora de salida"
+              />
+            </label>
+          </div>
+          <div className="crew-chips" role="group" aria-label="Preventistas">
+            {drivers.map((d) => {
+              const on = crew.includes(d);
+              const elsewhere = trips.find(
+                (t) => t.vehicleId !== vehicle.id && t.drivers.includes(d),
+              );
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  className={"chip-toggle " + (on ? "on" : "")}
+                  aria-pressed={on}
+                  disabled={!isAdmin && d !== session?.driver && !on}
+                  title={
+                    elsewhere
+                      ? `Hoy va en ${vehicleLabel(elsewhere.vehicle)}`
+                      : ""
+                  }
+                  onClick={() => toggleCrew(d)}
+                >
+                  {on ? <CheckCheck size={13} /> : <Plus size={13} />} {d}
+                  {elsewhere && !on ? (
+                    <small> · {vehicleLabel(elsewhere.vehicle)}</small>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+          {!trip && (
+            <p className="muted">
+              Tocá un preventista o poné la hora para armar la salida de{" "}
+              {vehicleLabel(vehicle)}; administración la ve en <b>Flota</b> con
+              la ubicación en vivo.
+            </p>
+          )}
+        </section>
+      )}
       {orders.length === 0 ? (
         <p className="muted">
           {loading
             ? "Cargando…"
-            : `No hay pedidos de ${driver || "este camión"} para el ${dmy(date)}.`}
+            : `No hay pedidos de ${byVehicle ? crew.join(", ") || "este vehículo" : driver || "este camión"} para el ${dmy(date)}.`}
         </p>
       ) : (
         <section className="floor-list">

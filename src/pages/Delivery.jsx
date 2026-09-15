@@ -13,6 +13,7 @@ import { useStore } from "../lib/store.jsx";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import News from "../components/News.jsx";
+import TruckLocation from "../components/TruckLocation.jsx";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
 export default function Delivery() {
@@ -97,6 +98,7 @@ export default function Delivery() {
         description="Tus entregas, en orden. Compartí tu GPS cuando salgas para que el cliente te vea llegar."
       >
         <div className="head-actions">
+          <TruckLocation />
           <span className={"live-indicator " + (live ? "on" : "")}>
             <i /> {live ? "En vivo" : "Reconectando…"}
           </span>

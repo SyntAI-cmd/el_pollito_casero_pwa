@@ -26,6 +26,7 @@ import {
 import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { createFloor } from "./floor.mjs";
+import { createFleet } from "./fleet.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
@@ -860,11 +861,15 @@ export function createApi({
     driverNames,
   });
 
+  const fleet = createFleet({ store, events, isStaff, actorOf, driverNames });
+
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
   return async function handle({ method, path, body, query, session, ip }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
+    const fromFleet = await fleet({ method, path, body, query, session, ip });
+    if (fromFleet) return fromFleet;
     // Modo equipo: sin cuentas de clientes, sin pedidos anónimos, sin ingreso por celular.
     if (
       appMode === "equipo" &&
@@ -1823,6 +1828,11 @@ export function createEvents() {
       for (const c of clients)
         if (c.session.role === "admin" || c.session.role === "repartidor")
           send(c, "news", { at: now() });
+    },
+    fleetChanged(trip) {
+      for (const c of clients)
+        if (c.session.role === "admin" || c.session.role === "repartidor")
+          send(c, "fleet", { id: trip.id, date: trip.date });
     },
     messageAdded(message, driver) {
       for (const c of clients)

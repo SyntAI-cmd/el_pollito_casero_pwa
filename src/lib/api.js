@@ -45,6 +45,8 @@ export const post = (path, data, method = "POST") =>
   api(path, { method, body: JSON.stringify(data) });
 export const patch = (path, data) => post(path, data, "PATCH");
 export const del = (path) => api(path, { method: "DELETE" });
+export const put = (path, body) =>
+  api(path, { method: "PUT", body: JSON.stringify(body) });
 
 /** Suscripción a novedades del servidor. Devuelve una función para cerrar. */
 export function subscribe(onEvent, onState) {
@@ -68,6 +70,9 @@ export function subscribe(onEvent, onState) {
       onEvent("message", JSON.parse(e.data)),
     );
     source.addEventListener("news", (e) => onEvent("news", JSON.parse(e.data)));
+    source.addEventListener("fleet", (e) =>
+      onEvent("fleet", JSON.parse(e.data)),
+    );
     source.onerror = () => {
       onState?.(false);
       source.close();

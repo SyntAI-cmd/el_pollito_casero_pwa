@@ -590,3 +590,131 @@ dialog form .delivery-point-status {
   background: #eefaf0;
   border-color: #bfe6c6;
 }
+
+/* Flota: salidas por vehículo, tripulación y mapa en vivo */
+.trip-crew .section-line {
+  align-items: center;
+}
+.trip-departure {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.trip-departure input {
+  min-height: 38px;
+  padding: 4px 10px;
+}
+.crew-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid #d8d4ca;
+  background: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.chip-toggle small {
+  font-weight: 500;
+  color: var(--muted);
+}
+.chip-toggle.on {
+  background: var(--black);
+  color: #fff;
+  border-color: var(--black);
+}
+.chip-toggle.on small {
+  color: #ddd;
+}
+.chip-toggle:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.truck-location.on {
+  background: #1c6b34;
+  color: #fff;
+  border-color: #1c6b34;
+}
+.fleet-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+.fleet-map {
+  min-height: 480px;
+  height: calc(100dvh - 260px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #e8e4da;
+}
+.fleet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.fleet-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid #e3dfd4;
+  border-radius: 14px;
+  padding: 6px 8px 6px 4px;
+}
+.fleet-list li.active {
+  border-color: var(--black);
+  box-shadow: 0 0 0 2px #20201e22;
+}
+.fleet-list li > button:first-child {
+  flex: 1;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 6px 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.fleet-list li > button:first-child strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fleet-list li > button:first-child small {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.fleet-list li.live > button:first-child strong::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1c9a45;
+  box-shadow: 0 0 0 3px #1c9a4533;
+}
+@media (max-width: 860px) {
+  .fleet-layout {
+    grid-template-columns: 1fr;
+  }
+  .fleet-map {
+    height: 52dvh;
+    min-height: 320px;
+  }
+}

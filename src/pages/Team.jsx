@@ -4,6 +4,7 @@ import { api, post, patch } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
 import { dateText, timeText } from "../lib/format.js";
 import { shiftNames } from "./Customers.jsx";
+import Vehicles from "../components/Vehicles.jsx";
 
 /** Usuarios del equipo: quién entra, con qué rol y con qué contraseña. Solo administración. */
 /** Camiones / preventistas: quién reparte, con qué zonas y turno. */
@@ -225,6 +226,7 @@ export default function Team() {
   return (
     <div className="team">
       <Drivers />
+      <Vehicles />
       <section className="panel">
         <div className="section-line">
           <h2>Usuarios del equipo</h2>

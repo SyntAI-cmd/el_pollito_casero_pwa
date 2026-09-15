@@ -45,6 +45,7 @@ import Print from "./pages/Print.jsx";
 import QuickOrder from "./pages/QuickOrder.jsx";
 import Weighing from "./pages/Weighing.jsx";
 import TruckLoading from "./pages/TruckLoading.jsx";
+import Fleet from "./pages/Fleet.jsx";
 import DaySheet from "./pages/DaySheet.jsx";
 import PriceLists from "./pages/PriceLists.jsx";
 
@@ -72,6 +73,7 @@ const ADMIN_ROUTES = {
   "/operacion/precios": PriceLists,
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
+  "/operacion/flota": Fleet,
   "/imprimir": Print,
   "/ayuda": Help,
 };
@@ -385,6 +387,7 @@ function StaffShell({ Page, path }) {
         ["/operacion/nuevo", "Cargar pedido", Plus],
         ["/operacion/pesada", "Pesada", Scale],
         ["/operacion/carga", "Carga", Package],
+        ["/operacion/flota", "Flota", MapPin],
         ["/operacion", "Pedidos", ClipboardList],
         ["/operacion/reparto", "Rendición", Truck],
         ["/operacion/clientes", "Clientes", Users],

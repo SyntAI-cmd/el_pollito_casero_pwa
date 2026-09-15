@@ -112,6 +112,17 @@ CREATE TABLE IF NOT EXISTS audit_log(
   id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT NOT NULL, actor_role TEXT, actor TEXT,
   action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, detail TEXT);
 CREATE INDEX IF NOT EXISTS audit_entity ON audit_log(entity, entity_id);
+CREATE TABLE IF NOT EXISTS vehicles(
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, plate TEXT, active INTEGER NOT NULL DEFAULT 1,
+  sort INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS trips(
+  id TEXT PRIMARY KEY, date TEXT NOT NULL, vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
+  drivers TEXT NOT NULL DEFAULT '[]', departure TEXT, departed_at TEXT,
+  created TEXT NOT NULL, updated TEXT NOT NULL, UNIQUE(date, vehicle_id));
+CREATE TABLE IF NOT EXISTS trip_track(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+  lat REAL NOT NULL, lng REAL NOT NULL, speed REAL, heading REAL, by_actor TEXT, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS trip_track_trip ON trip_track(trip_id, id);
 `;
 
 export async function openStore(path, { log = console } = {}) {
@@ -296,6 +307,31 @@ export async function openStore(path, { log = console } = {}) {
       "UPDATE news SET pinned = COALESCE(?, pinned), archived = COALESCE(?, archived) WHERE id = ?",
     ),
     setting: db.prepare("SELECT value FROM settings WHERE key = ?"),
+    vehiclesAll: db.prepare("SELECT * FROM vehicles ORDER BY sort, name"),
+    vehicle: db.prepare("SELECT * FROM vehicles WHERE id = ?"),
+    saveVehicle: db.prepare(
+      "INSERT INTO vehicles(id, name, plate, active, sort, created) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, plate = excluded.plate, active = excluded.active, sort = excluded.sort",
+    ),
+    tripsForDate: db.prepare(
+      "SELECT * FROM trips WHERE date = ? ORDER BY departure, created",
+    ),
+    trip: db.prepare("SELECT * FROM trips WHERE id = ?"),
+    saveTrip: db.prepare(
+      "INSERT INTO trips(id, date, vehicle_id, drivers, departure, departed_at, created, updated) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET vehicle_id = excluded.vehicle_id, drivers = excluded.drivers, departure = excluded.departure, departed_at = excluded.departed_at, updated = excluded.updated",
+    ),
+    deleteTrip: db.prepare("DELETE FROM trips WHERE id = ?"),
+    insertTripPos: db.prepare(
+      "INSERT INTO trip_track(trip_id, lat, lng, speed, heading, by_actor, at) VALUES(?,?,?,?,?,?,?)",
+    ),
+    tripLast: db.prepare(
+      "SELECT lat, lng, speed, heading, at FROM trip_track WHERE trip_id = ? ORDER BY id DESC LIMIT 1",
+    ),
+    tripTrack: db.prepare(
+      "SELECT lat, lng, speed, at FROM (SELECT id, lat, lng, speed, at FROM trip_track WHERE trip_id = ? ORDER BY id DESC LIMIT 600) ORDER BY id",
+    ),
+    tripTrim: db.prepare(
+      "DELETE FROM trip_track WHERE trip_id = ? AND id NOT IN (SELECT id FROM trip_track WHERE trip_id = ? ORDER BY id DESC LIMIT 600)",
+    ),
     setSetting: db.prepare(
       "INSERT INTO settings(key, value, updated) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated=excluded.updated",
     ),
@@ -742,6 +778,30 @@ export async function openStore(path, { log = console } = {}) {
     return c;
   }
 
+  const rowToVehicle = (r) =>
+    r
+      ? {
+          id: r.id,
+          name: r.name,
+          plate: r.plate || "",
+          active: !!r.active,
+          sort: r.sort,
+          created: r.created,
+        }
+      : null;
+  const rowToTrip = (r) =>
+    r
+      ? {
+          id: r.id,
+          date: r.date,
+          vehicleId: r.vehicle_id,
+          drivers: p(r.drivers, []),
+          departure: r.departure || "",
+          departedAt: r.departed_at || null,
+          created: r.created,
+          updated: r.updated,
+        }
+      : null;
   const rowToCrate = (r) =>
     r
       ? {
@@ -1074,6 +1134,53 @@ export async function openStore(path, { log = console } = {}) {
           id,
         ).changes,
       remove: (id) => q.deleteNews.run(id).changes,
+    },
+    vehicles: {
+      all: () => q.vehiclesAll.all().map(rowToVehicle),
+      get: (id) => rowToVehicle(q.vehicle.get(id)),
+      save: (v) => {
+        q.saveVehicle.run(
+          v.id,
+          v.name,
+          v.plate || "",
+          v.active === false ? 0 : 1,
+          v.sort || 0,
+          v.created || now(),
+        );
+        return rowToVehicle(q.vehicle.get(v.id));
+      },
+    },
+    trips: {
+      forDate: (date) => q.tripsForDate.all(date).map(rowToTrip),
+      get: (id) => rowToTrip(q.trip.get(id)),
+      save: (t) => {
+        q.saveTrip.run(
+          t.id,
+          t.date,
+          t.vehicleId,
+          JSON.stringify(t.drivers || []),
+          t.departure || "",
+          t.departedAt || null,
+          t.created || now(),
+          t.updated || now(),
+        );
+        return rowToTrip(q.trip.get(t.id));
+      },
+      remove: (id) => q.deleteTrip.run(id).changes,
+      addPosition: (tripId, p) => {
+        q.insertTripPos.run(
+          tripId,
+          p.lat,
+          p.lng,
+          p.speed ?? null,
+          p.heading ?? null,
+          p.by || null,
+          p.at || now(),
+        );
+        q.tripTrim.run(tripId, tripId);
+      },
+      lastPosition: (tripId) => q.tripLast.get(tripId) || null,
+      track: (tripId) => q.tripTrack.all(tripId),
     },
     settings: {
       get: (key, fallback = null) => {
