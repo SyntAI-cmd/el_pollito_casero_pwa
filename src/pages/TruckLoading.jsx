@@ -19,6 +19,7 @@ import { useStore } from "../lib/store.jsx";
 import { useRoute, Link } from "../lib/router.jsx";
 import { kgText } from "../lib/format.js";
 import RemitoActions from "../components/RemitoActions.jsx";
+import HojaActions from "../components/HojaActions.jsx";
 import { PageHead } from "../components/ui.jsx";
 import {
   useDay,
@@ -329,6 +330,15 @@ export default function TruckLoading() {
             />
           )}
           {orders.length > 0 && (
+            <HojaActions
+              orders={orders}
+              date={date}
+              drivers={crew}
+              vehicle={byVehicle ? vehicleLabel(vehicle) : ""}
+              actions={["open", "share"]}
+            />
+          )}
+          {orders.length > 0 && (
             <Link
               to={`/imprimir?tipo=viaje&fecha=${date}${byVehicle ? "&vehiculo=" + encodeURIComponent(vehicle.id) : ""}`}
               className="secondary"
@@ -374,10 +384,7 @@ export default function TruckLoading() {
                   type="button"
                   className={"chip-toggle " + (on ? "on" : "")}
                   aria-pressed={on}
-                  disabled={
-                    (!isAdmin && d !== session?.driver && !on) ||
-                    (!on && crew.length >= 2)
-                  }
+                  disabled={!on && crew.length >= 2}
                   title={
                     elsewhere
                       ? `Hoy va en ${vehicleLabel(elsewhere.vehicle)}`

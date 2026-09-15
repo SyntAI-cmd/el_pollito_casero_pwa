@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { del, patch } from "../lib/api.js";
-import { money, timeText, dateText } from "../lib/format.js";
+import { money, timeText, dateText, orderNumber } from "../lib/format.js";
 import {
   uploadReceipt,
   receiptsOf,
@@ -151,7 +151,7 @@ export default function Receipts({ order }) {
         <ImageIcon size={18} /> Comprobantes
       </h2>
       <p>
-        {order.id} · {order.name} · {money(order.total)}
+        N° {orderNumber(order)} · {order.name} · {money(order.total)}
       </p>
       {list === null ? (
         <p className="muted">Cargando…</p>

@@ -32,6 +32,7 @@ import {
   lineAmount,
   dateText,
   productPrice as productPriceOf,
+  orderNumber,
 } from "../lib/format.js";
 import { CartLines, CartTotals } from "./Cart.jsx";
 import { ledger } from "../lib/ledger.js";
@@ -767,7 +768,7 @@ function Notifications() {
           >
             <Package size={20} />
             <span>
-              <strong>{o.id}</strong>
+              <strong>N° {orderNumber(o)}</strong>
               <small>{labels[o.status]}</small>
             </span>
             <ChevronRight size={17} />
@@ -864,7 +865,7 @@ function Payment({ order }) {
       <h2>Registrar un cobro</h2>
       <p>
         Confirmá únicamente si recibiste <strong>{money(order.total)}</strong>{" "}
-        por el pedido {order.id} de {order.name}.
+        por el pedido N° {orderNumber(order)} de {order.name}.
         {order.transfer
           ? ` El cliente avisó una transferencia a las ${new Date(order.transfer.reportedAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${order.transfer.reference ? " (ref. " + order.transfer.reference + ")" : ""}: verificá el ingreso antes de confirmar.`
           : ""}
@@ -1021,7 +1022,7 @@ function Boxes({ order, kind }) {
     >
       <h2>{returning ? "Devolución de envases" : "Completar entrega"}</h2>
       <p>
-        {order.id} · {order.name}
+        N° {orderNumber(order)} · {order.name}
         {!returning && order.payment !== "cuenta" && !order.paid
           ? " · Falta registrar el cobro"
           : ""}
@@ -1123,9 +1124,9 @@ function OrderPrices({ order }) {
       <span className="eyebrow">PRECIOS</span>
       <h2>Precio por kilo del pedido</h2>
       <p>
-        {order.id} · {order.name}. El importe se recalcula con los kilos
-        actuales; si el pedido ya estaba pesado, el remito sale con el precio
-        nuevo.
+        N° {orderNumber(order)} · {order.name}. El importe se recalcula con los
+        kilos actuales; si el pedido ya estaba pesado, el remito sale con el
+        precio nuevo.
       </p>
       <div className="weights">
         {order.items.map((p) => (
@@ -1201,8 +1202,8 @@ function Weights({ order }) {
       <span className="eyebrow">BALANZA</span>
       <h2>Peso real del pedido</h2>
       <p>
-        {order.id} · {order.name}. Cargá los kilos pesados; el importe se
-        recalcula con el precio por kilo de cada corte.
+        N° {orderNumber(order)} · {order.name}. Cargá los kilos pesados; el
+        importe se recalcula con el precio por kilo de cada corte.
       </p>
       <div className="weights">
         {order.items.map((p) => (
@@ -1370,7 +1371,7 @@ function Cancel({ order }) {
   const { busy, update, setModal, notify } = useStore();
   return (
     <>
-      <h2>¿Cancelar el pedido {order.id}?</h2>
+      <h2>¿Cancelar el pedido N° {orderNumber(order)}?</h2>
       <p>
         Todavía no empezamos a prepararlo, así que podés cancelarlo sin cargo.
         Si querés cambiar algo, escribinos por WhatsApp.

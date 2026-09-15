@@ -48,6 +48,29 @@ if (!store.drivers.all().length)
     }),
   );
 await seedStaff(store, store.drivers.all(), log);
+// Flota: los vehículos de business.json se crean/actualizan por patente (después se editan desde Equipo).
+for (const [i, v] of (business.vehicles || []).entries()) {
+  const plate = String(v.plate || "").toUpperCase().replace(/\s+/g, "");
+  if (!plate) continue;
+  const existing = store.vehicles
+    .all()
+    .find((x) => (x.plate || "").toUpperCase().replace(/\s+/g, "") === plate);
+  store.vehicles.save({
+    id: existing?.id || "v-" + plate.toLowerCase(),
+    name: v.name,
+    plate: v.plate,
+    note: existing?.note || v.note || "",
+    active: existing ? existing.active : true,
+    sort: i,
+    created: existing?.created || new Date().toISOString(),
+  });
+}
+// Los dos vehículos de ejemplo del script de prueba se dan de baja si ya hay flota real.
+if ((business.vehicles || []).length)
+  for (const id of ["hino1", "iveco1"]) {
+    const v = store.vehicles.get(id);
+    if (v && v.active) store.vehicles.save({ ...v, active: false });
+  }
 
 // Copias de seguridad diarias (data/backups) y limpieza de sesiones vencidas.
 if (dbPath !== ":memory:") {

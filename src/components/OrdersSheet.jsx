@@ -5,6 +5,7 @@ import {
   timeText,
   paymentLabel,
   labels,
+  orderNumber,
 } from "../lib/format.js";
 import { dayLabel } from "../lib/report.js";
 
@@ -86,7 +87,7 @@ export default function OrdersSheet({ sheet }) {
               <tbody>
                 {list.map((o) => (
                   <tr key={o.id}>
-                    <td>{o.id}</td>
+                    <td>{orderNumber(o)}</td>
                     <td>{timeText(o.created)}</td>
                     <td>
                       <strong>{o.name}</strong>

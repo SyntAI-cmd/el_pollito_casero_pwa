@@ -22,6 +22,7 @@ import {
   dateText,
   waLink,
   normalize,
+  orderNumber,
 } from "../lib/format.js";
 import { routeSheet, receivables, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
@@ -101,7 +102,7 @@ export default function Operations() {
     (!driverFilter || o.driver === driverFilter) &&
     (!q ||
       normalize(
-        `${o.id} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,
+        `${o.id} ${orderNumber(o)} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,
       ).includes(q));
   // Los pedidos abiertos se ven siempre; el filtro de antigüedad solo recorta los entregados.
   const recent = (list, status) =>
@@ -267,7 +268,7 @@ export default function Operations() {
                     <summary>{cancelled.length} cancelados</summary>
                     {cancelled.map((o) => (
                       <p key={o.id}>
-                        {o.id} · {o.name} · {dateText(o.created)}
+                        N° {orderNumber(o)} · {o.name} · {dateText(o.created)}
                       </p>
                     ))}
                   </details>
@@ -317,6 +318,17 @@ export default function Operations() {
               className="secondary"
             >
               <Printer size={15} /> Imprimir pedidos del día
+            </Link>
+            <Link
+              to={printUrl({
+                tipo: "rendicion",
+                fecha: date,
+                repartidor: "todos",
+              })}
+              className="secondary"
+              title="Resumen compacto de la rendición de todos los preventistas (solo administración)"
+            >
+              <Printer size={15} /> Resumen de rendición
             </Link>
           </div>
           <RouteSheet sheet={sheet} />

@@ -64,10 +64,16 @@ export function createFleet({ store, events, isStaff, actorOf, driverNames }) {
       })
         .toUpperCase()
         .replace(/\s+/g, " ");
+      const note = str(body.note, {
+        max: 60,
+        name: "la descripción",
+        optional: true,
+      });
       const v = store.vehicles.save({
         id: randomUUID().slice(0, 8),
         name,
         plate,
+        note,
         active: true,
         sort: store.vehicles.all().length,
         created: now(),
@@ -100,6 +106,15 @@ export function createFleet({ store, events, isStaff, actorOf, driverNames }) {
           : {}),
         ...(body.active !== undefined
           ? { active: bool(body.active, "activo") }
+          : {}),
+        ...(body.note !== undefined
+          ? {
+              note: str(body.note, {
+                max: 60,
+                name: "la descripción",
+                optional: true,
+              }),
+            }
           : {}),
       };
       store.vehicles.save(next);

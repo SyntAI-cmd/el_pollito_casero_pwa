@@ -108,6 +108,7 @@ export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
           order: o
             ? {
                 id: o.id,
+                number: o.number,
                 name: o.name,
                 driver: o.driver,
                 total: o.total,

@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Scale,
   Package,
+  Printer,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
@@ -46,6 +47,7 @@ import QuickOrder from "./pages/QuickOrder.jsx";
 import Weighing from "./pages/Weighing.jsx";
 import TruckLoading from "./pages/TruckLoading.jsx";
 import Fleet from "./pages/Fleet.jsx";
+import PrintHub from "./pages/PrintHub.jsx";
 import DaySheet from "./pages/DaySheet.jsx";
 import PriceLists from "./pages/PriceLists.jsx";
 
@@ -74,6 +76,7 @@ const ADMIN_ROUTES = {
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
   "/operacion/flota": Fleet,
+  "/operacion/imprimir": PrintHub,
   "/imprimir": Print,
   "/ayuda": Help,
 };
@@ -389,6 +392,7 @@ function StaffShell({ Page, path }) {
         ["/operacion/pesada", "Pesada", Scale],
         ["/operacion/carga", "Carga", Package],
         ["/operacion/flota", "Flota", MapPin],
+        ["/operacion/imprimir", "Imprimir", Printer],
         ["/operacion", "Pedidos", ClipboardList],
         ["/operacion/reparto", "Rendición", Truck],
         ["/operacion/clientes", "Clientes", Users],

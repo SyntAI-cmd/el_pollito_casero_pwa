@@ -113,7 +113,7 @@ CREATE TABLE IF NOT EXISTS audit_log(
   action TEXT NOT NULL, entity TEXT NOT NULL, entity_id TEXT, detail TEXT);
 CREATE INDEX IF NOT EXISTS audit_entity ON audit_log(entity, entity_id);
 CREATE TABLE IF NOT EXISTS vehicles(
-  id TEXT PRIMARY KEY, name TEXT NOT NULL, plate TEXT, active INTEGER NOT NULL DEFAULT 1,
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, plate TEXT, note TEXT, active INTEGER NOT NULL DEFAULT 1,
   sort INTEGER NOT NULL DEFAULT 0, created TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS trips(
   id TEXT PRIMARY KEY, date TEXT NOT NULL, vehicle_id TEXT NOT NULL REFERENCES vehicles(id),
@@ -189,6 +189,13 @@ export async function openStore(path, { log = console } = {}) {
   db.exec(
     "CREATE INDEX IF NOT EXISTS orders_delivery ON orders(delivery_date)",
   );
+  // v6b: vehículos con descripción (Camión, Camioneta nueva…).
+  const vehicleCols = db
+    .prepare("PRAGMA table_info(vehicles)")
+    .all()
+    .map((c) => c.name);
+  if (vehicleCols.length && !vehicleCols.includes("note"))
+    db.exec("ALTER TABLE vehicles ADD COLUMN note TEXT");
   // v6: cierre de caja con cheques desglosados.
   const closureCols = db
     .prepare("PRAGMA table_info(cash_closures)")
@@ -325,7 +332,7 @@ export async function openStore(path, { log = console } = {}) {
     vehiclesAll: db.prepare("SELECT * FROM vehicles ORDER BY sort, name"),
     vehicle: db.prepare("SELECT * FROM vehicles WHERE id = ?"),
     saveVehicle: db.prepare(
-      "INSERT INTO vehicles(id, name, plate, active, sort, created) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, plate = excluded.plate, active = excluded.active, sort = excluded.sort",
+      "INSERT INTO vehicles(id, name, plate, note, active, sort, created) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, plate = excluded.plate, note = excluded.note, active = excluded.active, sort = excluded.sort",
     ),
     tripsForDate: db.prepare(
       "SELECT * FROM trips WHERE date = ? ORDER BY departure, created",
@@ -815,6 +822,7 @@ export async function openStore(path, { log = console } = {}) {
           id: r.id,
           name: r.name,
           plate: r.plate || "",
+          note: r.note || "",
           active: !!r.active,
           sort: r.sort,
           created: r.created,
@@ -1191,6 +1199,7 @@ export async function openStore(path, { log = console } = {}) {
           v.id,
           v.name,
           v.plate || "",
+          v.note || "",
           v.active === false ? 0 : 1,
           v.sort || 0,
           v.created || now(),

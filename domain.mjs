@@ -24,11 +24,12 @@ export const appMode = process.env.APP_MODE || business.mode || "completo";
 /** Modo demostración (códigos y enlaces visibles, pedido de ejemplo): business.demo, o DEMO=1 / DEMO=0 por entorno. */
 export const demo =
   process.env.DEMO === "1" || (process.env.DEMO !== "0" && !!business.demo);
-/** N° de remito estilo talonario: punto de venta 0001 + correlativo de 8 dígitos (mismo formato que src/lib/remito.js). */
-export const remitoNumber = (o) =>
+/** N° de pedido = N° de remito: correlativo de 5 dígitos (00001), el mismo en pantalla, remito, Excel y cierre de caja. */
+export const orderNumber = (o) =>
   o.number
-    ? `0001-${String(o.number).padStart(8, "0")}`
+    ? String(o.number).padStart(5, "0")
     : String(o.id || "").replace("PC-", "");
+export const remitoNumber = orderNumber;
 /** Tara por cajón (kg) que se descuenta del bruto en la balanza. */
 export const defaultTare = Number(business.tare) || 1.7;
 export const shifts = ["manana", "tarde"];

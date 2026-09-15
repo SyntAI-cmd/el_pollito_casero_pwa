@@ -466,5 +466,27 @@
     "whatsapp": "+54 9 2634 56-9139",
     "address": "Carril Norte S/N° 0 - El Ramblón, Mza.",
     "ivaRate": 10.5
-  }
+  },
+  "vehicles": [
+    {
+      "name": "Toyota Hino",
+      "plate": "A974NR",
+      "note": "Camión"
+    },
+    {
+      "name": "Toyota Hilux",
+      "plate": "AC226GC",
+      "note": "Camioneta nueva"
+    },
+    {
+      "name": "Toyota Hilux",
+      "plate": "ENQ091",
+      "note": "Camioneta vieja"
+    },
+    {
+      "name": "Toyota Hilux",
+      "plate": "AI014LY",
+      "note": "Carlos"
+    }
+  ]
 }

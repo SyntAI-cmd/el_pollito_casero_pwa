@@ -13,11 +13,10 @@ const fmtKg = (n) =>
     maximumFractionDigits: 2,
   });
 
-/** N° de remito estilo talonario: punto de venta 0001 + correlativo de 8 dígitos (igual que domain.mjs). */
-export const remitoNumber = (o) =>
-  o.number
-    ? `0001-${String(o.number).padStart(8, "0")}`
-    : o.id.replace("PC-", "");
+/** N° de pedido = N° de remito: correlativo de 5 dígitos (00001), igual que domain.mjs. */
+export const orderNumber = (o) =>
+  o.number ? String(o.number).padStart(5, "0") : o.id.replace("PC-", "");
+export const remitoNumber = orderNumber;
 
 const dmy = (o) => {
   const d = new Date(o.deliveryDate ? o.deliveryDate + "T12:00:00" : o.created);

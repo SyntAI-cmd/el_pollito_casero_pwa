@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import {
+  orderNumber,
   money,
   kgText,
   timeText,
@@ -69,7 +70,7 @@ export default function OrderCard({ order: o, role }) {
       <header>
         <div>
           <h3 id={"op-" + o.id}>
-            {o.id} <StatusBadge status={o.status} />
+            N° {orderNumber(o)} <StatusBadge status={o.status} />
           </h3>
           <small>
             <Clock size={12} /> {today ? "Hoy" : dateText(o.created)}{" "}
@@ -87,7 +88,7 @@ export default function OrderCard({ order: o, role }) {
               className="wa-inline"
               href={waLink(
                 o.phone,
-                `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido ${o.id}.`,
+                `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido N° ${orderNumber(o)}.`,
               )}
               target="_blank"
               rel="noopener noreferrer"
@@ -315,7 +316,7 @@ export default function OrderCard({ order: o, role }) {
               disabled={busy}
               onClick={() => {
                 const reason = window.prompt(
-                  `¿Eliminar el pedido ${o.id} de ${o.name}? Se borra con sus cajones y no se puede recuperar.\nMotivo (opcional):`,
+                  `¿Eliminar el pedido N° ${orderNumber(o)} de ${o.name}? Se borra con sus cajones y no se puede recuperar.\nMotivo (opcional):`,
                 );
                 if (reason !== null) deleteOrder(o, reason);
               }}

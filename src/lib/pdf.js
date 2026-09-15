@@ -20,6 +20,44 @@ async function engine() {
   return cache;
 }
 
+/** Hoja de pedidos del repartidor (consolidado de la camioneta con pago/saldo en blanco), como blob. */
+export async function hojaPdfBlob({
+  date,
+  drivers,
+  vehicle,
+  orders,
+  customers,
+}) {
+  if (!orders?.length) throw Error("No hay pedidos para la hoja.");
+  const [{ pdf }, { HojaDocument }] = await Promise.all([
+    import("@react-pdf/renderer"),
+    import("../pdf/HojaPdf.jsx"),
+  ]);
+  return pdf(
+    createElement(HojaDocument, { date, drivers, vehicle, orders, customers }),
+  ).toBlob();
+}
+export async function hojaAction(
+  action,
+  { date, drivers, vehicle, orders, customers },
+) {
+  const blob = await hojaPdfBlob({ date, drivers, vehicle, orders, customers });
+  const safe = (t) =>
+    String(t || "")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/[^\w-]+/g, "_");
+  const name = `Hoja_pedidos_${safe(date)}_${safe((drivers || []).join("_") || vehicle || "reparto")}.pdf`;
+  if (action === "open") return (openBlob(blob), "opened");
+  if (action === "share")
+    return sharePdf(blob, name, {
+      title: name.replace(/\.pdf$/, ""),
+      text: "Hoja de pedidos · El Pollito Casero",
+    });
+  downloadBlob(blob, name);
+  return "downloaded";
+}
+
 /** Blob del PDF con un remito por hoja (original + duplicado) para los pedidos dados. */
 export async function remitoPdfBlob({ orders, customers, fiscal }) {
   if (!orders?.length) throw Error("No hay pedidos para el remito.");

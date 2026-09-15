@@ -47,6 +47,9 @@ export const paymentNames = {
   mercadopago: "Mercado Pago online",
 };
 export const paymentLabel = (o) => paymentNames[o.payment] || o.payment;
+/** N° de pedido visible (= N° de remito): 00012. */
+export const orderNumber = (o) =>
+  o.number ? String(o.number).padStart(5, "0") : String(o.id || "");
 
 export const totalKg = (o) => o.items.reduce((n, p) => n + p.kg, 0);
 export const localityText = (o) =>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { api, subscribe } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
-import { money } from "../lib/format.js";
+import { money, orderNumber } from "../lib/format.js";
 import { ReceiptList } from "./Receipts.jsx";
 import { methodNames } from "../lib/photo.js";
 
@@ -55,7 +55,7 @@ export default function ReceiptsDay({ date, driver }) {
               <header>
                 <strong>{g.order?.name || g.key}</strong>
                 <small>
-                  {g.key}
+                  {g.order ? "N° " + orderNumber(g.order) : g.key}
                   {g.order
                     ? ` · ${money(g.order.total)} · ${
                         g.order.paid

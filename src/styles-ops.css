@@ -1014,3 +1014,106 @@ dialog form .delivery-point-status {
     height: 34px;
   }
 }
+
+/* Pestaña Imprimir */
+.print-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+.print-hub-grid .panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+.print-hub-grid .panel p {
+  margin: 0 0 12px;
+}
+.hub-driver {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #f4f2ec;
+}
+/* Resumen de rendición (impresión compacta) */
+.settlement {
+  background: #fff;
+  color: #111;
+  font-size: 11px;
+}
+.settlement-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 2px solid #c9262e;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+.settlement-head img {
+  width: 120px;
+  height: auto;
+}
+.settlement-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.settlement-driver {
+  margin-bottom: 14px;
+  break-inside: avoid;
+}
+.settlement-driver h3 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 8px 0 4px;
+  font-size: 14px;
+}
+.settlement-driver h3 small {
+  font-weight: 400;
+  color: #666;
+}
+.settlement-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.settlement-table th,
+.settlement-table td {
+  border: 1px solid #999;
+  padding: 2px 5px;
+  font-size: 10.5px;
+  line-height: 1.25;
+}
+.settlement-table th {
+  background: #eee;
+  text-align: left;
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.settlement-table .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.settlement-table tfoot td {
+  font-weight: 700;
+  background: #f4f2ec;
+}
+.settlement-table tr.settle td {
+  background: #fff1f1;
+}
+.settlement .signatures {
+  margin-top: 28px;
+  display: flex;
+  justify-content: flex-end;
+}
+.settlement .signatures span {
+  width: 240px;
+  border-top: 1px solid #111;
+  text-align: center;
+  padding-top: 4px;
+  color: #555;
+}

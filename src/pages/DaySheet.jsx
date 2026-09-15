@@ -11,10 +11,11 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
-import { kgText, money } from "../lib/format.js";
+import { kgText, money, orderNumber } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import UnreadBanner from "../components/UnreadBanner.jsx";
+import HojaActions from "../components/HojaActions.jsx";
 import {
   useDay,
   todayKey,
@@ -182,6 +183,15 @@ export default function DaySheet() {
               {list.reduce((s, o) => s + expectedCrates(o), 0)} cajones ·{" "}
               {kgText(list.reduce((s, o) => s + weighedKg(o), 0))}
               {" · "}
+              <HojaActions
+                orders={list}
+                date={date}
+                drivers={[driver]}
+                actions={["open", "share"]}
+                small
+                label="Hoja de pedidos PDF"
+              />
+              {" · "}
               <RemitoActions
                 orders={list}
                 date={date}
@@ -238,7 +248,7 @@ export default function DaySheet() {
                           </small>
                         </td>
                         <td>
-                          <small>{o.id}</small>
+                          <small>N° {orderNumber(o)}</small>
                           <br />
                           {o.items
                             .map(

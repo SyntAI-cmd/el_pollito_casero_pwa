@@ -9,6 +9,7 @@ import OrdersSheet from "../components/OrdersSheet.jsx";
 import Remito from "../components/Remito.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import TripSheet from "../components/TripSheet.jsx";
+import SettlementSheet from "../components/SettlementSheet.jsx";
 import { api } from "../lib/api.js";
 
 /**
@@ -24,6 +25,13 @@ export default function Print() {
   const auto = query.get("auto") === "1";
   const vehiculo = query.get("vehiculo") || "";
   const [trips, setTrips] = useState([]);
+  const [closures, setClosures] = useState([]);
+  useEffect(() => {
+    if (tipo !== "rendicion") return;
+    api("/closures?date=" + fecha)
+      .then(setClosures)
+      .catch(() => setClosures([]));
+  }, [tipo, fecha]);
   useEffect(() => {
     if (tipo !== "viaje") return;
     api("/salidas?fecha=" + fecha)
@@ -77,6 +85,42 @@ export default function Print() {
                 ) || a.name.localeCompare(b.name),
             )
         : null;
+  if (tipo === "rendicion") {
+    if (session.role !== "admin")
+      return (
+        <EmptyState
+          icon={ShieldCheck}
+          title="Solo administración"
+          to="/reparto"
+          action="Volver"
+        />
+      );
+    const drivers =
+      repartidor && repartidor !== "todos"
+        ? [repartidor]
+        : config?.drivers || [];
+    const sheets = drivers
+      .map((d) => routeSheet(orders, customers, { driver: d, date: fecha }))
+      .filter((s) => s.stops.length);
+    return (
+      <div className="print-page rendicion">
+        <style>{"@page { size: A4 portrait; margin: 10mm; }"}</style>
+        <div className="print-toolbar no-print">
+          <Link to="/operacion/reparto" className="secondary">
+            <ArrowLeft size={15} /> Volver a Rendición
+          </Link>
+          <span className="muted">
+            Resumen de rendición del {fecha.split("-").reverse().join("/")} ·
+            solo administración
+          </span>
+          <button className="primary" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
+        <SettlementSheet sheets={sheets} date={fecha} closures={closures} />
+      </div>
+    );
+  }
   if (tipo === "viaje") {
     const dayOrders = orders.filter(
       (o) => o.deliveryDate === fecha && o.status !== "cancelado",

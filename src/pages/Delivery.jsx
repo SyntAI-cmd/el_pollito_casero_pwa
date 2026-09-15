@@ -17,6 +17,8 @@ import OrderCard from "../components/OrderCard.jsx";
 import News from "../components/News.jsx";
 import TruckLocation from "../components/TruckLocation.jsx";
 import UnreadBanner from "../components/UnreadBanner.jsx";
+import HojaActions from "../components/HojaActions.jsx";
+import { todayKey } from "../lib/day.js";
 import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
@@ -116,6 +118,13 @@ export default function Delivery() {
                 : `Tramo ${leg.from}–${leg.to} en Google Maps`}
             </a>
           ))}
+          <HojaActions
+            orders={routeStops}
+            date={todayKey()}
+            drivers={[session.driver]}
+            actions={["open", "share"]}
+            label="Mi hoja de pedidos (PDF)"
+          />
           {legs.length > 0 && (
             <button
               type="button"

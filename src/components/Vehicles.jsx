@@ -16,9 +16,10 @@ function VehicleForm({ v, onDone, run, busy }) {
             ? patch("/vehicles/" + v.id, {
                 name: f.name,
                 plate: f.plate,
+                note: f.note,
                 active: f.active === "on",
               })
-            : post("/vehicles", { name: f.name, plate: f.plate }),
+            : post("/vehicles", { name: f.name, plate: f.plate, note: f.note }),
         );
         if (ok) onDone();
       }}
@@ -44,6 +45,16 @@ function VehicleForm({ v, onDone, run, busy }) {
           autoComplete="off"
           placeholder="A7234"
           style={{ textTransform: "uppercase" }}
+        />
+      </label>
+      <label>
+        Descripción
+        <input
+          name="note"
+          maxLength="60"
+          defaultValue={v?.note || ""}
+          autoComplete="off"
+          placeholder="Camión, camioneta nueva…"
         />
       </label>
       {v && (
@@ -120,6 +131,7 @@ export default function Vehicles() {
               <tr>
                 <th>Vehículo</th>
                 <th>Patente</th>
+                <th>Descripción</th>
                 <th>Estado</th>
                 <th></th>
               </tr>
@@ -128,7 +140,7 @@ export default function Vehicles() {
               {list.map((v) =>
                 editing === v.id ? (
                   <tr key={v.id}>
-                    <td colSpan="4">
+                    <td colSpan="5">
                       <VehicleForm
                         v={v}
                         onDone={() => setEditing(null)}
@@ -143,6 +155,7 @@ export default function Vehicles() {
                       <strong>{v.name}</strong>
                     </td>
                     <td>{v.plate || "—"}</td>
+                    <td>{v.note || "—"}</td>
                     <td>{v.active ? "Activo" : "De baja"}</td>
                     <td>
                       <button
@@ -165,4 +178,6 @@ export default function Vehicles() {
 
 /** Nombre corto de un vehículo para títulos y listas: "Toyota Hino A7234". */
 export const vehicleLabel = (v) =>
-  v ? `${v.name}${v.plate ? " " + v.plate : ""}` : "";
+  v
+    ? `${v.name}${v.plate ? " " + v.plate : ""}${v.note ? " (" + v.note + ")" : ""}`
+    : "";
