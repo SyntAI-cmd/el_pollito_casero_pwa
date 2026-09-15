@@ -14,6 +14,8 @@ import {
   MapPin,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { vehicleLabel } from "../components/Vehicles.jsx";
+import { api } from "../lib/api.js";
 import { Link } from "../lib/router.jsx";
 import {
   money,
