@@ -10,10 +10,10 @@ import {
 import { remitoData } from "../lib/remito.js";
 
 /**
- * Remito interno en PDF (A4): la mitad superior es el ORIGINAL y la inferior el DUPLICADO,
- * calcados del talonario: cabecera con el logo y los datos fiscales, cliente, grilla
- * KILOS · DETALLE · PRECIO X UN. · PRECIO TOTAL y al pie CAJAS ADEUDADAS, Firma Conforme y TOTAL.
- * Un pedido por hoja; varios pedidos = varias hojas en el mismo documento.
+ * Remito interno en PDF: por cada pedido, una hoja A4 con el ORIGINAL y otra con el DUPLICADO
+ * (se archivan por separado), calcadas del talonario: cabecera con el logo y los datos fiscales,
+ * cliente, grilla KILOS · DETALLE · PRECIO X UN. · PRECIO TOTAL y al pie CAJAS ADEUDADAS,
+ * Firma Conforme y TOTAL. Varios pedidos = varias hojas en el mismo documento.
  */
 
 const RED = "#dc2626";
@@ -25,108 +25,102 @@ const s = StyleSheet.create({
   page: {
     flexDirection: "column",
     backgroundColor: "#ffffff",
-    paddingVertical: 18,
-    paddingHorizontal: 26,
+    paddingVertical: 34,
+    paddingHorizontal: 40,
     fontFamily: "Helvetica",
-    fontSize: 9,
+    fontSize: 10.5,
     color: INK,
   },
-  copy: {
-    height: "50%",
-    paddingTop: 10,
-    paddingBottom: 12,
-    position: "relative",
-  },
-  copyFirst: { borderBottom: `1px dashed ${LINE}` },
+  copy: { flex: 1, position: "relative", paddingBottom: 90 },
   watermark: {
     position: "absolute",
-    top: 10,
+    top: 0,
     right: 0,
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: MUTED,
     borderWidth: 1,
     borderColor: MUTED,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    letterSpacing: 1,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    letterSpacing: 1.5,
   },
   head: { flexDirection: "row", justifyContent: "space-between" },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
-  logo: { width: 84, height: 57, objectFit: "contain" },
+  logo: { width: 120, height: 82, objectFit: "contain" },
   title: {
-    fontSize: 20,
+    fontSize: 26,
     fontFamily: "Helvetica-Bold",
     color: RED,
     letterSpacing: 0.3,
   },
-  tagline: { fontSize: 9, fontFamily: "Helvetica-Bold", marginTop: 1 },
-  small: { fontSize: 7.5, color: MUTED, marginTop: 1.5 },
-  doc: { alignItems: "flex-end", paddingTop: 16 },
-  docTitle: { fontSize: 12, fontFamily: "Helvetica-Bold" },
-  docSub: { fontSize: 6.5, color: MUTED },
-  docLine: { fontSize: 8.5, marginTop: 2 },
+  tagline: { fontSize: 11, fontFamily: "Helvetica-Bold", marginTop: 2 },
+  small: { fontSize: 9, color: MUTED, marginTop: 2 },
+  doc: { alignItems: "flex-end", paddingTop: 26 },
+  docTitle: { fontSize: 15, fontFamily: "Helvetica-Bold" },
+  docSub: { fontSize: 7.5, color: MUTED },
+  docLine: { fontSize: 10, marginTop: 3 },
   bold: { fontFamily: "Helvetica-Bold" },
-  rule: { borderBottomWidth: 1.5, borderBottomColor: RED, marginTop: 8 },
+  rule: { borderBottomWidth: 2, borderBottomColor: RED, marginTop: 12 },
   client: {
-    marginTop: 8,
+    marginTop: 14,
     borderWidth: 1,
     borderColor: "#e5e5e5",
     backgroundColor: "#fafafa",
-    borderRadius: 3,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
+    borderRadius: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     flexDirection: "row",
   },
-  clientCol: { flex: 1, gap: 4 },
-  table: { marginTop: 8, borderWidth: 1, borderColor: LINE },
+  clientCol: { flex: 1, gap: 6 },
+  table: { marginTop: 14, borderWidth: 1, borderColor: LINE },
   tr: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE },
   trLast: { borderBottomWidth: 0 },
   th: {
     backgroundColor: RED,
     color: "#ffffff",
     fontFamily: "Helvetica-Bold",
-    fontSize: 8.5,
-    paddingVertical: 5,
-    paddingHorizontal: 6,
+    fontSize: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 8,
   },
-  td: { paddingVertical: 4.5, paddingHorizontal: 6, fontSize: 9 },
-  kilos: { width: 62 },
+  td: { paddingVertical: 7, paddingHorizontal: 8, fontSize: 10.5 },
+  kilos: { width: 76 },
   detail: { flex: 1, borderLeftWidth: 1, borderLeftColor: LINE },
   unit: {
-    width: 92,
+    width: 110,
     textAlign: "right",
     borderLeftWidth: 1,
     borderLeftColor: LINE,
   },
   total: {
-    width: 96,
+    width: 116,
     textAlign: "right",
     borderLeftWidth: 1,
     borderLeftColor: LINE,
   },
-  note: { fontSize: 8, color: MUTED, marginTop: 4 },
+  note: { fontSize: 9.5, color: MUTED, marginTop: 8 },
   foot: {
-    marginTop: 8,
+    marginTop: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-  boxes: { fontSize: 9, color: "#374151" },
-  balance: { fontSize: 7.5, color: MUTED, marginTop: 3 },
-  totalLine: { fontSize: 13, fontFamily: "Helvetica-Bold" },
-  sign: { position: "absolute", left: 0, bottom: 14, width: 180 },
-  signLine: { borderTopWidth: 1, borderTopColor: MUTED, marginTop: 24 },
-  signText: { fontSize: 7.5, color: MUTED, textAlign: "center", marginTop: 2 },
+  boxes: { fontSize: 11, color: "#374151" },
+  balance: { fontSize: 9, color: MUTED, marginTop: 4 },
+  totalLine: { fontSize: 17, fontFamily: "Helvetica-Bold" },
+  sign: { position: "absolute", left: 0, bottom: 0, width: 220 },
+  signLine: { borderTopWidth: 1, borderTopColor: MUTED },
+  signText: { fontSize: 9, color: MUTED, textAlign: "center", marginTop: 4 },
 });
 
-const MIN_ROWS = 4;
+const MIN_ROWS = 10;
 
-function Copy({ data, fiscal, logo, label, first }) {
+function Copy({ data, fiscal, logo, label }) {
   const d = data;
   const rows = Math.max(MIN_ROWS, d.lines.length);
   return (
-    <View style={[s.copy, first ? s.copyFirst : null]}>
+    <View style={s.copy}>
       <Text style={s.watermark}>{label}</Text>
       <View style={s.head}>
         <View style={s.brand}>
@@ -260,16 +254,13 @@ export function RemitoDocument({
           customers.find((c) => c.phone === o.customer),
         );
         return (
-          <Page key={o.id} size="A4" style={s.page}>
-            <Copy
-              data={data}
-              fiscal={fiscal}
-              logo={logo}
-              label="ORIGINAL"
-              first
-            />
-            <Copy data={data} fiscal={fiscal} logo={logo} label="DUPLICADO" />
-          </Page>
+          <React.Fragment key={o.id}>
+            {["ORIGINAL", "DUPLICADO"].map((label) => (
+              <Page key={label} size="A4" style={s.page}>
+                <Copy data={data} fiscal={fiscal} logo={logo} label={label} />
+              </Page>
+            ))}
+          </React.Fragment>
         );
       })}
     </Document>

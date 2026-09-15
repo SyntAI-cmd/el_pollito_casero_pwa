@@ -13,6 +13,13 @@ export default function Access() {
   return (
     <div className="staff-login">
       <div className="staff-card">
+        <img
+          className="staff-logo"
+          src="/brand/logo-texto.png"
+          width="1200"
+          height="362"
+          alt="El Pollito Casero · Venta por mayor y menor"
+        />
         <div className="staff-head">
           <img src="/icon.svg" width="44" height="44" alt="" />
           <div>

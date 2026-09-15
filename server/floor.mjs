@@ -8,10 +8,30 @@ import {
   normalizePhone,
   lineAmount,
   defaultTare,
-  fiscal,
   validateLists,
+  accountSummary,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
+import { readFile } from "node:fs/promises";
+import { remitoNumber } from "../src/lib/remito.js";
+
+/** Logo tipográfico para el Excel: en producción vive en dist/brand, en desarrollo en public/brand. */
+let logoCache;
+async function brandLogo() {
+  if (logoCache === undefined) {
+    logoCache = null;
+    for (const p of [
+      "dist/brand/logo-texto.png",
+      "public/brand/logo-texto.png",
+    ]) {
+      try {
+        logoCache = await readFile(p);
+        break;
+      } catch {}
+    }
+  }
+  return logoCache;
+}
 import { str, num, oneOf, bool } from "./validate.mjs";
 
 /**
@@ -724,35 +744,41 @@ export function createFloor({
         },
       });
       const cols = [
-        ["Pedido", 12],
-        ["Preventista", 16],
-        ["Cliente", 24],
+        ["N° Pedido", 16],
+        ["Cliente", 26],
         ["CUIT", 14],
-        ["Detalle", 34],
+        ["Detalle", 40],
         ["Cajones", 9],
         ["Kilos", 13],
-        ["Neto gravado", 16],
-        ["IVA 10,5%", 14],
+        ["Saldo", 15],
+        ["Cajas adeudadas", 12],
         ["Total", 16],
-        ["% del día", 10],
         ["", 3],
-        ["", 24],
+        ["", 22],
         ["", 16],
       ];
       cols.forEach(([, w], i) => (ws.getColumn(i + 1).width = w));
-      const last = cols.length - 3; // K
-      const L = (n) => String.fromCharCode(64 + n);
+      const last = cols.length - 3; // I
       const dmy = date.split("-").reverse().join("/");
+      // Fila 1: logo tipográfico a la izquierda y, si no hay logo, el nombre en texto.
       ws.mergeCells(1, 1, 1, last);
-      ws.getCell("A1").value = "EL POLLITO CASERO";
+      ws.getRow(1).height = 60;
+      const logo = await brandLogo();
+      if (logo) {
+        const id = wb.addImage({ buffer: logo, extension: "png" });
+        ws.addImage(id, {
+          tl: { col: 0.15, row: 0.1 },
+          ext: { width: 232, height: 70 },
+          editAs: "oneCell",
+        });
+      }
+      ws.getCell("A1").value = logo ? "" : "EL POLLITO CASERO";
       ws.getCell("A1").font = font({
         size: 20,
         bold: true,
-        color: { argb: "FFFFFFFF" },
+        color: { argb: RED },
       });
-      ws.getCell("A1").fill = fill(RED);
       ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
-      ws.getRow(1).height = 45.75;
       ws.mergeCells(2, 1, 2, last);
       ws.getCell("A2").value =
         `Consolidado del reparto  ·  Fecha: ${dmy}${driverFilter ? "  ·  Preventista: " + driverFilter : ""}  ·  Un renglón por pedido`;
@@ -767,7 +793,11 @@ export function createFloor({
         c.value = name;
         c.font = font({ bold: true, color: { argb: "FFFFFFFF" } });
         c.fill = fill(BLACK);
-        c.alignment = { horizontal: "center", vertical: "middle" };
+        c.alignment = {
+          horizontal: "center",
+          vertical: "middle",
+          wrapText: true,
+        };
         c.border = rowBorder;
       });
       head.height = 24;
@@ -784,9 +814,26 @@ export function createFloor({
       const first = 5;
       const lastData = first + Math.max(orders.length, 1) - 1;
       const totalRow = lastData + 1;
-      const rate = 1 + (Number(fiscal.ivaRate) || 10.5) / 100;
+      const kgEs = (n) =>
+        Number(n).toLocaleString("es-AR", {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 2,
+        });
+      const summaries = new Map();
+      const summaryOf = (phone) => {
+        if (!summaries.has(phone))
+          summaries.set(
+            phone,
+            accountSummary(
+              store.orders.forCustomer(phone),
+              store.customers.get(phone) || {},
+            ),
+          );
+        return summaries.get(phone);
+      };
       orders.forEach((o, i) => {
         const c = store.customers.get(o.customer) || {};
+        const sum = summaryOf(o.customer);
         const r = ws.getRow(first + i);
         const kilos = round2(o.items.reduce((s2, it) => s2 + it.kg, 0));
         // Cajones: solo los de lo pedido por cajas; lo pedido por kilo va como bulto y no cuenta acá.
@@ -796,15 +843,8 @@ export function createFloor({
         const crates = store.crates
           .forOrder(o.id)
           .filter((x) => !x.voided && boxed.has(x.productId)).length;
-        const neto = round2(o.total / rate);
-        const kgEs = (n) =>
-          Number(n).toLocaleString("es-AR", {
-            minimumFractionDigits: 1,
-            maximumFractionDigits: 2,
-          });
         const values = [
-          o.id,
-          o.driver || "",
+          remitoNumber(o),
           c.alias || o.name,
           c.cuit || "",
           o.items
@@ -815,10 +855,9 @@ export function createFloor({
             .join(" · "),
           crates,
           kilos,
-          neto,
-          round2(o.total - neto),
-          { formula: `H${first + i}+I${first + i}` },
-          { formula: `J${first + i}/$J$${totalRow}` },
+          round2(sum.balance),
+          Math.max(0, sum.boxes),
+          round2(o.total),
         ];
         values.forEach((v, j) => {
           const cell = r.getCell(j + 1);
@@ -828,21 +867,19 @@ export function createFloor({
           if (i % 2 === 1) cell.fill = fill(ZEBRA);
         });
         r.getCell(1).alignment = { horizontal: "center" };
-        r.getCell(6).numFmt = "0";
-        r.getCell(7).numFmt = '#,##0.00" kg"';
-        for (const k of [8, 9, 10]) r.getCell(k).numFmt = "\\$#,##0.00";
-        r.getCell(11).numFmt = "0.0%";
+        r.getCell(5).numFmt = "0";
+        r.getCell(6).numFmt = '#,##0.00" kg"';
+        r.getCell(7).numFmt = "\\$#,##0.00";
+        r.getCell(8).numFmt = "0";
+        r.getCell(9).numFmt = "\\$#,##0.00";
       });
       const t = ws.getRow(totalRow);
       t.height = 21.75;
       const totals = {
         2: `TOTAL (${orders.length} pedidos)`,
+        5: { formula: `SUM(E${first}:E${lastData})` },
         6: { formula: `SUM(F${first}:F${lastData})` },
-        7: { formula: `SUM(G${first}:G${lastData})` },
-        8: { formula: `SUM(H${first}:H${lastData})` },
         9: { formula: `SUM(I${first}:I${lastData})` },
-        10: { formula: `SUM(J${first}:J${lastData})` },
-        11: { formula: `SUM(K${first}:K${lastData})` },
       };
       for (let k = 1; k <= last; k++) {
         const cell = t.getCell(k);
@@ -851,9 +888,8 @@ export function createFloor({
         cell.fill = fill(RED);
         cell.border = rowBorder;
       }
-      t.getCell(7).numFmt = '#,##0.00" kg"';
-      for (const k of [8, 9, 10]) t.getCell(k).numFmt = "\\$#,##0.00";
-      t.getCell(11).numFmt = "0.0%";
+      t.getCell(6).numFmt = '#,##0.00" kg"';
+      t.getCell(9).numFmt = "\\$#,##0.00";
       // Resumen del día a la derecha, como en la planilla de facturación.
       const M = last + 2,
         N = last + 3;
@@ -866,16 +902,14 @@ export function createFloor({
       const summary = [
         ["Pedidos", { formula: `COUNTA(A${first}:A${lastData})` }, "0"],
         ["Clientes", new Set(orders.map((o) => o.customer)).size, "0"],
-        ["Cajones", { formula: `F${totalRow}` }, "0"],
-        ["Kilos", { formula: `G${totalRow}` }, '#,##0.00" kg"'],
+        ["Cajones", { formula: `E${totalRow}` }, "0"],
+        ["Kilos", { formula: `F${totalRow}` }, '#,##0.00" kg"'],
         [
-          "Precio por kg (neto)",
-          { formula: `IF(G${totalRow}=0,0,H${totalRow}/G${totalRow})` },
+          "Precio por kg",
+          { formula: `IF(F${totalRow}=0,0,I${totalRow}/F${totalRow})` },
           "\\$#,##0.00",
         ],
-        ["Neto gravado", { formula: `H${totalRow}` }, "\\$#,##0.00"],
-        ["IVA 10,5%", { formula: `I${totalRow}` }, "\\$#,##0.00"],
-        ["Facturado total", { formula: `J${totalRow}` }, "\\$#,##0.00", true],
+        ["Total del día", { formula: `I${totalRow}` }, "\\$#,##0.00", true],
       ];
       summary.forEach(([label, value, fmt, gold], i) => {
         const a = ws.getCell(first + i, M),
@@ -892,7 +926,7 @@ export function createFloor({
         }
       });
       const note = ws.getCell(first + summary.length + 1, M);
-      note.value = `Consolidado del ${dmy}. Neto = total / ${rate.toFixed(3)} (IVA ${Number(fiscal.ivaRate) || 10.5}% incluido en el precio por kg).`;
+      note.value = `Consolidado del ${dmy}. Saldo = cuenta corriente del cliente al exportar; cajas adeudadas = envases en su poder.`;
       note.font = font({ size: 9, italic: true, color: { argb: "FF666666" } });
       const buffer = Buffer.from(await wb.xlsx.writeBuffer());
       return {

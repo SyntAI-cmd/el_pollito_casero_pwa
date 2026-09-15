@@ -92,10 +92,13 @@ export default function Login() {
       </aside>
       <main className="login-main" id="contenido">
         <Link to="/" className="brand login-brand">
-          <img src="/icon.svg" width="40" height="40" alt="" />
-          <span>
-            pollito<em>casero</em>
-          </span>
+          <img
+            className="login-wordmark"
+            src="/brand/logo-texto.png"
+            width="1200"
+            height="362"
+            alt="El Pollito Casero · Venta por mayor y menor"
+          />
         </Link>
         {expired && !mode && (
           <p className="notice error login-notice">

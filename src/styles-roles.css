@@ -218,6 +218,20 @@
   padding: 30px 28px;
   box-shadow: 0 30px 80px #00000066;
 }
+.staff-logo {
+  display: block;
+  width: min(260px, 70%);
+  height: auto;
+  margin: 0 auto 18px;
+}
+.staff-wordmark {
+  height: 30px;
+  width: auto;
+}
+.login-wordmark {
+  width: min(280px, 80%);
+  height: auto;
+}
 .staff-head {
   display: flex;
   align-items: center;

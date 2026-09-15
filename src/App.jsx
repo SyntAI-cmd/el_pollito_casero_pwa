@@ -84,7 +84,11 @@ const DRIVER_ROUTES = {
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
 const homeFor = (role) =>
-  role === "admin" ? "/operacion/dia" : role === "repartidor" ? "/reparto" : "/";
+  role === "admin"
+    ? "/operacion/dia"
+    : role === "repartidor"
+      ? "/reparto"
+      : "/";
 
 const clientNav = [
   ["/", "Hacer un pedido", House],
@@ -401,8 +405,15 @@ function StaffShell({ Page, path }) {
       <header className="staff-bar">
         <Link to={homeFor(session.role)} className="staff-brand">
           <img src="/icon.svg" width="34" height="34" alt="" />
+          <img
+            className="staff-wordmark"
+            src="/brand/logo-texto-blanco.png"
+            width="1200"
+            height="362"
+            alt="El Pollito Casero"
+          />
           <span>
-            <strong>Pollito Casero</strong>
+            <strong className="sr-only">Pollito Casero</strong>
             <small>{admin ? "Administración" : "Reparto"}</small>
           </span>
         </Link>
