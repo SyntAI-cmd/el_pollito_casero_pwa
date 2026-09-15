@@ -62,6 +62,19 @@ if (dbPath !== ":memory:") {
 }
 
 // Pedido de ejemplo para la demostración: visible en Operación y para el repartidor Franco.
+// PRUEBA_DATOS=1 (o =borrar): carga o borra los 10 clientes/pedidos de prueba al arrancar
+// (para probar la app publicada sin entrar por SSH). Sacar la variable después.
+if (process.env.PRUEBA_DATOS) {
+  try {
+    const { seedPrueba } = await import("./scripts/prueba.mjs");
+    seedPrueba(store, {
+      borrar: process.env.PRUEBA_DATOS === "borrar",
+      log: (m) => log.info("Datos de prueba:", m),
+    });
+  } catch (e) {
+    log.warn("Datos de prueba:", e.message);
+  }
+}
 if (demo && !store.orders.count() && !process.env.DB_PATH) {
   const at = new Date().toISOString();
   const track = [
