@@ -8,6 +8,7 @@
  */
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
+import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
 const SCHEMA_VERSION = 5;
@@ -115,7 +116,7 @@ CREATE INDEX IF NOT EXISTS audit_entity ON audit_log(entity, entity_id);
 
 export async function openStore(path, { log = console } = {}) {
   const memory = path === ":memory:";
-  if (!memory) await mkdir("data", { recursive: true });
+  if (!memory) await mkdir(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
   db.exec("PRAGMA foreign_keys = ON");
   if (!memory) {
