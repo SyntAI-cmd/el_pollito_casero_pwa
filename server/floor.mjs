@@ -468,38 +468,70 @@ export function createFloor({
           o.items.map((i) => i.id),
           "producto",
         );
-        // Hasta 5000 kg: una pesada puede ser un bulto o varias cajas juntas, no solo un cajón.
-        const gross = num(body.gross, {
-          min: 0.1,
-          max: 5000,
-          name: "el peso bruto",
-        });
         const t =
           body.tare === undefined
             ? tare()
             : num(body.tare, { min: 0, max: 20, name: "la tara" });
-        const net = round2(gross - t);
-        if (net <= 0)
-          fail(400, `El bruto (${gross} kg) no supera la tara (${t} kg).`);
+        // Pesada por lote: `boxes` cajas juntas con su peso neto total (`net`) o bruto total (`gross`).
+        // Sin `boxes` es la pesada clásica de un cajón por su bruto. Hasta 5000 kg por pesada.
+        const boxes =
+          num(body.boxes, {
+            min: 1,
+            max: 500,
+            integer: true,
+            name: "las cajas",
+            optional: true,
+          }) || 1;
+        let gross, netTotal;
+        if (body.net !== undefined && body.net !== null && body.net !== "") {
+          netTotal = num(body.net, {
+            min: 0.05,
+            max: 5000,
+            name: "el peso neto",
+          });
+          gross = round2(netTotal + t * boxes);
+        } else {
+          gross = num(body.gross, {
+            min: 0.1,
+            max: 5000,
+            name: "el peso bruto",
+          });
+          netTotal = round2(gross - t * boxes);
+          if (netTotal <= 0)
+            fail(
+              400,
+              `El bruto (${gross} kg) no supera la tara (${round2(t * boxes)} kg${boxes > 1 ? ` de ${boxes} cajas` : ""}).`,
+            );
+        }
         const crateId =
           str(body.id, { max: 60, name: "el identificador", optional: true }) ||
           randomUUID();
-        // Idempotente: reintentar desde el celular con la misma id no duplica el cajón.
-        const inserted = store.crates.add({
-          id: crateId,
-          orderId: o.id,
-          productId,
-          gross,
-          tare: t,
-          net,
-          by: actorOf(session),
-        });
+        // Un cajón por caja del lote, con el neto repartido (el último absorbe el redondeo); los ids
+        // derivan del id del lote, así reintentar desde el celular no duplica nada (idempotente).
+        const each = round2(netTotal / boxes);
+        let inserted = 0;
+        for (let i = 0; i < boxes; i++) {
+          const net =
+            i === boxes - 1 ? round2(netTotal - each * (boxes - 1)) : each;
+          inserted += store.crates.add({
+            id: boxes === 1 ? crateId : `${crateId}:${i + 1}`,
+            orderId: o.id,
+            productId,
+            gross: round2(net + t),
+            tare: t,
+            net,
+            by: actorOf(session),
+          })
+            ? 1
+            : 0;
+        }
         if (inserted) applyCrates(o, session);
         store.audit.log(session, "crate.add", "order", o.id, {
           crateId,
           productId,
+          boxes,
           gross,
-          net,
+          net: netTotal,
           duplicate: !inserted,
         });
         return json(

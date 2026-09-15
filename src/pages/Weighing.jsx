@@ -32,12 +32,14 @@ const fmt = (n) =>
   });
 
 /**
- * Pesada: se elige el pedido de la nota del día, después el producto, y se tipea el bruto de cada
- * cajón. La app resta la tara y muestra el neto en grande antes de confirmar.
- *  - Ítems pedidos por cajas: un cajón por caja ("cajón 3 de 12"), suma de kilos netos.
- *  - Ítems pedidos por kilo: se pesan igual (uno o varios bultos), y se compara contra lo pedido.
+ * Pesada: se elige el pedido de la nota del día, después el producto, y se carga el peso.
+ *  - Modo lote (por defecto): cuántas cajas van juntas y el peso neto total; el servidor crea un
+ *    cajón por caja con el neto repartido, así la carga del camión y el remito siguen contando cajas.
+ *  - Modo cajón: se tipea el bruto de cada cajón y la app resta la tara (como el talonario).
+ *  - Ítems pedidos por kilo: se pesan como bulto y se comparan contra lo pedido.
  * Funciona sin señal: la pesada queda en el dispositivo y se envía sola al volver la conexión.
  */
+const batchOf = (crate) => String(crate.id).split(":")[0];
 export default function Weighing() {
   const { session, notify } = useStore();
   const { query, navigate } = useRoute();
@@ -46,6 +48,8 @@ export default function Weighing() {
   const [selected, setSelected] = useState(query.get("pedido") || null);
   const [product, setProduct] = useState(null);
   const [gross, setGross] = useState("");
+  const [mode, setMode] = useState("lote"); // "lote" (cajas + neto total) | "cajon" (bruto por cajón)
+  const [boxes, setBoxes] = useState("");
   const [queued, setQueued] = useState(pending().length);
   useEffect(() => onOutbox((l) => setQueued(l.length)), []);
   const order = day.orders.find((o) => o.id === selected) || null;
@@ -81,46 +85,72 @@ export default function Weighing() {
   }, [order?.id]);
 
   const g = Number(String(gross).replace(",", "."));
-  const net = Number.isFinite(g) ? Math.round((g - tare) * 100) / 100 : null;
   const item = order?.items.find((i) => i.id === product);
   const done =
     order && product
       ? liveCrates(order).filter((c) => c.productId === product)
       : [];
   const kgDone = weighedKg(order || { crates: [] }, product);
+  const remaining = item?.boxes ? Math.max(1, item.boxes - done.length) : 1;
+  const nBoxes = Math.max(
+    1,
+    Math.min(500, Math.round(Number(boxes) || remaining)),
+  );
+  // Neto de la pesada: en lote se tipea directo; por cajón se descuenta la tara del bruto.
+  const net = !Number.isFinite(g)
+    ? null
+    : mode === "lote"
+      ? Math.round(g * 100) / 100
+      : Math.round((g - tare) * 100) / 100;
+  // Cajones agrupados por lote para la lista (un lote de 30 cajas es una sola línea).
+  const groups = useMemo(() => {
+    const out = [];
+    for (const c of done) {
+      const key = batchOf(c);
+      const last = out[out.length - 1];
+      if (last && last.key === key) last.crates.push(c);
+      else out.push({ key, crates: [c] });
+    }
+    return out;
+  }, [done]);
 
   async function confirm() {
     if (!order || !product || !Number.isFinite(g) || net <= 0) return;
     const id = crypto.randomUUID();
-    // Optimista: se ve el cajón al instante, aunque no haya señal.
+    const count = mode === "lote" ? nBoxes : 1;
+    const each = Math.round((net / count) * 100) / 100;
+    const at = new Date().toISOString();
+    // Optimista: se ven los cajones al instante, aunque no haya señal.
+    const optimistic = Array.from({ length: count }, (_, i) => {
+      const n =
+        i === count - 1
+          ? Math.round((net - each * (count - 1)) * 100) / 100
+          : each;
+      return {
+        id: count === 1 ? id : `${id}:${i + 1}`,
+        productId: product,
+        gross: Math.round((n + tare) * 100) / 100,
+        tare,
+        net: n,
+        at,
+        pending: true,
+      };
+    });
     setDay((d) => ({
       ...d,
       orders: d.orders.map((o) =>
         o.id === order.id
-          ? {
-              ...o,
-              crates: [
-                ...(o.crates || []),
-                {
-                  id,
-                  productId: product,
-                  gross: g,
-                  tare,
-                  net,
-                  at: new Date().toISOString(),
-                  pending: true,
-                },
-              ],
-            }
+          ? { ...o, crates: [...(o.crates || []), ...optimistic] }
           : o,
       ),
     }));
     setGross("");
-    const r = await send(`/orders/${order.id}/crates`, {
-      id,
-      productId: product,
-      gross: g,
-    }).catch((e) => {
+    setBoxes("");
+    const body =
+      mode === "lote"
+        ? { id, productId: product, boxes: count, net }
+        : { id, productId: product, gross: g };
+    const r = await send(`/orders/${order.id}/crates`, body).catch((e) => {
       notify(e.message);
       reload({ silent: true });
       return null;
@@ -129,13 +159,22 @@ export default function Weighing() {
       notify("Sin señal: la pesada quedó guardada y se envía sola.");
     else if (r) reload({ silent: true });
   }
-  async function undo(crate) {
-    if (!window.confirm(`¿Anular el cajón de ${fmt(crate.net)} kg?`)) return;
+  async function undo(group) {
+    const kg = group.crates.reduce((s, c) => s + c.net, 0);
+    const what =
+      group.crates.length === 1
+        ? `el cajón de ${fmt(kg)} kg`
+        : `el lote de ${group.crates.length} cajas (${fmt(kg)} kg)`;
+    if (!window.confirm(`¿Anular ${what}?`)) return;
     try {
-      await send(
-        `/crates/${crate.id}`,
-        { reason: "corrección en balanza" },
-        { method: "DELETE" },
+      await Promise.all(
+        group.crates.map((c) =>
+          send(
+            `/crates/${c.id}`,
+            { reason: "corrección en balanza" },
+            { method: "DELETE" },
+          ),
+        ),
       );
       reload({ silent: true });
     } catch (e) {
@@ -156,7 +195,7 @@ export default function Weighing() {
         description={
           order
             ? `${order.driver || "Sin camión"} · ${order.locality?.name || ""} · tara ${fmt(tare)} kg por cajón`
-            : `Elegí el pedido y tipeá el bruto de cada cajón. La app resta ${fmt(tare)} kg de tara.`
+            : `Elegí el pedido y cargá las cajas con su peso neto total, o el bruto cajón por cajón (la app resta ${fmt(tare)} kg de tara).`
         }
       >
         <div className="head-actions">
@@ -299,8 +338,68 @@ export default function Weighing() {
                       : `Cajón ${done.length + 1} de ${item.boxes} · ${kgText(kgDone)} acumulados`
                     : `Bulto ${done.length + 1} · ${kgText(kgDone)} de ${kgText(item.ordered ?? item.kg)} pedidos`}
                 </p>
+                <div
+                  className="weigh-mode"
+                  role="radiogroup"
+                  aria-label="Forma de pesar"
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === "lote"}
+                    className={mode === "lote" ? "active" : ""}
+                    onClick={() => setMode("lote")}
+                  >
+                    Cajas juntas (neto)
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === "cajon"}
+                    className={mode === "cajon" ? "active" : ""}
+                    onClick={() => setMode("cajon")}
+                  >
+                    Cajón por cajón (bruto)
+                  </button>
+                </div>
+                {mode === "lote" && (
+                  <label className="weigh-boxes">
+                    Cajas que van juntas
+                    <span>
+                      <button
+                        type="button"
+                        aria-label="Una caja menos"
+                        onClick={() =>
+                          setBoxes(String(Math.max(1, nBoxes - 1)))
+                        }
+                      >
+                        −
+                      </button>
+                      <input
+                        inputMode="numeric"
+                        value={boxes === "" ? nBoxes : boxes}
+                        onChange={(e) =>
+                          setBoxes(e.target.value.replace(/[^\d]/g, ""))
+                        }
+                        onFocus={(e) => e.target.select()}
+                        aria-label="Cantidad de cajas del lote"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Una caja más"
+                        onClick={() =>
+                          setBoxes(String(Math.min(500, nBoxes + 1)))
+                        }
+                      >
+                        +
+                      </button>
+                    </span>
+                  </label>
+                )}
                 <label className="weigh-gross">
-                  Peso bruto (kg)
+                  {mode === "lote"
+                    ? `Peso neto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`
+                    : "Peso bruto (kg)"}
                   <input
                     inputMode="decimal"
                     autoComplete="off"
@@ -322,7 +421,13 @@ export default function Weighing() {
                     "weigh-net " + (net !== null && net > 0 ? "ok" : "")
                   }
                 >
-                  <span>− {fmt(tare)} kg tara =</span>
+                  <span>
+                    {mode === "lote"
+                      ? nBoxes > 1 && net > 0
+                        ? `${fmt(net / nBoxes)} kg por caja · neto total =`
+                        : "neto ="
+                      : `− ${fmt(tare)} kg tara =`}
+                  </span>
                   <strong>
                     {net !== null && gross !== "" ? fmt(net) : "–"} kg
                   </strong>
@@ -363,29 +468,49 @@ export default function Weighing() {
                   disabled={!(net > 0)}
                   onClick={confirm}
                 >
-                  <Scale size={20} /> Confirmar cajón
+                  <Scale size={20} />{" "}
+                  {mode === "lote" && nBoxes > 1
+                    ? `Confirmar ${nBoxes} cajas`
+                    : "Confirmar cajón"}
                 </button>
               </div>
               <ul className="weigh-log" aria-label="Cajones pesados">
-                {[...done].reverse().map((c, i) => (
-                  <li key={c.id} className={c.pending ? "pending" : ""}>
-                    <span>
-                      #{done.length - i} · bruto {fmt(c.gross)} →{" "}
-                      <strong>{fmt(c.net)} kg</strong>
-                      {c.loadedAt ? " · cargado" : ""}
-                      {c.pending ? " · enviando…" : ""}
-                    </span>
-                    {!c.loadedAt && !c.pending && (
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => undo(c)}
-                      >
-                        <Undo2 size={13} /> anular
-                      </button>
-                    )}
-                  </li>
-                ))}
+                {[...groups].reverse().map((gr) => {
+                  const kg = gr.crates.reduce((s, c) => s + c.net, 0);
+                  const pendingSend = gr.crates.some((c) => c.pending);
+                  const loaded = gr.crates.filter((c) => c.loadedAt).length;
+                  const first =
+                    done.findIndex((c) => c.id === gr.crates[0].id) + 1;
+                  const last = first + gr.crates.length - 1;
+                  return (
+                    <li key={gr.key} className={pendingSend ? "pending" : ""}>
+                      <span>
+                        {gr.crates.length === 1
+                          ? `#${first} · bruto ${fmt(gr.crates[0].gross)} → `
+                          : `#${first}–${last} · lote de ${gr.crates.length} cajas · `}
+                        <strong>{fmt(kg)} kg</strong>
+                        {gr.crates.length > 1
+                          ? ` (${fmt(kg / gr.crates.length)} c/u)`
+                          : ""}
+                        {loaded
+                          ? loaded === gr.crates.length
+                            ? " · cargado"
+                            : ` · ${loaded} cargados`
+                          : ""}
+                        {pendingSend ? " · enviando…" : ""}
+                      </span>
+                      {!loaded && !pendingSend && (
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => undo(gr)}
+                        >
+                          <Undo2 size={13} /> anular
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
                 {!done.length && (
                   <li className="muted">
                     Todavía no hay cajones de {item.name.toLowerCase()}.
