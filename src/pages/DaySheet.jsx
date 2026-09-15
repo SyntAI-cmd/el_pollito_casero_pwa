@@ -30,7 +30,7 @@ import News from "../components/News.jsx";
 
 /**
  * Nota del día: lo que antes era la hoja amarilla. Todos los pedidos de la fecha, agrupados por
- * camión, con totales por producto para faena (cajas y kilos pedidos vs. pesados) y el estado de
+ * camión, con totales por producto (cajas y kilos pedidos vs. pesados) y el estado de
  * cada uno. Desde acá se va a pesar, a cargar, se imprimen remitos y se baja el consolidado.
  */
 export default function DaySheet() {
@@ -118,11 +118,9 @@ export default function DaySheet() {
       <section className="panel">
         <div className="section-line">
           <h2>
-            <Package size={17} /> Para faena
+            <Package size={17} /> Pedido por producto
           </h2>
-          <span className="muted">
-            Cajas y kilos pedidos por producto, y lo ya pesado
-          </span>
+          <span className="muted">Cajas y kilos pedidos, y lo ya pesado</span>
         </div>
         {byProduct.length === 0 ? (
           <p className="muted">

@@ -269,25 +269,25 @@ export function createApi({
     }
     return { ...session, phone, plan: customer.plan, name: customer.name };
   }
-  const driverCustomers = (session) => {
+  /**
+   * Los clientes son de la empresa: todo el equipo ve y opera la lista completa (un cliente que
+   * carga un preventista queda visible para los demás). "Mis clientes" de un repartidor es solo
+   * una marca (`mine`) para ordenar y resaltar en su pantalla: los de sus pedidos, su camión o sus zonas.
+   */
+  const servedBy = (session) => {
+    if (session.role !== "repartidor") return () => true;
     const mine = new Set(
       store.orders.forDriver(session.driver).map((o) => o.customer),
     );
     const me = store.drivers.get(session.driver);
     const zones = new Set((me?.zones || []).map((z) => z.toLowerCase()));
-    return store.customers
-      .all()
-      .filter(
-        (c) =>
-          mine.has(c.phone) ||
-          c.driver === session.driver ||
-          c.truck === session.driver ||
-          (c.zone && zones.has(String(c.zone).toLowerCase())),
-      );
+    return (c) =>
+      mine.has(c.phone) ||
+      c.driver === session.driver ||
+      c.truck === session.driver ||
+      (c.zone && zones.has(String(c.zone).toLowerCase()));
   };
-  const driverServes = (session, phone) =>
-    session.role === "admin" ||
-    driverCustomers(session).some((c) => c.phone === phone);
+  const driverServes = (session) => isStaff(session);
 
   const driverContact = (o) => {
     const d = o.driver ? driverByName(o.driver) : null;
@@ -1543,11 +1543,12 @@ export function createApi({
     if (path === "/api/customers" && method === "GET") {
       if (!isStaff(session)) fail(403, "Solo el equipo.");
       const prices = store.prices.all();
-      const list = (
-        session.role === "admin"
-          ? store.customers.all()
-          : driverCustomers(session)
-      ).map((c) => ({ ...withSummary(c), prices: prices[c.phone] || {} }));
+      const mine = servedBy(session);
+      const list = store.customers.all().map((c) => ({
+        ...withSummary(c),
+        prices: prices[c.phone] || {},
+        ...(session.role === "repartidor" ? { mine: !!mine(c) } : {}),
+      }));
       if (session.role === "repartidor")
         for (const c of list) delete c.payments;
       return json(200, list);
@@ -1559,8 +1560,7 @@ export function createApi({
       if (!isStaff(session)) fail(403, "Solo el equipo.");
       const phone = decodeURIComponent(customerMatch[1]);
       const c = store.customers.get(phone);
-      if (!c || !driverServes(session, phone))
-        fail(404, "Cliente no encontrado.");
+      if (!c || !driverServes(session)) fail(404, "Cliente no encontrado.");
       const sub = customerMatch[2];
       if (!sub && method === "PATCH") {
         if (session.role !== "admin") fail(403, "Solo administración.");

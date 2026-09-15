@@ -29,7 +29,11 @@ export default function Delivery() {
   } = useStore();
   const accounts = customers
     .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
-    .sort((a, b) => (b.summary?.balance || 0) - (a.summary?.balance || 0));
+    .sort(
+      (a, b) =>
+        (b.mine === true) - (a.mine === true) ||
+        (b.summary?.balance || 0) - (a.summary?.balance || 0),
+    );
   if (session?.role !== "repartidor" && session?.role !== "admin")
     return (
       <>
@@ -169,8 +173,8 @@ export default function Delivery() {
         aria-labelledby="clientes-reparto"
       >
         <div className="section-line">
-          <h2 id="clientes-reparto">Clientes de mi reparto</h2>
-          <span className="muted">Saldos y envases pendientes</span>
+          <h2 id="clientes-reparto">Clientes con saldo o envases</h2>
+          <span className="muted">Primero los de mi reparto</span>
         </div>
         {accounts.length === 0 ? (
           <p className="muted">
