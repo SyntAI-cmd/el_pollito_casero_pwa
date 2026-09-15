@@ -13,7 +13,7 @@ const fmtKg = (n) =>
     maximumFractionDigits: 2,
   });
 
-/** N° de remito estilo talonario: punto de venta 0001 + correlativo de 8 dígitos. */
+/** N° de remito estilo talonario: punto de venta 0001 + correlativo de 8 dígitos (igual que domain.mjs). */
 export const remitoNumber = (o) =>
   o.number
     ? `0001-${String(o.number).padStart(8, "0")}`

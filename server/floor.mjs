@@ -10,10 +10,10 @@ import {
   defaultTare,
   validateLists,
   accountSummary,
+  remitoNumber,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
 import { readFile } from "node:fs/promises";
-import { remitoNumber } from "../src/lib/remito.js";
 
 /** Logo tipográfico para el Excel: en producción vive en dist/brand, en desarrollo en public/brand. */
 let logoCache;
