@@ -6,6 +6,15 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "pollito-demo",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.DEMO='1';process.argv.push('--dev');import('./server.mjs')"
+      ],
+      "port": 5173
     }
   ]
 }

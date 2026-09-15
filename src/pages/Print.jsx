@@ -7,6 +7,7 @@ import { EmptyState, PageHead } from "../components/ui.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
 import OrdersSheet from "../components/OrdersSheet.jsx";
 import Remito from "../components/Remito.jsx";
+import RemitoActions from "../components/RemitoActions.jsx";
 
 /**
  * Vista de impresión: /imprimir?tipo=pedidos|ruta|remito|remitos&fecha=YYYY-MM-DD&repartidor=Nombre&pedido=PC-…
@@ -78,6 +79,13 @@ export default function Print() {
             {remitoOrders.length} remito{remitoOrders.length === 1 ? "" : "s"} ·
             papel 10 × 15 cm
           </span>
+          <RemitoActions
+            orders={remitoOrders}
+            date={fecha}
+            driver={tipo === "remitos" ? repartidor : ""}
+            actions={["download", "share"]}
+            labels={{ download: "PDF A4 (original + duplicado)" }}
+          />
           <button className="primary" onClick={() => window.print()}>
             <Printer size={16} /> Imprimir
           </button>

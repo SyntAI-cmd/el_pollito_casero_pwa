@@ -536,3 +536,19 @@ dialog form .delivery-point-status {
 .payment-row td {
   background: #f4faf6;
 }
+
+/* Botones de remito PDF: spinner mientras se genera y aviso en línea */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+.notice.inline {
+  display: inline-block;
+  padding: 4px 8px;
+  margin: 0;
+  font-size: 12px;
+}

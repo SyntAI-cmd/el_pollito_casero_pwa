@@ -190,26 +190,28 @@ export async function openStore(path, { log = console } = {}) {
     ).run(SCHEMA_VERSION, now());
 
   const q = {
-    order: db.prepare("SELECT * FROM orders WHERE id = ?"),
-    orderByKey: db.prepare("SELECT * FROM orders WHERE idem_key = ?"),
+    order: db.prepare("SELECT rowid AS seq, * FROM orders WHERE id = ?"),
+    orderByKey: db.prepare(
+      "SELECT rowid AS seq, * FROM orders WHERE idem_key = ?",
+    ),
     ordersAll: db.prepare(
-      "SELECT * FROM orders ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders ORDER BY created DESC, rowid DESC",
     ),
     ordersCustomer: db.prepare(
-      "SELECT * FROM orders WHERE customer = ? ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders WHERE customer = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersDriver: db.prepare(
-      "SELECT * FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersAccount: db.prepare(
-      "SELECT * FROM orders WHERE account_id = ? ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders WHERE account_id = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersSession: db.prepare(
-      "SELECT * FROM orders WHERE session_id = ? ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders WHERE session_id = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersCount: db.prepare("SELECT COUNT(*) AS n FROM orders"),
     ordersForDate: db.prepare(
-      "SELECT * FROM orders WHERE delivery_date = ? ORDER BY created",
+      "SELECT rowid AS seq, * FROM orders WHERE delivery_date = ? ORDER BY created",
     ),
     ordersCustomerCount: db.prepare(
       "SELECT COUNT(*) AS n FROM orders WHERE customer = ?",
@@ -466,6 +468,7 @@ export async function openStore(path, { log = console } = {}) {
     const o = {
       ...extra,
       id: r.id,
+      number: r.seq ?? null,
       key: r.idem_key,
       customer: r.customer,
       name: r.name,

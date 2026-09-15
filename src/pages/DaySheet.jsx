@@ -13,6 +13,7 @@ import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import { kgText, money } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
+import RemitoActions from "../components/RemitoActions.jsx";
 import {
   useDay,
   todayKey,
@@ -104,6 +105,12 @@ export default function DaySheet() {
           >
             <Printer size={15} /> Nota
           </Link>
+          <RemitoActions
+            orders={day.orders}
+            date={date}
+            actions={["open", "download"]}
+            labels={{ open: "Imprimir todos los remitos", download: "PDF" }}
+          />
         </div>
       </PageHead>
       {error && <p className="notice error">{error}</p>}
@@ -168,10 +175,19 @@ export default function DaySheet() {
               {list.reduce((s, o) => s + expectedCrates(o), 0)} cajones ·{" "}
               {kgText(list.reduce((s, o) => s + weighedKg(o), 0))}
               {" · "}
+              <RemitoActions
+                orders={list}
+                date={date}
+                driver={driver}
+                actions={["open", "share"]}
+                small
+                labels={{ open: "Remitos PDF", share: "Compartir" }}
+              />
+              {" · "}
               <Link
                 to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
               >
-                Imprimir remitos
+                Talonario 10×15
               </Link>
               {" · "}
               <Link
@@ -245,12 +261,12 @@ export default function DaySheet() {
                               <Scale size={13} /> Pesar
                             </Link>
                           )}
-                          <Link
-                            to={`/imprimir?tipo=remito&pedido=${o.id}`}
-                            className="link-button small"
-                          >
-                            <Printer size={13} /> Remito
-                          </Link>
+                          <RemitoActions
+                            orders={[o]}
+                            actions={["download", "share"]}
+                            small
+                            labels={{ download: "Remito" }}
+                          />
                           {session?.role === "admin" && (
                             <button
                               type="button"

@@ -23,6 +23,7 @@ import {
   planNames,
 } from "../lib/format.js";
 import { StatusBadge } from "./ui.jsx";
+import RemitoActions from "./RemitoActions.jsx";
 import { Tags, Trash2 } from "lucide-react";
 
 const mapsLink = (o) =>
@@ -270,6 +271,9 @@ export default function OrderCard({ order: o, role }) {
             >
               Registrar cobro
             </button>
+          )}
+          {o.status !== "cancelado" && (
+            <RemitoActions orders={[o]} actions={["download", "share"]} />
           )}
           {admin && (
             <button

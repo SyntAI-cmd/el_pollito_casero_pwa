@@ -11,6 +11,7 @@ import {
 import { useStore } from "../lib/store.jsx";
 import { useRoute, Link } from "../lib/router.jsx";
 import { kgText } from "../lib/format.js";
+import RemitoActions from "../components/RemitoActions.jsx";
 import { PageHead } from "../components/ui.jsx";
 import {
   useDay,
@@ -145,12 +146,21 @@ export default function TruckLoading() {
             onChange={(e) => setDate(e.target.value)}
             aria-label="Fecha"
           />
+          {orders.length > 0 && (
+            <RemitoActions
+              orders={orders}
+              date={date}
+              driver={driver}
+              actions={["open", "share"]}
+              labels={{ open: "Remitos PDF" }}
+            />
+          )}
           {isAdmin && orders.length > 0 && (
             <Link
               to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
               className="secondary"
             >
-              <Printer size={15} /> Remitos
+              <Printer size={15} /> Talonario 10×15
             </Link>
           )}
         </div>
