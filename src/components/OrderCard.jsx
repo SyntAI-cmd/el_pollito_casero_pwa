@@ -50,8 +50,7 @@ export default function OrderCard({ order: o, role }) {
   const canWeigh =
     o.status !== "cancelado" &&
     o.status !== "entregado" &&
-    !(o.paid && o.payment !== "cuenta") &&
-    (admin || o.status !== "recibido");
+    !(o.paid && o.payment !== "cuenta");
   // Saldo anterior del cliente: lo que debía antes de este pedido.
   const accountBalance =
     Math.round(
@@ -214,9 +213,12 @@ export default function OrderCard({ order: o, role }) {
             </label>
           )}
           {!admin && o.driver && (
-            <span className="op-driver">Asignado a {o.driver}</span>
+            <span className="op-driver">
+              Asignado a {o.driver}
+              {o.driver2 ? ` y ${o.driver2}` : ""}
+            </span>
           )}
-          {admin && o.status === "recibido" && (
+          {o.status === "recibido" && (
             <button
               className="primary"
               disabled={busy}

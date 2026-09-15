@@ -150,6 +150,20 @@ export function createFloor({
       : driverNames().includes(customer.truck || customer.driver)
         ? customer.truck || customer.driver
         : "";
+    // Segundo preventista (van dos por camión), vehículo y zona del cliente para ese reparto.
+    const driver2 =
+      b.driver2 && b.driver2 !== driver
+        ? oneOf(b.driver2, driverNames(), "segundo preventista")
+        : "";
+    const vehicleId = b.vehicleId
+      ? str(b.vehicleId, { min: 1, max: 20, name: "el vehículo" })
+      : "";
+    if (vehicleId && !store.vehicles.get(vehicleId))
+      fail(400, "Ese vehículo no existe.");
+    const zone =
+      str(b.zone, { max: 60, name: "la zona", optional: true }) ||
+      customer.zone ||
+      "";
     const plan = plans.includes(b.plan) ? b.plan : customer.plan || "mayorista";
     const payment = b.payment
       ? oneOf(b.payment, ["cuenta", "entrega", "transferencia"], "medio")
@@ -201,6 +215,9 @@ export function createFloor({
         driver,
         deliveryDate,
         shift,
+        driver2,
+        vehicleId,
+        zone,
         boxes: 0,
         returned: 0,
         created: now(),
@@ -337,6 +354,211 @@ export function createFloor({
       });
       events.customerChanged(c);
       return json(201, summarize(c));
+    }
+    // Importar clientes desde un Excel (administración): una fila por cliente, encabezados libres
+    // (nombre/apodo, razón social, cuit, zona, dirección, teléfono, preventista/camión, turno, lista).
+    if (path === "/api/customers/importar" && method === "POST") {
+      adminOnly(session);
+      const m = /^data:[^;]+;base64,([A-Za-z0-9+/=]+)$/.exec(
+        String(body.file || ""),
+      );
+      if (!m) fail(400, "Subí un archivo .xlsx.");
+      const { default: ExcelJS } = await import("exceljs");
+      const wb = new ExcelJS.Workbook();
+      try {
+        await wb.xlsx.load(Buffer.from(m[1], "base64"));
+      } catch {
+        fail(400, "No se pudo leer el Excel (¿es .xlsx?).");
+      }
+      const ws = wb.worksheets[0];
+      if (!ws) fail(400, "El Excel está vacío.");
+      const norm = (v) =>
+        String(v ?? "")
+          .normalize("NFD")
+          .replace(/\p{M}/gu, "")
+          .toLowerCase()
+          .trim();
+      const cellText = (c) => {
+        const v = c?.value;
+        if (v === null || v === undefined) return "";
+        if (typeof v === "object")
+          return String(
+            v.text ?? v.result ?? v.richText?.map((r) => r.text).join("") ?? "",
+          ).trim();
+        return String(v).trim();
+      };
+      const headerRow = ws.getRow(1);
+      const cols = {};
+      const aliases = {
+        name: ["nombre", "cliente", "apodo", "nombre de fantasia", "fantasia"],
+        legalName: ["razon social", "razon", "empresa"],
+        cuit: ["cuit", "cuil", "documento"],
+        zone: ["zona", "localidad", "barrio", "ciudad"],
+        address: ["direccion", "domicilio", "calle"],
+        contactPhone: ["telefono", "celular", "whatsapp", "tel", "cel"],
+        truck: ["preventista", "camion", "repartidor", "vendedor"],
+        shift: ["turno"],
+        plan: ["lista", "modalidad", "precio", "categoria"],
+        notes: ["observaciones", "notas", "obs"],
+      };
+      headerRow.eachCell((c, i) => {
+        const h = norm(cellText(c));
+        for (const [k, names] of Object.entries(aliases))
+          if (!cols[k] && names.some((n) => h === n || h.startsWith(n)))
+            cols[k] = i;
+      });
+      if (!cols.name)
+        fail(400, "Falta una columna de nombre/apodo en la primera fila.");
+      const names = driverNames();
+      const planOf = (t) => {
+        const v = norm(t);
+        if (v.startsWith("may")) return "mayorista";
+        if (v.startsWith("inter")) return "intermedio";
+        if (v.startsWith("min")) return "minorista";
+        return "";
+      };
+      const shiftOf = (t) => {
+        const v = norm(t);
+        if (v.startsWith("ma")) return "manana";
+        if (v.startsWith("ta")) return "tarde";
+        return "";
+      };
+      const existing = store.customers.all();
+      let created = 0,
+        updated = 0,
+        skipped = 0;
+      const errors = [];
+      for (let r = 2; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r);
+        const get = (k) => (cols[k] ? cellText(row.getCell(cols[k])) : "");
+        const name = get("name");
+        if (!name) {
+          skipped++;
+          continue;
+        }
+        try {
+          const cuit = get("cuit").replace(/\D/g, "");
+          const phone = normalizePhone(get("contactPhone")) || "";
+          const truckName = names.find(
+            (n) =>
+              norm(n) === norm(get("truck")) ||
+              norm(n).split(" ")[0] === norm(get("truck")),
+          );
+          const fields = {
+            name: FICHA.name(name),
+            alias: FICHA.alias(name),
+            legalName: FICHA.legalName(get("legalName")),
+            cuit: cuit ? FICHA.cuit(cuit) : "",
+            contactPhone: phone,
+            zone: FICHA.zone(get("zone")),
+            address: FICHA.address(get("address")),
+            truck: truckName || "",
+            driver: truckName || "",
+            shift: shiftOf(get("shift")),
+            notes: FICHA.notes(get("notes")),
+            ...(planOf(get("plan")) ? { plan: planOf(get("plan")) } : {}),
+          };
+          const prev =
+            (cuit &&
+              existing.find(
+                (c) => (c.cuit || "").replace(/\D/g, "") === cuit,
+              )) ||
+            (phone &&
+              existing.find(
+                (c) => c.phone === phone || c.contactPhone === phone,
+              )) ||
+            existing.find(
+              (c) =>
+                norm(c.name) === norm(name) || norm(c.alias) === norm(name),
+            );
+          if (prev) {
+            const clean = Object.fromEntries(
+              Object.entries(fields).filter(
+                ([, v]) => v !== "" && v !== undefined,
+              ),
+            );
+            store.customers.save({
+              ...prev,
+              ...clean,
+              status: clean.cuit || prev.cuit ? "ok" : prev.status,
+            });
+            updated++;
+          } else {
+            const key =
+              phone && !store.customers.get(phone)
+                ? phone
+                : "n-" + randomUUID().slice(0, 8);
+            const c = store.customers.save({
+              phone: key,
+              ...fields,
+              plan: fields.plan || "mayorista",
+              credit: true,
+              creditBalance: 0,
+              status: cuit ? "ok" : "incompleto",
+              created: now(),
+            });
+            existing.push(c);
+            created++;
+          }
+        } catch (e) {
+          errors.push(`Fila ${r} (${name}): ${e.message}`);
+        }
+      }
+      store.audit.log(session, "customer.import", "customer", "excel", {
+        created,
+        updated,
+        skipped,
+        errors: errors.length,
+      });
+      events.customerChanged({ phone: "*" });
+      return json(200, {
+        created,
+        updated,
+        skipped,
+        errors: errors.slice(0, 20),
+      });
+    }
+    if (path === "/api/customers/plantilla" && method === "GET") {
+      adminOnly(session);
+      const { default: ExcelJS } = await import("exceljs");
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet("Clientes");
+      ws.addRow([
+        "Nombre",
+        "Razón social",
+        "CUIT",
+        "Zona",
+        "Dirección",
+        "Teléfono",
+        "Preventista",
+        "Turno",
+        "Lista",
+        "Observaciones",
+      ]);
+      ws.addRow([
+        "Kiosco Prueba",
+        "Prueba S.R.L.",
+        "20123456789",
+        "Palmira",
+        "Belgrano 1200",
+        "2634123456",
+        driverNames()[0] || "",
+        "mañana",
+        "mayorista",
+        "",
+      ]);
+      ws.getRow(1).font = { bold: true };
+      ws.columns.forEach((c) => (c.width = 20));
+      return {
+        status: 200,
+        raw: Buffer.from(await wb.xlsx.writeBuffer()),
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            'attachment; filename="Plantilla_clientes_El_Pollito_Casero.xlsx"',
+        },
+      };
     }
     // Eliminar ficha (administración): si no tiene pedidos ni pagos se borra; si tiene historial se archiva
     // (desaparece de las listas, conserva el extracto).
@@ -480,7 +702,8 @@ export function createFloor({
         if (
           session.role === "repartidor" &&
           o.driver &&
-          o.driver !== session.driver
+          o.driver !== session.driver &&
+          o.driver2 !== session.driver
         )
           fail(403, "Ese pedido es de otro camión.");
         if (["entregado", "cancelado"].includes(o.status))
@@ -612,7 +835,9 @@ export function createFloor({
         .forDate(date)
         .filter((o) => o.status !== "cancelado");
       if (session.role === "repartidor")
-        orders = orders.filter((o) => o.driver === session.driver);
+        orders = orders.filter(
+          (o) => o.driver === session.driver || o.driver2 === session.driver,
+        );
       return json(200, {
         date,
         tare: tare(),
@@ -797,6 +1022,7 @@ export function createFloor({
       });
       const wb = new ExcelJS.Workbook();
       wb.creator = "El Pollito Casero";
+      wb.calcProperties.fullCalcOnLoad = true;
       const ws = wb.addWorksheet("Consolidado", {
         views: [{ showGridLines: false, state: "frozen", ySplit: 4 }],
         pageSetup: {
@@ -882,6 +1108,7 @@ export function createFloor({
           minimumFractionDigits: 1,
           maximumFractionDigits: 2,
         });
+      const rows = [];
       const summaries = new Map();
       const summaryOf = (phone) => {
         if (!summaries.has(phone))
@@ -906,6 +1133,7 @@ export function createFloor({
         const crates = store.crates
           .forOrder(o.id)
           .filter((x) => !x.voided && boxed.has(x.productId)).length;
+        rows.push({ crates, kilos, total: round2(o.total) });
         const values = [
           remitoNumber(o),
           c.alias || o.name,
@@ -938,11 +1166,16 @@ export function createFloor({
       });
       const t = ws.getRow(totalRow);
       t.height = 21.75;
+      // Valores calculados además de la fórmula: los visores que no recalculan (celular, Google
+      // Sheets, vista previa) mostraban el resumen vacío.
+      const sumCrates = rows.reduce((s2, r) => s2 + r.crates, 0);
+      const sumKg = round2(rows.reduce((s2, r) => s2 + r.kilos, 0));
+      const sumTotal = round2(rows.reduce((s2, r) => s2 + r.total, 0));
       const totals = {
         2: `TOTAL (${orders.length} pedidos)`,
-        5: { formula: `SUM(E${first}:E${lastData})` },
-        6: { formula: `SUM(F${first}:F${lastData})` },
-        9: { formula: `SUM(I${first}:I${lastData})` },
+        5: { formula: `SUM(E${first}:E${lastData})`, result: sumCrates },
+        6: { formula: `SUM(F${first}:F${lastData})`, result: sumKg },
+        9: { formula: `SUM(I${first}:I${lastData})`, result: sumTotal },
       };
       for (let k = 1; k <= last; k++) {
         const cell = t.getCell(k);
@@ -963,16 +1196,28 @@ export function createFloor({
       rh.fill = fill(BLACK);
       rh.alignment = { horizontal: "center", vertical: "middle" };
       const summary = [
-        ["Pedidos", { formula: `COUNTA(A${first}:A${lastData})` }, "0"],
+        [
+          "Pedidos",
+          { formula: `COUNTA(A${first}:A${lastData})`, result: orders.length },
+          "0",
+        ],
         ["Clientes", new Set(orders.map((o) => o.customer)).size, "0"],
-        ["Cajones", { formula: `E${totalRow}` }, "0"],
-        ["Kilos", { formula: `F${totalRow}` }, '#,##0.00" kg"'],
+        ["Cajones", { formula: `E${totalRow}`, result: sumCrates }, "0"],
+        ["Kilos", { formula: `F${totalRow}`, result: sumKg }, '#,##0.00" kg"'],
         [
           "Precio por kg",
-          { formula: `IF(F${totalRow}=0,0,I${totalRow}/F${totalRow})` },
+          {
+            formula: `IF(F${totalRow}=0,0,I${totalRow}/F${totalRow})`,
+            result: sumKg ? round2(sumTotal / sumKg) : 0,
+          },
           "\\$#,##0.00",
         ],
-        ["Total del día", { formula: `I${totalRow}` }, "\\$#,##0.00", true],
+        [
+          "Total del día",
+          { formula: `I${totalRow}`, result: sumTotal },
+          "\\$#,##0.00",
+          true,
+        ],
       ];
       summary.forEach(([label, value, fmt, gold], i) => {
         const a = ws.getCell(first + i, M),

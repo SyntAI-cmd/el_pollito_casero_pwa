@@ -341,7 +341,9 @@ const server = http.createServer(async (req, res) => {
           ? {}
           : await readBody(
               req,
-              /\/comprobantes?$/.test(path) ? 3_500_000 : 50000,
+              /\/comprobantes?$|\/customers\/importar$/.test(path)
+                ? 6_000_000
+                : 50000,
             );
       const result = await api({
         method: req.method,

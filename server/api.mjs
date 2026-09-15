@@ -76,6 +76,9 @@ const actorOf = (s) =>
       : s?.name || "cliente";
 
 const PAY_METHODS = ["efectivo", "transferencia", "cheque", "mercadopago"];
+/** Un pedido es de un preventista si va como primero o segundo preventista. */
+const mine = (session, o) =>
+  o.driver === session.driver || o.driver2 === session.driver;
 
 export function createApi({
   store,
@@ -607,15 +610,16 @@ export function createApi({
       const next = oneOf(b.status, statuses, "estado");
       if (statuses.indexOf(next) !== statuses.indexOf(o.status) + 1)
         fail(400, "El pedido debe avanzar un estado por vez.");
-      if (next === "preparando" && role !== "admin")
-        fail(403, "Administración inicia la preparación.");
+      // El preventista arranca la preparación de sus propios pedidos (no espera a administración).
+      if (
+        next === "preparando" &&
+        role !== "admin" &&
+        !(role === "repartidor" && mine(session, o))
+      )
+        fail(403, "Ese pedido no es tuyo.");
       if (next === "en_camino" && !o.driver)
         fail(400, "Asigná un repartidor primero.");
-      if (
-        next === "en_camino" &&
-        role === "repartidor" &&
-        o.driver !== session.driver
-      )
+      if (next === "en_camino" && role === "repartidor" && !mine(session, o))
         fail(403, "Ese pedido no es tuyo.");
       if (next === "entregado") {
         if (o.payment !== "cuenta" && !o.paid)
@@ -674,7 +678,7 @@ export function createApi({
     if (b.location) {
       const { lat, lng } = latLng(b.location);
       if (o.status !== "en_camino") fail(400, "El pedido no está en camino.");
-      if (role === "repartidor" && o.driver !== session.driver)
+      if (role === "repartidor" && !mine(session, o))
         fail(403, "Ese pedido no es tuyo.");
       o.location = { lat, lng, at: now() };
       o.track = [...(o.track || []), [lat, lng]].slice(-200);
@@ -1846,7 +1850,8 @@ export function createEvents() {
     client.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const sees = (session, o) =>
     session.role === "admin" ||
-    (session.role === "repartidor" && o.driver === session.driver) ||
+    (session.role === "repartidor" &&
+      (o.driver === session.driver || o.driver2 === session.driver)) ||
     (session.role === "cliente" &&
       ((!!session.phone && o.customer === session.phone) ||
         (!!session.accountId && o.accountId === session.accountId) ||

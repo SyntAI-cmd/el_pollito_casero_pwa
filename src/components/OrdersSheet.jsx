@@ -79,7 +79,8 @@ export default function OrdersSheet({ sheet }) {
                   <th className="num">Importe</th>
                   <th>Pago</th>
                   <th>Estado</th>
-                  <th className="check">Prep.</th>
+                  <th className="check">Cargado</th>
+                  <th className="obs">Observaciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,6 +118,7 @@ export default function OrdersSheet({ sheet }) {
                     <td>{paymentLabel(o)}</td>
                     <td>{labels[o.status]}</td>
                     <td className="check">☐</td>
+                    <td className="obs"></td>
                   </tr>
                 ))}
               </tbody>

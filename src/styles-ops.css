@@ -814,3 +814,203 @@ dialog form .delivery-point-status {
 .receipts-groups header small {
   color: var(--muted);
 }
+
+/* Hoja de pedidos impresa: casillero de cargado y espacio para observaciones a mano */
+.sheet-table th.obs,
+.sheet-table td.obs {
+  min-width: 160px;
+  width: 22%;
+}
+.sheet-table td.obs {
+  border-bottom: 1px dotted #999;
+}
+@media print {
+  .sheet-table td.obs {
+    height: 34px;
+  }
+  .sheet-table td.check {
+    font-size: 18px;
+  }
+}
+/* Cartel de mensajes nuevos */
+.unread-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 0 0 14px;
+  background: var(--red);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 30px #c9262e44;
+  animation: unread-pulse 1.6s ease-in-out infinite;
+}
+.unread-banner span {
+  display: grid;
+  gap: 2px;
+}
+.unread-banner strong {
+  font-size: 16px;
+}
+.unread-banner small {
+  font-size: 12px;
+  opacity: 0.9;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+@keyframes unread-pulse {
+  0%,
+  100% {
+    box-shadow: 0 10px 30px #c9262e44;
+  }
+  50% {
+    box-shadow: 0 10px 34px #c9262e88;
+  }
+}
+.import-customers {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Hoja de viaje (una por camioneta), pensada para A4 apaisada y para completar a mano */
+.trip-sheet {
+  background: #fff;
+  color: #111;
+  padding: 18px 20px;
+  margin: 0 0 24px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  page-break-after: always;
+  break-after: page;
+}
+.trip-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  border-bottom: 2px solid #c9262e;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+.trip-brand img {
+  width: 150px;
+  height: auto;
+}
+.trip-head dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+}
+.trip-head dt {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #666;
+}
+.trip-head dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+}
+.trip-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.trip-table th,
+.trip-table td {
+  border: 1px solid #888;
+  padding: 5px 6px;
+  vertical-align: top;
+}
+.trip-table th {
+  background: #f5c400;
+  color: #111;
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  text-align: left;
+}
+.trip-table th.num,
+.trip-table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.trip-table th.n,
+.trip-table td.n {
+  width: 24px;
+  text-align: center;
+  color: #666;
+}
+.trip-table td small {
+  display: block;
+  color: #555;
+  font-size: 10.5px;
+}
+.trip-table .hand {
+  width: 80px;
+  background: #fffdf3;
+}
+.trip-table .hand.wide {
+  width: 22%;
+}
+.trip-table tr.blank td {
+  height: 30px;
+}
+.trip-table td .line {
+  display: inline-block;
+  width: 46px;
+  border-bottom: 1px solid #999;
+  height: 12px;
+}
+.trip-table .dash {
+  color: #aaa;
+}
+.trip-table tfoot td {
+  font-weight: 700;
+  background: #f4f2ec;
+}
+.trip-foot {
+  margin-top: 14px;
+  display: grid;
+  gap: 18px;
+  font-size: 12px;
+}
+.trip-foot > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.trip-foot .signatures {
+  display: flex;
+  justify-content: space-between;
+  gap: 40px;
+  margin-top: 26px;
+}
+.trip-foot .signatures span {
+  flex: 1;
+  border-top: 1px solid #111;
+  padding-top: 4px;
+  text-align: center;
+  color: #555;
+}
+@media print {
+  .trip-sheet {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .trip-table tr.blank td {
+    height: 34px;
+  }
+}

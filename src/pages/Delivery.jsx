@@ -16,6 +16,7 @@ import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import News from "../components/News.jsx";
 import TruckLocation from "../components/TruckLocation.jsx";
+import UnreadBanner from "../components/UnreadBanner.jsx";
 import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
@@ -84,6 +85,7 @@ export default function Delivery() {
           </span>
         </div>
       </PageHead>
+      <UnreadBanner />
       {sharing && (
         <div className="notice sharing-notice">
           <Navigation size={18} /> Estás compartiendo tu ubicación para el

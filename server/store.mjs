@@ -227,7 +227,7 @@ export async function openStore(path, { log = console } = {}) {
       "SELECT rowid AS seq, * FROM orders WHERE customer = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersDriver: db.prepare(
-      "SELECT rowid AS seq, * FROM orders WHERE driver = ? ORDER BY created DESC, rowid DESC",
+      "SELECT rowid AS seq, * FROM orders WHERE driver = ? OR json_extract(data, '$.driver2') = ? ORDER BY created DESC, rowid DESC",
     ),
     ordersAccount: db.prepare(
       "SELECT rowid AS seq, * FROM orders WHERE account_id = ? ORDER BY created DESC, rowid DESC",
@@ -917,7 +917,7 @@ export async function openStore(path, { log = console } = {}) {
     orders: {
       all: () => q.ordersAll.all().map(rowToOrder),
       forCustomer: (phone) => q.ordersCustomer.all(phone).map(rowToOrder),
-      forDriver: (name) => q.ordersDriver.all(name).map(rowToOrder),
+      forDriver: (name) => q.ordersDriver.all(name, name).map(rowToOrder),
       get: (id) => rowToOrder(q.order.get(id)),
       byKey: (key) => rowToOrder(q.orderByKey.get(key)),
       forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),

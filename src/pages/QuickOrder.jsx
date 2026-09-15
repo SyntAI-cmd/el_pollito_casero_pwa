@@ -10,6 +10,8 @@ import {
   Package,
   CalendarDays,
   Pencil,
+  Users,
+  MapPin,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
@@ -58,6 +60,19 @@ export default function QuickOrder() {
   const [deliveryDate, setDeliveryDate] = useState(defaultDelivery());
   const [shift, setShift] = useState("");
   const [driver, setDriver] = useState("");
+  const [driver2, setDriver2] = useState("");
+  const [vehicleId, setVehicleId] = useState("");
+  const [zone, setZone] = useState("");
+  const [vehicles, setVehicles] = useState([]);
+  useEffect(() => {
+    api("/vehicles")
+      .then((v) => setVehicles(v.filter((x) => x.active)))
+      .catch(() => {});
+  }, []);
+  const zones = useMemo(
+    () => [...new Set(customers.map((c) => c.zone).filter(Boolean))].sort(),
+    [customers],
+  );
   const [payment, setPayment] = useState("");
   const [notes, setNotes] = useState("");
   const [created, setCreated] = useState(null);
@@ -89,6 +104,8 @@ export default function QuickOrder() {
     setQuery("");
     setShift(c.shift || "");
     setDriver(drivers.includes(c.truck || c.driver) ? c.truck || c.driver : "");
+    setDriver2("");
+    setZone(c.zone || "");
     setPayment(c.credit ? "cuenta" : "entrega");
     setTimeout(() => document.querySelector(".qo-box input")?.focus(), 0);
   }
@@ -181,6 +198,9 @@ export default function QuickOrder() {
       deliveryDate,
       shift: shift || undefined,
       driver: driver || undefined,
+      driver2: driver2 || undefined,
+      vehicleId: vehicleId || undefined,
+      zone: zone || undefined,
       payment: payment || undefined,
       plan: picked.plan || "mayorista",
       notes,
@@ -396,17 +416,65 @@ export default function QuickOrder() {
                 <option value="tarde">Tarde</option>
               </select>
             </label>
+            {vehicles.length > 0 && (
+              <label>
+                <Truck size={14} /> Vehículo
+                <select
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                >
+                  <option value="">Sin vehículo</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {vehicleLabel(v)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
-              <Truck size={14} /> Camión
+              <Users size={14} /> Preventista
               <select
                 value={driver}
-                onChange={(e) => setDriver(e.target.value)}
+                onChange={(e) => {
+                  setDriver(e.target.value);
+                  if (driver2 === e.target.value) setDriver2("");
+                }}
               >
                 <option value="">Asignar después</option>
                 {drivers.map((d) => (
                   <option key={d}>{d}</option>
                 ))}
               </select>
+            </label>
+            <label>
+              <Users size={14} /> Segundo preventista
+              <select
+                value={driver2}
+                onChange={(e) => setDriver2(e.target.value)}
+              >
+                <option value="">Va solo</option>
+                {drivers
+                  .filter((d) => d !== driver)
+                  .map((d) => (
+                    <option key={d}>{d}</option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              <MapPin size={14} /> Zona
+              <input
+                list="qo-zonas"
+                value={zone}
+                onChange={(e) => setZone(e.target.value)}
+                placeholder="Zona del cliente"
+                maxLength="60"
+              />
+              <datalist id="qo-zonas">
+                {zones.map((z) => (
+                  <option key={z} value={z} />
+                ))}
+              </datalist>
             </label>
             <label>
               <Wallet size={14} /> Pago

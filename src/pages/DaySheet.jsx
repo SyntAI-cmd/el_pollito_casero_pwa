@@ -14,6 +14,7 @@ import { Link, useRoute } from "../lib/router.jsx";
 import { kgText, money } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
+import UnreadBanner from "../components/UnreadBanner.jsx";
 import {
   useDay,
   todayKey,
@@ -105,6 +106,13 @@ export default function DaySheet() {
           >
             <Printer size={15} /> Nota
           </Link>
+          <Link
+            to={`/imprimir?tipo=viaje&fecha=${date}`}
+            className="secondary"
+            title="Una hoja por camioneta: nombre, saldo, pedido, precio, kilos y espacio para completar a mano"
+          >
+            <Printer size={15} /> Hojas de viaje
+          </Link>
           <RemitoActions
             orders={day.orders}
             date={date}
@@ -114,6 +122,7 @@ export default function DaySheet() {
         </div>
       </PageHead>
       {error && <p className="notice error">{error}</p>}
+      <UnreadBanner />
       <News compact />
       <section className="panel">
         <div className="section-line">

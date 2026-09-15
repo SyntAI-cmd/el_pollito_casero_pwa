@@ -28,7 +28,9 @@ export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
   const canTouch = (session, o) =>
     session.role === "admin" ||
     (session.role === "repartidor" &&
-      (!o.driver || o.driver === session.driver));
+      (!o.driver ||
+        o.driver === session.driver ||
+        o.driver2 === session.driver));
 
   return async function handle({ method, path, body, query, session }) {
     const json = (status, b, extra = {}) => ({ status, body: b, ...extra });

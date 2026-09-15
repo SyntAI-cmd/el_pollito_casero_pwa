@@ -82,6 +82,7 @@ const DRIVER_ROUTES = {
   "/reparto/nuevo": QuickOrder,
   "/reparto/pesada": Weighing,
   "/reparto/carga": TruckLoading,
+  "/imprimir": Print,
   "/ayuda": Help,
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };

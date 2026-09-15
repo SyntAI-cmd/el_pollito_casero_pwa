@@ -183,6 +183,7 @@ export function StoreProvider({ children }) {
       (type, data) => {
         if (type === "message") {
           loadChat(data.thread).catch(() => {});
+          announceMessage(data);
           return;
         }
         if (type === "orders")
@@ -708,6 +709,42 @@ export function StoreProvider({ children }) {
     (s, n) => s + n,
     0,
   );
+  /** Mensaje nuevo del chat: cartel en la app, sonido y aviso del sistema si la pestaña está atrás. */
+  function announceMessage(data) {
+    const role = sessionRef.current?.role;
+    if (!role || role === "cliente") return;
+    if (
+      chatOpen.current &&
+      (role === "repartidor" || chatThread.current === data.thread)
+    )
+      return;
+    const who =
+      role === "admin"
+        ? (data.thread || "").slice(11) || "reparto"
+        : "administración";
+    notify(`Mensaje nuevo de ${who}: tocá el chat para leerlo.`);
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = 880;
+      g.gain.value = 0.08;
+      o.connect(g).connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.18);
+    } catch {}
+    if (
+      document.hidden &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    )
+      try {
+        new Notification(`Pollito Casero · mensaje de ${who}`, {
+          body: "Abrí el chat interno.",
+          tag: "chat",
+        });
+      } catch {}
+  }
 
   const returnBoxes = (customer, boxes) =>
     run(

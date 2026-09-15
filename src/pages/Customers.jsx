@@ -10,6 +10,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import ImportCustomers from "../components/ImportCustomers.jsx";
 import { money, normalize, waLink } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
 
@@ -26,7 +27,7 @@ export const statusNames = {
  * del pollo, saldo y envases. Desde acá se edita la ficha, los precios y se cobra.
  */
 export default function Customers() {
-  const { customers, config, setModal, busy } = useStore();
+  const { customers, config, setModal, busy, session } = useStore();
   const [q, setQ] = useState("");
   const [zone, setZone] = useState("");
   const [shift, setShift] = useState("");
@@ -128,6 +129,7 @@ export default function Customers() {
         >
           <UserPlus size={15} /> Nuevo cliente
         </button>
+        {session?.role === "admin" && <ImportCustomers />}
       </div>
       {list.length === 0 ? (
         <p className="muted">Ningún cliente coincide con el filtro.</p>

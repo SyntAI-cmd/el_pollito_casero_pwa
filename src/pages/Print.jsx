@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Printer, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute, Link } from "../lib/router.jsx";
@@ -8,6 +8,8 @@ import RouteSheet from "../components/RouteSheet.jsx";
 import OrdersSheet from "../components/OrdersSheet.jsx";
 import Remito from "../components/Remito.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
+import TripSheet from "../components/TripSheet.jsx";
+import { api } from "../lib/api.js";
 
 /**
  * Vista de impresión: /imprimir?tipo=pedidos|ruta|remito|remitos&fecha=YYYY-MM-DD&repartidor=Nombre&pedido=PC-…
@@ -20,6 +22,14 @@ export default function Print() {
   const fecha = query.get("fecha") || today();
   const repartidor = query.get("repartidor") || config?.drivers?.[0] || "";
   const auto = query.get("auto") === "1";
+  const vehiculo = query.get("vehiculo") || "";
+  const [trips, setTrips] = useState([]);
+  useEffect(() => {
+    if (tipo !== "viaje") return;
+    api("/salidas?fecha=" + fecha)
+      .then(setTrips)
+      .catch(() => setTrips([]));
+  }, [tipo, fecha]);
   useEffect(() => {
     document.body.classList.add("printing");
     return () => document.body.classList.remove("printing");
@@ -30,7 +40,7 @@ export default function Print() {
       return () => clearTimeout(t);
     }
   }, [auto, loaded, session]);
-  if (session?.role !== "admin")
+  if (session?.role !== "admin" && session?.role !== "repartidor")
     return (
       <>
         <PageHead
@@ -67,6 +77,88 @@ export default function Print() {
                 ) || a.name.localeCompare(b.name),
             )
         : null;
+  if (tipo === "viaje") {
+    const dayOrders = orders.filter(
+      (o) => o.deliveryDate === fecha && o.status !== "cancelado",
+    );
+    // Un viaje por salida (vehículo del día): sus pedidos son los asignados al vehículo o a sus
+    // preventistas. Sin salidas armadas, un viaje por preventista.
+    const tripList = trips.filter((t) => !vehiculo || t.vehicleId === vehiculo);
+    const assigned = new Set();
+    const sheets = tripList.map((t) => {
+      const list = dayOrders.filter(
+        (o) =>
+          o.vehicleId === t.vehicleId ||
+          (!o.vehicleId &&
+            (t.drivers.includes(o.driver) || t.drivers.includes(o.driver2))),
+      );
+      list.forEach((o) => assigned.add(o.id));
+      return {
+        key: t.id,
+        vehicle: t.vehicle,
+        drivers: t.drivers,
+        departure: t.departure,
+        orders: list,
+      };
+    });
+    if (!vehiculo) {
+      const rest = dayOrders.filter((o) => !assigned.has(o.id));
+      const byDriver = {};
+      for (const o of rest)
+        (byDriver[o.driver || "Sin asignar"] ||= []).push(o);
+      for (const [d, list] of Object.entries(byDriver))
+        sheets.push({
+          key: "d:" + d,
+          vehicle: null,
+          drivers: d === "Sin asignar" ? [] : [d],
+          departure: "",
+          orders: list,
+        });
+    }
+    const sortStops = (list) =>
+      [...list].sort(
+        (a, b) =>
+          (a.zone || a.locality?.name || "").localeCompare(
+            b.zone || b.locality?.name || "",
+          ) || a.name.localeCompare(b.name),
+      );
+    return (
+      <div className="print-page viajes">
+        <style>{"@page { size: A4 landscape; margin: 10mm; }"}</style>
+        <div className="print-toolbar no-print">
+          <Link
+            to={session.role === "admin" ? "/operacion/dia" : "/reparto/carga"}
+            className="secondary"
+          >
+            <ArrowLeft size={15} /> Volver
+          </Link>
+          <span className="muted">
+            {sheets.length}{" "}
+            {sheets.length === 1 ? "hoja de viaje" : "hojas de viaje"} · A4
+            apaisada, una por camioneta
+          </span>
+          <button className="primary" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
+        {sheets.length === 0 ? (
+          <p className="muted">No hay pedidos para esta fecha.</p>
+        ) : (
+          sheets.map((s) => (
+            <TripSheet
+              key={s.key}
+              date={fecha}
+              vehicle={s.vehicle}
+              drivers={s.drivers}
+              departure={s.departure}
+              orders={sortStops(s.orders)}
+              customers={customers}
+            />
+          ))
+        )}
+      </div>
+    );
+  }
   if (remitoOrders)
     return (
       <div className="print-page remitos">

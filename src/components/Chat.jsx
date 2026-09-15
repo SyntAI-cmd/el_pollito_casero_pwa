@@ -27,6 +27,12 @@ export default function Chat() {
       openChat(admin ? chat.thread || `repartidor:${drivers[0]}` : undefined);
     else closeChat();
   }, [open]);
+  // El cartel de mensajes nuevos (inicio) abre el chat desde afuera.
+  useEffect(() => {
+    const h = () => setOpen(true);
+    window.addEventListener("pollito:open-chat", h);
+    return () => window.removeEventListener("pollito:open-chat", h);
+  }, []);
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [chat.messages, open]);
