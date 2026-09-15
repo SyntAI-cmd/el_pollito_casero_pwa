@@ -113,9 +113,20 @@ export default function OrderCard({ order: o, role }) {
           <li key={p.id}>
             <span>{p.name}</span>
             <strong>
-              {kgText(p.kg)}
-              {p.weighed && p.ordered !== p.kg && (
-                <small> · pedido {kgText(p.ordered)}</small>
+              {p.boxes ? (
+                <>
+                  Pidió {p.boxes} {p.boxes === 1 ? "caja" : "cajas"}
+                  <small>
+                    {p.kg > 0 ? ` · pesaron ${kgText(p.kg)}` : " · sin pesar"}
+                  </small>
+                </>
+              ) : (
+                <>
+                  {kgText(p.kg)}
+                  {p.weighed && p.ordered !== p.kg && (
+                    <small> · pedido {kgText(p.ordered)}</small>
+                  )}
+                </>
               )}
             </strong>
           </li>

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { uploadReceipt, receiptsOf } from "../lib/photo.js";
+import { del } from "../lib/api.js";
 import Receipts from "./Receipts.jsx";
 import DeliveryPoint from "./DeliveryPoint.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
@@ -480,6 +481,23 @@ function Profile() {
 
 /** Ficha GC: alta rápida (sin CUIT queda "incompleto") y edición. */
 function Ficha({ customer }) {
+  const { session, notify, setModal, loadCustomers } = useStore();
+  const remove = async () => {
+    if (
+      !window.confirm(
+        `¿Eliminar a ${customer.name}? Si tiene pedidos o pagos queda archivado (sale de las listas pero conserva su historial).`,
+      )
+    )
+      return;
+    try {
+      const r = await del("/customers/" + encodeURIComponent(customer.phone));
+      notify(r.archived ? "Cliente archivado." : "Cliente eliminado.");
+      await loadCustomers();
+      setModal(null);
+    } catch (e) {
+      notify(e.message);
+    }
+  };
   const { saveFicha, createCustomer, busy, customers } = useStore();
   const zones = [
     ...new Set(customers.map((c) => c.zone).filter(Boolean)),
@@ -508,23 +526,45 @@ function Ficha({ customer }) {
           customer ? saveFicha(customer, f) : createCustomer(f)
         }
       />
+      {session?.role === "admin" && (
+        <button type="button" className="link-button danger" onClick={remove}>
+          <Trash2 size={14} /> Eliminar cliente
+        </button>
+      )}
     </>
   );
 }
 
 /** Precios propios por producto; vacío = precio de lista de la modalidad. */
 function Prices({ customer }) {
-  const { products, savePrices, busy } = useStore();
+  const { products, savePrices, saveFicha, busy } = useStore();
   const [values, setValues] = useState(() => ({ ...(customer.prices || {}) }));
-  const listPrice = (p) => productPriceOf(p, customer.plan || "mayorista");
+  const [plan, setPlan] = useState(customer.plan || "mayorista");
+  const listPrice = (p) => productPriceOf(p, plan);
   return (
     <>
       <span className="eyebrow">PRECIOS DE {customer.name.toUpperCase()}</span>
       <h2>Precio por kilo</h2>
       <p>
         Lo que este cliente paga por cada corte. Dejá vacío para usar la lista{" "}
-        {planNames[customer.plan || "mayorista"].toLowerCase()}.
+        {planNames[plan].toLowerCase()}.
       </p>
+      <label>
+        Lista de precios
+        <select
+          value={plan}
+          onChange={(e) => {
+            setPlan(e.target.value);
+            saveFicha(customer, { plan: e.target.value }, { keepOpen: true });
+          }}
+        >
+          {Object.entries(planNames).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      </label>
       <form
         onSubmit={(e) => {
           e.preventDefault();

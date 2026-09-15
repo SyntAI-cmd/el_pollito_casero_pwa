@@ -3,34 +3,9 @@ import { Truck, Plus } from "lucide-react";
 import { api, post, patch } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
 
-/** Flota: los vehículos con los que sale el reparto (nombre y patente). Solo administración. */
-export default function Vehicles() {
-  const { notify } = useStore();
-  const [list, setList] = useState([]);
-  const [adding, setAdding] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const load = () =>
-    api("/vehicles")
-      .then(setList)
-      .catch((e) => notify(e.message));
-  useEffect(() => {
-    load();
-  }, []);
-  const run = async (fn) => {
-    setBusy(true);
-    try {
-      await fn();
-      await load();
-      return true;
-    } catch (e) {
-      notify(e.message);
-      return false;
-    } finally {
-      setBusy(false);
-    }
-  };
-  const Form = ({ v, onDone }) => (
+/** Formulario de un vehículo (fuera del componente padre para que las actualizaciones en vivo no lo remonten). */
+function VehicleForm({ v, onDone, run, busy }) {
+  return (
     <form
       className="driver-form"
       onSubmit={async (e) => {
@@ -87,6 +62,35 @@ export default function Vehicles() {
       </div>
     </form>
   );
+}
+
+/** Flota: los vehículos con los que sale el reparto (nombre y patente). Solo administración. */
+export default function Vehicles() {
+  const { notify } = useStore();
+  const [list, setList] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = () =>
+    api("/vehicles")
+      .then(setList)
+      .catch((e) => notify(e.message));
+  useEffect(() => {
+    load();
+  }, []);
+  const run = async (fn) => {
+    setBusy(true);
+    try {
+      await fn();
+      await load();
+      return true;
+    } catch (e) {
+      notify(e.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <section className="panel">
       <div className="section-line">
@@ -101,7 +105,9 @@ export default function Vehicles() {
           <Plus size={14} /> Agregar vehículo
         </button>
       </div>
-      {adding && <Form onDone={() => setAdding(false)} />}
+      {adding && (
+        <VehicleForm onDone={() => setAdding(false)} run={run} busy={busy} />
+      )}
       {list.length === 0 && !adding ? (
         <p className="muted">
           Todavía no hay vehículos. Cargá cada camión (ej. "Toyota Hino A7234")
@@ -123,7 +129,12 @@ export default function Vehicles() {
                 editing === v.id ? (
                   <tr key={v.id}>
                     <td colSpan="4">
-                      <Form v={v} onDone={() => setEditing(null)} />
+                      <VehicleForm
+                        v={v}
+                        onDone={() => setEditing(null)}
+                        run={run}
+                        busy={busy}
+                      />
                     </td>
                   </tr>
                 ) : (

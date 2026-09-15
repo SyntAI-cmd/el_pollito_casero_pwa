@@ -4,7 +4,10 @@
     {
       "name": "pollito-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
@@ -15,6 +18,15 @@
         "process.env.DEMO='1';process.argv.push('--dev');import('./server.mjs')"
       ],
       "port": 5173
+    },
+    {
+      "name": "pollito-prod",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "-e",
+        "process.env.PORT='5174';process.env.DEMO='1';process.env.SITE_URL='http://localhost:5174';import('./server.mjs')"
+      ],
+      "port": 5174
     }
   ]
 }

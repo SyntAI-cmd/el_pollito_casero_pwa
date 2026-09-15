@@ -29,6 +29,8 @@ import OrderCard from "../components/OrderCard.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
 import CashClosure from "../components/CashClosure.jsx";
 import ReceiptsDay from "../components/ReceiptsDay.jsx";
+import RemitoActions from "../components/RemitoActions.jsx";
+import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
@@ -158,6 +160,16 @@ export default function Operations() {
               >
                 <Printer size={15} /> Hoja de pedidos
               </Link>
+              <RemitoActions
+                orders={orders.filter(
+                  (o) =>
+                    o.status !== "cancelado" &&
+                    (o.deliveryDate || o.created.slice(0, 10)) === today(),
+                )}
+                date={today()}
+                actions={["open"]}
+                labels={{ open: "Imprimir todos los remitos (orig. + dupl.)" }}
+              />
             </>
           )}
         </div>
@@ -208,7 +220,7 @@ export default function Operations() {
               onChange={(e) => setDriverFilter(e.target.value)}
               aria-label="Filtrar por repartidor"
             >
-              <option value="">Todos los repartidores</option>
+              <option value="">Todos los preventistas</option>
               {drivers.map((d) => (
                 <option key={d}>{d}</option>
               ))}

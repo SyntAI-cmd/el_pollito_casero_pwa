@@ -33,10 +33,10 @@ const fmt = (n) =>
 
 /**
  * Pesada: se elige el pedido de la nota del día, después el producto, y se carga el peso.
- *  - Modo lote (por defecto): cuántas cajas van juntas y el peso neto total; el servidor crea un
- *    cajón por caja con el neto repartido, así la carga del camión y el remito siguen contando cajas.
- *  - Modo cajón: se tipea el bruto de cada cajón y la app resta la tara (como el talonario).
- *  - Ítems pedidos por kilo: se pesan como bulto y se comparan contra lo pedido.
+ *  - Se pesan las cajas juntas: cantidad de cajas y peso BRUTO total; la app descuenta la tara por
+ *    caja (1,7 kg × cajas) y guarda el neto. El servidor crea un cajón por caja con el neto
+ *    repartido, así la carga del camión y el remito siguen contando cajas.
+ *  - Ítems pedidos por kilo: se pesan como bulto (bruto − una tara) y se comparan contra lo pedido.
  * Funciona sin señal: la pesada queda en el dispositivo y se envía sola al volver la conexión.
  */
 const batchOf = (crate) => String(crate.id).split(":")[0];
@@ -48,7 +48,6 @@ export default function Weighing() {
   const [selected, setSelected] = useState(query.get("pedido") || null);
   const [product, setProduct] = useState(null);
   const [gross, setGross] = useState("");
-  const [mode, setMode] = useState("lote"); // "lote" (cajas + neto total) | "cajon" (bruto por cajón)
   const [boxes, setBoxes] = useState("");
   const [queued, setQueued] = useState(pending().length);
   useEffect(() => onOutbox((l) => setQueued(l.length)), []);
@@ -96,12 +95,11 @@ export default function Weighing() {
     1,
     Math.min(500, Math.round(Number(boxes) || remaining)),
   );
-  // Neto de la pesada: en lote se tipea directo; por cajón se descuenta la tara del bruto.
+  // Neto de la pesada: bruto total − tara por cada caja del lote.
+  const tareTotal = Math.round(tare * nBoxes * 100) / 100;
   const net = !Number.isFinite(g)
     ? null
-    : mode === "lote"
-      ? Math.round(g * 100) / 100
-      : Math.round((g - tare) * 100) / 100;
+    : Math.round((g - tareTotal) * 100) / 100;
   // Cajones agrupados por lote para la lista (un lote de 30 cajas es una sola línea).
   const groups = useMemo(() => {
     const out = [];
@@ -117,7 +115,7 @@ export default function Weighing() {
   async function confirm() {
     if (!order || !product || !Number.isFinite(g) || net <= 0) return;
     const id = crypto.randomUUID();
-    const count = mode === "lote" ? nBoxes : 1;
+    const count = nBoxes;
     const each = Math.round((net / count) * 100) / 100;
     const at = new Date().toISOString();
     // Optimista: se ven los cajones al instante, aunque no haya señal.
@@ -146,10 +144,7 @@ export default function Weighing() {
     }));
     setGross("");
     setBoxes("");
-    const body =
-      mode === "lote"
-        ? { id, productId: product, boxes: count, net }
-        : { id, productId: product, gross: g };
+    const body = { id, productId: product, boxes: count, gross: g };
     const r = await send(`/orders/${order.id}/crates`, body).catch((e) => {
       notify(e.message);
       reload({ silent: true });
@@ -195,7 +190,7 @@ export default function Weighing() {
         description={
           order
             ? `${order.driver || "Sin camión"} · ${order.locality?.name || ""} · tara ${fmt(tare)} kg por cajón`
-            : `Elegí el pedido y cargá las cajas con su peso neto total, o el bruto cajón por cajón (la app resta ${fmt(tare)} kg de tara).`
+            : `Elegí el pedido, indicá cuántas cajas van juntas y el peso bruto total: la app resta ${fmt(tare)} kg de tara por caja.`
         }
       >
         <div className="head-actions">
@@ -338,31 +333,7 @@ export default function Weighing() {
                       : `Cajón ${done.length + 1} de ${item.boxes} · ${kgText(kgDone)} acumulados`
                     : `Bulto ${done.length + 1} · ${kgText(kgDone)} de ${kgText(item.ordered ?? item.kg)} pedidos`}
                 </p>
-                <div
-                  className="weigh-mode"
-                  role="radiogroup"
-                  aria-label="Forma de pesar"
-                >
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={mode === "lote"}
-                    className={mode === "lote" ? "active" : ""}
-                    onClick={() => setMode("lote")}
-                  >
-                    Cajas juntas (neto)
-                  </button>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={mode === "cajon"}
-                    className={mode === "cajon" ? "active" : ""}
-                    onClick={() => setMode("cajon")}
-                  >
-                    Cajón por cajón (bruto)
-                  </button>
-                </div>
-                {mode === "lote" && (
+                {
                   <label className="weigh-boxes">
                     Cajas que van juntas
                     <span>
@@ -395,11 +366,9 @@ export default function Weighing() {
                       </button>
                     </span>
                   </label>
-                )}
+                }
                 <label className="weigh-gross">
-                  {mode === "lote"
-                    ? `Peso neto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`
-                    : "Peso bruto (kg)"}
+                  {`Peso bruto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`}
                   <input
                     inputMode="decimal"
                     autoComplete="off"
@@ -422,11 +391,10 @@ export default function Weighing() {
                   }
                 >
                   <span>
-                    {mode === "lote"
-                      ? nBoxes > 1 && net > 0
-                        ? `${fmt(net / nBoxes)} kg por caja · neto total =`
-                        : "neto ="
-                      : `− ${fmt(tare)} kg tara =`}
+                    − {fmt(tareTotal)} kg de tara ({nBoxes} × {fmt(tare)})
+                    {nBoxes > 1 && net > 0
+                      ? ` · ${fmt(net / nBoxes)} kg por caja · neto =`
+                      : " · neto ="}
                   </span>
                   <strong>
                     {net !== null && gross !== "" ? fmt(net) : "–"} kg
@@ -469,9 +437,7 @@ export default function Weighing() {
                   onClick={confirm}
                 >
                   <Scale size={20} />{" "}
-                  {mode === "lote" && nBoxes > 1
-                    ? `Confirmar ${nBoxes} cajas`
-                    : "Confirmar cajón"}
+                  {nBoxes > 1 ? `Confirmar ${nBoxes} cajas` : "Confirmar cajón"}
                 </button>
               </div>
               <ul className="weigh-log" aria-label="Cajones pesados">

@@ -1,10 +1,17 @@
 import React from "react";
 import { money, kgText, timeText, paymentLabel } from "../lib/format.js";
 import { dayLabel } from "../lib/report.js";
+import { mapsRouteLegs, copyText } from "../lib/maps.js";
+import { useStore } from "../lib/store.jsx";
 
 /** Hoja de ruta y rendición de un repartidor (misma vista en pantalla y en papel). */
 export default function RouteSheet({ sheet }) {
   const { driver, date, stops, zones } = sheet;
+  const { config, notify } = useStore();
+  const legs = mapsRouteLegs(
+    stops.map((s) => s.order),
+    config?.origin,
+  );
   return (
     <div className="sheet">
       <header className="sheet-head">
@@ -36,6 +43,36 @@ export default function RouteSheet({ sheet }) {
           </div>
         </dl>
       </header>
+      {legs.length > 0 && (
+        <div className="route-links no-print">
+          {legs.map((leg) => (
+            <a
+              key={leg.from}
+              className="secondary small"
+              href={leg.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {legs.length === 1
+                ? "Abrir la ruta en Google Maps"
+                : `Tramo ${leg.from}–${leg.to} en Google Maps`}
+            </a>
+          ))}
+          <button
+            type="button"
+            className="link-button"
+            onClick={async () =>
+              notify(
+                (await copyText(legs.map((l) => l.url).join(" ")))
+                  ? "Enlace de la ruta copiado."
+                  : "No se pudo copiar el enlace.",
+              )
+            }
+          >
+            Copiar enlace
+          </button>
+        </div>
+      )}
       {zones.length > 0 && (
         <p className="sheet-zones">
           <strong>Zonas:</strong> {zones.join(" · ")}
@@ -58,7 +95,9 @@ export default function RouteSheet({ sheet }) {
                 <th className="num">Importe</th>
                 <th>Pago</th>
                 <th className="num">Saldo ant.</th>
-                <th className="num">Envases</th>
+                <th className="num">Cajas que debía</th>
+                <th className="num">Cajas dejadas</th>
+                <th className="num">Cajas devueltas</th>
                 <th>Estado</th>
               </tr>
             </thead>
@@ -112,15 +151,18 @@ export default function RouteSheet({ sheet }) {
                       : "—"}
                   </td>
                   <td className="num">
-                    {s.order.plan === "mayorista" ? (
-                      <>
-                        {s.boxesLeft} dej. / {s.boxesReturned} dev.
-                        <br />
-                        <small>{s.boxesPending} pend.</small>
-                      </>
-                    ) : (
-                      "—"
-                    )}
+                    {s.order.plan === "mayorista"
+                      ? Math.max(
+                          0,
+                          s.boxesPending - s.boxesLeft + s.boxesReturned,
+                        )
+                      : "—"}
+                  </td>
+                  <td className="num">
+                    {s.order.plan === "mayorista" ? s.boxesLeft : "—"}
+                  </td>
+                  <td className="num">
+                    {s.order.plan === "mayorista" ? s.boxesReturned : "—"}
                   </td>
                   <td>
                     {s.order.status === "entregado"

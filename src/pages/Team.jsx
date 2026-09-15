@@ -7,21 +7,18 @@ import { shiftNames } from "./Customers.jsx";
 import Vehicles from "../components/Vehicles.jsx";
 
 /** Usuarios del equipo: quién entra, con qué rol y con qué contraseña. Solo administración. */
-/** Camiones / preventistas: quién reparte, con qué zonas y turno. */
-function Drivers() {
-  const { config, saveDriver, busy, customers } = useStore();
-  const [editing, setEditing] = useState(null);
-  const [adding, setAdding] = useState(false);
-  const list = config?.driverList || [];
-  const zones = [
-    ...new Set(customers.map((c) => c.zone).filter(Boolean)),
-  ].sort();
-  const parseZones = (v) =>
-    String(v || "")
-      .split(/[,;\n]/)
-      .map((z) => z.trim())
-      .filter(Boolean);
-  const Form = ({ d, onDone }) => (
+const parseZones = (v) =>
+  String(v || "")
+    .split(/[,;\n]/)
+    .map((z) => z.trim())
+    .filter(Boolean);
+
+/**
+ * Formulario de un camión/preventista. Vive fuera de `Drivers` a propósito: si se definiera adentro,
+ * cada actualización en vivo lo volvería a montar y borraría lo que se está tipeando.
+ */
+function DriverForm({ d, onDone, saveDriver, busy }) {
+  return (
     <form
       className="driver-form"
       onSubmit={async (e) => {
@@ -105,6 +102,17 @@ function Drivers() {
       </div>
     </form>
   );
+}
+
+/** Camiones / preventistas: quién reparte, con qué zonas y turno. */
+function Drivers() {
+  const { config, saveDriver, busy, customers } = useStore();
+  const [editing, setEditing] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const list = config?.driverList || [];
+  const zones = [
+    ...new Set(customers.map((c) => c.zone).filter(Boolean)),
+  ].sort();
   return (
     <section className="panel">
       <div className="section-line">
@@ -120,7 +128,13 @@ function Drivers() {
           <option key={z} value={z} />
         ))}
       </datalist>
-      {adding && <Form onDone={() => setAdding(false)} />}
+      {adding && (
+        <DriverForm
+          onDone={() => setAdding(false)}
+          saveDriver={saveDriver}
+          busy={busy}
+        />
+      )}
       <div className="table-scroll">
         <table className="customers drivers-table">
           <thead>
@@ -141,7 +155,12 @@ function Drivers() {
                 <tr key={d.name}>
                   <td colSpan="8">
                     <strong>{d.name}</strong>
-                    <Form d={d} onDone={() => setEditing(null)} />
+                    <DriverForm
+                      d={d}
+                      onDone={() => setEditing(null)}
+                      saveDriver={saveDriver}
+                      busy={busy}
+                    />
                   </td>
                 </tr>
               ) : (

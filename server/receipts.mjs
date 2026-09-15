@@ -145,6 +145,36 @@ export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
       };
     }
     const one = path.match(/^\/api\/comprobantes\/([^/]+)$/);
+    if (one && method === "PATCH") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const r = store.receipts.get(decodeURIComponent(one[1]));
+      if (!r) fail(404, "Comprobante no encontrado.");
+      const next = store.receipts.update(r.id, {
+        kind:
+          body.kind === undefined
+            ? undefined
+            : oneOf(body.kind, RECEIPT_KINDS, "tipo"),
+        amount:
+          body.amount === undefined
+            ? undefined
+            : body.amount === null || body.amount === ""
+              ? null
+              : num(body.amount, {
+                  min: 0,
+                  max: 100000000,
+                  name: "el importe",
+                }),
+        note:
+          body.note === undefined
+            ? undefined
+            : str(body.note, { max: 200, name: "la nota", optional: true }),
+      });
+      store.audit.log(session, "receipt.update", "order", r.orderId, {
+        id: r.id,
+        ...body,
+      });
+      return json(200, next);
+    }
     if (one && method === "DELETE") {
       if (session?.role !== "admin") fail(403, "Solo administración.");
       const r = store.receipts.get(decodeURIComponent(one[1]));

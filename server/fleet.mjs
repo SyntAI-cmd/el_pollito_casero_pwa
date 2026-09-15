@@ -135,8 +135,8 @@ export function createFleet({ store, events, isStaff, actorOf, driverNames }) {
         : null;
       if (drivers && drivers.some((d) => !names.includes(d)))
         fail(400, "Hay un preventista que no existe.");
-      if (drivers && drivers.length > 8)
-        fail(400, "Máximo 8 preventistas por vehículo.");
+      if (drivers && drivers.length > 2)
+        fail(400, "Cada vehículo sale con dos preventistas como máximo.");
       const departure =
         body.departure === undefined
           ? undefined

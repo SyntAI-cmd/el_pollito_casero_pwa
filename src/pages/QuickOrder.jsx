@@ -349,6 +349,13 @@ export default function QuickOrder() {
                 <button
                   type="button"
                   className="link-button"
+                  onClick={() => setModal({ type: "prices", customer: picked })}
+                >
+                  Precios / lista
+                </button>
+                <button
+                  type="button"
+                  className="link-button"
                   onClick={() => {
                     setPicked(null);
                     setLines({});

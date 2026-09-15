@@ -342,7 +342,7 @@ export default function TruckLoading() {
         <section className="panel trip-crew">
           <div className="section-line">
             <h2>
-              <Users size={16} /> Quiénes van y a qué hora
+              <Users size={16} /> Quiénes van (dos por vehículo) y a qué hora
             </h2>
             <label className="trip-departure">
               Hora de salida
@@ -366,7 +366,10 @@ export default function TruckLoading() {
                   type="button"
                   className={"chip-toggle " + (on ? "on" : "")}
                   aria-pressed={on}
-                  disabled={!isAdmin && d !== session?.driver && !on}
+                  disabled={
+                    (!isAdmin && d !== session?.driver && !on) ||
+                    (!on && crew.length >= 2)
+                  }
                   title={
                     elsewhere
                       ? `Hoy va en ${vehicleLabel(elsewhere.vehicle)}`
@@ -414,7 +417,7 @@ export default function TruckLoading() {
                     {o.items
                       .map(
                         (i) =>
-                          `${i.boxes ? i.boxes + " cj " : ""}${i.name.toLowerCase()} ${kgText(i.kg)}`,
+                          `${i.boxes ? i.boxes + " cj " : ""}${i.name.toLowerCase()} ${i.kg > 0 ? kgText(i.kg) : i.boxes ? "(sin pesar)" : kgText(i.kg)}`,
                       )
                       .join(", ")}
                     {boxCrates(o).length < expected && !out

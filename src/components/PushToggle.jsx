@@ -20,13 +20,14 @@ export default function PushToggle({ compact = false }) {
         className="push-chip on"
         title="Avisos activados en este dispositivo"
       >
-        <BellRing size={14} /> Avisos activos
+        <BellRing size={14} /> <span className="push-text">Avisos activos</span>
       </span>
     ) : null;
   if (pushState === "denied")
     return compact ? (
       <span className="push-chip" title="Bloqueaste los avisos en el navegador">
-        <BellOff size={14} /> Avisos bloqueados
+        <BellOff size={14} />{" "}
+        <span className="push-text">Avisos bloqueados</span>
       </span>
     ) : (
       <p className="demo-note">
@@ -42,7 +43,7 @@ export default function PushToggle({ compact = false }) {
         onClick={enableNotifications}
         disabled={busy}
       >
-        <Bell size={15} /> Activar avisos
+        <Bell size={15} /> <span className="push-text">Activar avisos</span>
       </button>
     );
   return (

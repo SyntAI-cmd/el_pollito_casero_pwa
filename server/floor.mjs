@@ -338,12 +338,35 @@ export function createFloor({
       events.customerChanged(c);
       return json(201, summarize(c));
     }
+    // Eliminar ficha (administración): si no tiene pedidos ni pagos se borra; si tiene historial se archiva
+    // (desaparece de las listas, conserva el extracto).
+    const delCustomer = path.match(/^\/api\/customers\/([^/]+)$/);
+    if (delCustomer && method === "DELETE") {
+      adminOnly(session);
+      const c = customerByKey(decodeURIComponent(delCustomer[1]));
+      const removed = store.customers.remove(c.phone);
+      if (!removed) store.customers.save({ ...c, archived: true });
+      store.audit.log(
+        session,
+        removed ? "customer.delete" : "customer.archive",
+        "customer",
+        c.phone,
+        { name: c.name },
+      );
+      events.customerChanged(c);
+      return json(200, { ok: true, archived: !removed });
+    }
     const ficha = path.match(/^\/api\/customers\/([^/]+)\/(ficha|prices)$/);
     if (ficha) {
       staffOnly(session);
       const c = customerByKey(decodeURIComponent(ficha[1]));
       if (ficha[2] === "ficha" && method === "PATCH") {
-        adminOnly(session);
+        // El preventista solo puede cambiar la lista de precios (modalidad); el resto es de administración.
+        if (session.role !== "admin") {
+          const keys = Object.keys(body).filter((k) => body[k] !== undefined);
+          if (keys.some((k) => k !== "plan"))
+            fail(403, "Solo administración edita la ficha.");
+        }
         const changes = {};
         for (const [k, parse] of Object.entries(FICHA))
           if (body[k] !== undefined) changes[k] = parse(body[k]);
@@ -365,7 +388,6 @@ export function createFloor({
       if (ficha[2] === "prices" && method === "GET")
         return json(200, summarize(c).prices);
       if (ficha[2] === "prices" && method === "PUT") {
-        adminOnly(session);
         const prices =
           body.prices && typeof body.prices === "object" ? body.prices : {};
         store.transaction(() => {

@@ -303,10 +303,15 @@
   font-size: 13px;
   font-weight: 500;
 }
-.staff-bar nav a.active,
 .staff-bar nav a:hover {
   background: #ffffff14;
   color: #fff;
+}
+/* Sección activa: fondo rojo de la marca, inconfundible. */
+.staff-bar nav a.active {
+  background: var(--red);
+  color: #fff;
+  box-shadow: inset 0 -3px 0 #8f1418;
 }
 /* Entre 741 y 1400 px la barra tiene 8 secciones: se compacta antes que desbordar. */
 @media (min-width: 741px) and (max-width: 1400px) {
@@ -317,12 +322,18 @@
   .staff-bar nav {
     margin-left: 0;
     gap: 2px;
+    overflow-x: auto;
+    min-width: 0;
+    scrollbar-width: thin;
   }
   .staff-bar nav a {
     padding: 0 10px;
     gap: 5px;
     font-size: 12.5px;
     white-space: nowrap;
+  }
+  .staff-wordmark {
+    height: 26px;
   }
   .staff-brand small,
   .staff-user > span:last-child {
@@ -405,6 +416,26 @@
   }
   .staff-user > span:last-child {
     display: none;
+  }
+  /* En el celular la marca es solo el logo tipográfico, para que quepa en una fila con avisos y salir. */
+  .staff-brand > img:first-child,
+  .staff-brand small {
+    display: none;
+  }
+  .staff-wordmark {
+    height: 24px;
+  }
+  .staff-bar-right {
+    gap: 8px;
+  }
+  /* Solo el ícono de la campana: el texto no entra en una fila de 375 px. */
+  .staff-bar .push-text {
+    display: none;
+  }
+  .staff-bar .push-chip,
+  .staff-bar .push-button {
+    padding-left: 9px;
+    padding-right: 9px;
   }
   .staff-main {
     padding: 18px 14px 140px;

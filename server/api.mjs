@@ -87,7 +87,10 @@ export function createApi({
   // Intentos de ingreso por minuto y por IP (LOGIN_LIMIT permite subirlo en pruebas).
   const attempts = Number(process.env.LOGIN_LIMIT) || 0;
   const loginLimit = rateLimiter({ limit: attempts || 10, windowMs: 60000 });
+  // Ingreso del equipo: 6 intentos fallidos por minuto por usuario e IP (los correctos no cuentan),
+  // más un tope general de 30 fallidos por IP. Todo el equipo sale por la misma IP del negocio.
   const staffLimit = rateLimiter({ limit: attempts || 6, windowMs: 60000 });
+  const staffIpLimit = rateLimiter({ limit: attempts || 30, windowMs: 60000 });
   // Escrituras anónimas y consultas al geocodificador: tope por IP para que nadie agote la cola ni cree pedidos en masa.
   const orderLimit = rateLimiter({ limit: attempts || 20, windowMs: 60000 });
   const geoLimit = rateLimiter({ limit: attempts || 30, windowMs: 60000 });
@@ -1042,12 +1045,13 @@ export function createApi({
       return json(200, publicSession(s), { session: s });
     }
     if (path === "/api/session/staff" && method === "POST") {
-      staffLimit(ip);
       const username = str(body.username, {
         min: 2,
         max: 40,
         name: "el usuario",
       }).toLowerCase();
+      staffIpLimit.check(ip);
+      staffLimit.check(`${ip}|${username}`);
       const password = str(body.password, {
         min: 1,
         max: 200,
@@ -1059,6 +1063,8 @@ export function createApi({
         user?.password_hash || DUMMY_HASH,
       );
       if (!user || !user.active || !ok) {
+        staffIpLimit.hit(ip);
+        staffLimit.hit(`${ip}|${username}`);
         store.audit.log(null, "session.staff_denied", "staff", username, {
           ip,
         });
@@ -1591,11 +1597,14 @@ export function createApi({
       if (!isStaff(session)) fail(403, "Solo el equipo.");
       const prices = store.prices.all();
       const mine = servedBy(session);
-      const list = store.customers.all().map((c) => ({
-        ...withSummary(c),
-        prices: prices[c.phone] || {},
-        ...(session.role === "repartidor" ? { mine: !!mine(c) } : {}),
-      }));
+      const list = store.customers
+        .all()
+        .filter((c) => !c.archived || query.get("todos") === "1")
+        .map((c) => ({
+          ...withSummary(c),
+          prices: prices[c.phone] || {},
+          ...(session.role === "repartidor" ? { mine: !!mine(c) } : {}),
+        }));
       if (session.role === "repartidor")
         for (const c of list) delete c.payments;
       return json(200, list);

@@ -231,11 +231,13 @@ const cookies = (req) => {
 // Política de contenido: solo lo que la app usa (mapa de OpenFreeMap/OSM, OSRM, Google Identity).
 const csp = [
   "default-src 'self'",
-  "script-src 'self' https://accounts.google.com",
+  // 'wasm-unsafe-eval': el remito PDF (@react-pdf/renderer) usa el motor de layout Yoga compilado a WebAssembly.
+  "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com",
   "style-src 'self' 'unsafe-inline' https://accounts.google.com",
   "img-src 'self' data: blob: https://tiles.openfreemap.org https://tile.openstreetmap.org",
   "font-src 'self' data:",
-  "connect-src 'self' https://tiles.openfreemap.org https://tile.openstreetmap.org https://router.project-osrm.org https://accounts.google.com",
+  // data:/blob: en connect-src: react-pdf carga su WebAssembly (Yoga) desde un data: URL y fuentes desde blobs.
+  "connect-src 'self' data: blob: https://tiles.openfreemap.org https://tile.openstreetmap.org https://router.project-osrm.org https://accounts.google.com",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "frame-src https://accounts.google.com",

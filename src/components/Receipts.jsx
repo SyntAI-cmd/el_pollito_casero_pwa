@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Camera, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
-import { del } from "../lib/api.js";
+import { del, patch } from "../lib/api.js";
 import { money, timeText, dateText } from "../lib/format.js";
 import {
   uploadReceipt,
@@ -84,6 +84,33 @@ export function ReceiptList({ order, receipts, onChange, compact = false }) {
               {r.note ? ` · ${r.note}` : ""}
             </small>
           </div>
+          {session?.role === "admin" && (
+            <button
+              type="button"
+              className="link-button"
+              title="Editar importe y nota"
+              onClick={() => {
+                const amount = window.prompt(
+                  "Importe del comprobante (vacío = sin importe):",
+                  r.amount ?? "",
+                );
+                if (amount === null) return;
+                const note = window.prompt("Nota (opcional):", r.note || "");
+                if (note === null) return;
+                patch("/comprobantes/" + r.id, {
+                  amount:
+                    amount === ""
+                      ? null
+                      : Number(String(amount).replace(",", ".")),
+                  note,
+                })
+                  .then(() => onChange?.())
+                  .catch((e) => notify(e.message));
+              }}
+            >
+              editar
+            </button>
+          )}
           {session?.role === "admin" && (
             <button
               type="button"

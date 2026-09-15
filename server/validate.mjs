@@ -71,15 +71,29 @@ export function rateLimiter({ limit, windowMs }) {
       else hits.delete(k);
     }
   }, windowMs).unref();
-  return (key) => {
-    const cutoff = Date.now() - windowMs;
-    const list = (hits.get(key) || []).filter((t) => t > cutoff);
+  const recent = (key) =>
+    (hits.get(key) || []).filter((t) => t > Date.now() - windowMs);
+  const fail429 = () => {
+    throw new ApiError(
+      429,
+      "Demasiados intentos. Esperá un minuto y probá de nuevo.",
+    );
+  };
+  // Uso simple: `limiter(key)` cuenta y corta. Uso en dos pasos (ingresos): `limiter.check(key)`
+  // antes de verificar y `limiter.hit(key)` solo si falló, así los ingresos correctos no cuentan.
+  const limiter = (key) => {
+    const list = recent(key);
     list.push(Date.now());
     hits.set(key, list);
-    if (list.length > limit)
-      throw new ApiError(
-        429,
-        "Demasiados intentos. Esperá un minuto y probá de nuevo.",
-      );
+    if (list.length > limit) fail429();
   };
+  limiter.check = (key) => {
+    if (recent(key).length >= limit) fail429();
+  };
+  limiter.hit = (key) => {
+    const list = recent(key);
+    list.push(Date.now());
+    hits.set(key, list);
+  };
+  return limiter;
 }

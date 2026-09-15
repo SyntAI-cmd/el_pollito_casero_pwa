@@ -100,9 +100,9 @@ export default function Customers() {
         <select
           value={truck}
           onChange={(e) => setTruck(e.target.value)}
-          aria-label="Camión"
+          aria-label="Preventista"
         >
-          <option value="">Todos los camiones</option>
+          <option value="">Todos los preventistas</option>
           {drivers.map((d) => (
             <option key={d}>{d}</option>
           ))}

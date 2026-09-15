@@ -519,6 +519,9 @@ export async function openStore(path, { log = console } = {}) {
     insertReceipt: db.prepare(
       "INSERT INTO receipts(id, order_id, customer, kind, amount, note, file, mime, bytes, by_actor, at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
     ),
+    updateReceipt: db.prepare(
+      "UPDATE receipts SET kind = COALESCE(?, kind), amount = CASE WHEN ? = 1 THEN ? ELSE amount END, note = COALESCE(?, note) WHERE id = ?",
+    ),
     voidReceipt: db.prepare(
       "UPDATE receipts SET voided = 1, void_reason = ? WHERE id = ?",
     ),
@@ -1282,6 +1285,16 @@ export async function openStore(path, { log = console } = {}) {
         return rowToReceipt(q.receipt.get(r.id));
       },
       void: (id, reason) => q.voidReceipt.run(reason || null, id).changes,
+      update: (id, { kind, amount, note } = {}) => {
+        q.updateReceipt.run(
+          kind ?? null,
+          amount === undefined ? 0 : 1,
+          amount === undefined ? null : amount,
+          note ?? null,
+          id,
+        );
+        return rowToReceipt(q.receipt.get(id));
+      },
     },
     staff: {
       all: () => q.staffAll.all().map((r) => ({ ...r, active: !!r.active })),

@@ -7,6 +7,8 @@ import {
   Map,
   Wallet,
   Package,
+  Tag,
+  Copy,
 } from "lucide-react";
 import { kgText, totalKg, money } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
@@ -14,6 +16,7 @@ import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import News from "../components/News.jsx";
 import TruckLocation from "../components/TruckLocation.jsx";
+import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
 export default function Delivery() {
@@ -27,6 +30,7 @@ export default function Delivery() {
     customers,
     setModal,
     busy,
+    notify,
   } = useStore();
   const accounts = customers
     .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
@@ -57,31 +61,7 @@ export default function Delivery() {
   const ready = mine.filter((o) => o.status === "preparando").sort(byZone);
   const onRoute = mine.filter((o) => o.status === "en_camino").sort(byZone);
   const routeStops = [...onRoute, ...ready];
-  const point = (o) =>
-    o.destination
-      ? `${o.destination.lat},${o.destination.lng}`
-      : `${o.address}, ${o.locality?.name || ""}, Mendoza, Argentina`;
-  // Google Maps admite 10 puntos por enlace: la ruta se divide en tramos consecutivos.
-  const legs = [];
-  for (let i = 0; i < routeStops.length; i += 10) {
-    const stops = routeStops.slice(i, i + 10);
-    const from =
-      i === 0
-        ? config?.origin
-          ? config.origin.lat + "," + config.origin.lng
-          : ""
-        : point(routeStops[i - 1]);
-    legs.push({
-      from: i + 1,
-      to: i + stops.length,
-      url: `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(point(stops.at(-1)))}${
-        stops.length > 1
-          ? "&waypoints=" +
-            encodeURIComponent(stops.slice(0, -1).map(point).join("|"))
-          : ""
-      }&travelmode=driving`,
-    });
-  }
+  const legs = mapsRouteLegs(routeStops, config?.origin);
   const zones = [
     ...new Set(routeStops.map((o) => o.locality?.name).filter(Boolean)),
   ];
@@ -134,6 +114,21 @@ export default function Delivery() {
                 : `Tramo ${leg.from}–${leg.to} en Google Maps`}
             </a>
           ))}
+          {legs.length > 0 && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={async () =>
+                notify(
+                  (await copyText(legs.map((l) => l.url).join(" ")))
+                    ? "Enlace de la ruta copiado: pegalo en WhatsApp o en Maps."
+                    : "No se pudo copiar: abrí la ruta y compartila desde Maps.",
+                )
+              }
+            >
+              <Copy size={14} /> Copiar enlace de la ruta
+            </button>
+          )}
         </div>
       )}
       {ready.length + onRoute.length + done.length === 0 ? (
@@ -198,6 +193,13 @@ export default function Delivery() {
                   </small>
                 </div>
                 <div className="accounts-actions">
+                  <button
+                    className="secondary small"
+                    disabled={busy}
+                    onClick={() => setModal({ type: "prices", customer: c })}
+                  >
+                    <Tag size={14} /> Precios
+                  </button>
                   {c.summary.balance > 0 && (
                     <button
                       className="secondary small"

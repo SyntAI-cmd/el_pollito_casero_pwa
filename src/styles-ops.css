@@ -395,8 +395,15 @@ dialog form .delivery-point-status {
   body.printing .toast,
   body.printing dialog,
   body.printing .skip-link,
+  body.printing .staff-bar,
+  body.printing .chat-fab,
+  body.printing .chat-panel,
+  body.printing .news,
   .no-print {
     display: none !important;
+  }
+  body.printing .staff-main {
+    padding: 0;
   }
   body.printing .app-shell {
     margin: 0;
@@ -645,63 +652,42 @@ dialog form .delivery-point-status {
   color: #fff;
   border-color: #1c6b34;
 }
-.fleet-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 16px;
-  align-items: start;
-}
-.fleet-map {
-  min-height: 480px;
-  height: calc(100dvh - 260px);
-  border-radius: 16px;
-  overflow: hidden;
-  background: #e8e4da;
-}
 .fleet-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 .fleet-list li {
   display: flex;
-  align-items: flex-start;
-  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
   background: #fff;
   border: 1px solid #e3dfd4;
   border-radius: 14px;
-  padding: 6px 8px 6px 4px;
+  padding: 12px 14px;
 }
-.fleet-list li.active {
-  border-color: var(--black);
-  box-shadow: 0 0 0 2px #20201e22;
-}
-.fleet-list li > button:first-child {
-  flex: 1;
+.fleet-info {
   display: grid;
   gap: 3px;
-  text-align: left;
-  background: none;
-  border: 0;
-  padding: 6px 8px;
-  cursor: pointer;
-  font: inherit;
+  min-width: 0;
 }
-.fleet-list li > button:first-child strong {
+.fleet-info strong {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-.fleet-list li > button:first-child small {
+.fleet-info small {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   font-size: 12px;
   color: var(--muted);
 }
-.fleet-list li.live > button:first-child strong::after {
+.fleet-list li.live .fleet-info strong::after {
   content: "";
   width: 8px;
   height: 8px;
@@ -709,14 +695,18 @@ dialog form .delivery-point-status {
   background: #1c9a45;
   box-shadow: 0 0 0 3px #1c9a4533;
 }
-@media (max-width: 860px) {
-  .fleet-layout {
-    grid-template-columns: 1fr;
-  }
-  .fleet-map {
-    height: 52dvh;
-    min-height: 320px;
-  }
+.fleet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.route-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
 }
 
 /* Cobros mixtos, fotos de comprobantes y desglose del cierre */

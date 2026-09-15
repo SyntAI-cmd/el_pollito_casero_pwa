@@ -529,7 +529,7 @@ export function StoreProvider({ children }) {
   };
 
   /** Fichas de clientes (GC), precios propios y repartidores. */
-  const saveFicha = (customer, fields) =>
+  const saveFicha = (customer, fields, { keepOpen = false } = {}) =>
     run(
       async () => {
         await patch(
@@ -537,8 +537,8 @@ export function StoreProvider({ children }) {
           fields,
         );
         await loadCustomers();
-        setModal(null);
-        notify("Ficha guardada.");
+        if (!keepOpen) setModal(null);
+        notify(keepOpen ? "Lista guardada." : "Ficha guardada.");
         return true;
       },
       { onError: (e) => notify(e.message) },
@@ -842,6 +842,7 @@ export function StoreProvider({ children }) {
     saveFicha,
     createCustomer,
     savePrices,
+    loadCustomers,
     saveDriver,
     refreshConfig,
     deleteOrder,
