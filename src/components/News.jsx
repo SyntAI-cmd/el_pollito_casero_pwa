@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Megaphone, Pin, Archive, Send } from "lucide-react";
-import { api, post, patch, subscribe } from "../lib/api.js";
+import { Megaphone, Pin, Archive, Send, Trash2 } from "lucide-react";
+import { api, post, patch, del, subscribe } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
 import { dateText, timeText } from "../lib/format.js";
 
@@ -78,6 +78,23 @@ export default function News({ compact = false }) {
                     }
                   >
                     <Archive size={11} /> archivar
+                  </button>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="link-button danger"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          "¿Borrar esta noticia definitivamente? No se puede recuperar.",
+                        )
+                      )
+                        del("/news/" + n.id)
+                          .then(load)
+                          .catch((err) => notify(err.message));
+                    }}
+                  >
+                    <Trash2 size={11} /> borrar
                   </button>
                 </>
               )}

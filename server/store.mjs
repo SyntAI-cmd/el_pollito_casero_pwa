@@ -291,6 +291,7 @@ export async function openStore(path, { log = console } = {}) {
     insertNews: db.prepare(
       "INSERT INTO news(text, by_actor, at, pinned) VALUES(?,?,?,?)",
     ),
+    deleteNews: db.prepare("DELETE FROM news WHERE id = ?"),
     updateNews: db.prepare(
       "UPDATE news SET pinned = COALESCE(?, pinned), archived = COALESCE(?, archived) WHERE id = ?",
     ),
@@ -1072,6 +1073,7 @@ export async function openStore(path, { log = console } = {}) {
           archived === undefined ? null : archived ? 1 : 0,
           id,
         ).changes,
+      remove: (id) => q.deleteNews.run(id).changes,
     },
     settings: {
       get: (key, fallback = null) => {

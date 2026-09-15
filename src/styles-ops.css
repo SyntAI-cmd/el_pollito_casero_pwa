@@ -552,3 +552,41 @@ dialog form .delivery-point-status {
   margin: 0;
   font-size: 12px;
 }
+
+/* Saldos del cliente al armar el pedido */
+.qo-balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.qo-balance {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: #f1efe9;
+  border: 1px solid #e3dfd4;
+  min-width: 120px;
+}
+.qo-balance small {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.qo-balance strong {
+  font-size: 15px;
+}
+.qo-balance.due {
+  background: #fff1f1;
+  border-color: #f3c4c4;
+}
+.qo-balance.due strong {
+  color: var(--red);
+}
+.qo-balance.favor {
+  background: #eefaf0;
+  border-color: #bfe6c6;
+}

@@ -306,13 +306,37 @@ export default function QuickOrder() {
                 </small>
                 <small>
                   {picked.credit ? "Cuenta corriente" : "Paga al recibir"}
-                  {picked.summary?.balance > 0
-                    ? ` · saldo ${money(picked.summary.balance)}`
-                    : ""}
-                  {picked.summary?.boxes
-                    ? ` · ${picked.summary.boxes} cajones adeudados`
-                    : ""}
                 </small>
+                <div className="qo-balances" aria-label="Saldos del cliente">
+                  <span
+                    className={
+                      "qo-balance " +
+                      ((picked.summary?.balance || 0) > 0
+                        ? "due"
+                        : (picked.summary?.balance || 0) < 0
+                          ? "favor"
+                          : "")
+                    }
+                  >
+                    <small>Saldo de cuenta</small>
+                    <strong>
+                      {(picked.summary?.balance || 0) < 0
+                        ? `${money(-picked.summary.balance)} a favor`
+                        : money(picked.summary?.balance || 0)}
+                    </strong>
+                  </span>
+                  <span
+                    className={
+                      "qo-balance " + (picked.summary?.boxes > 0 ? "due" : "")
+                    }
+                  >
+                    <small>Saldo de cajas</small>
+                    <strong>
+                      {picked.summary?.boxes || 0}{" "}
+                      {picked.summary?.boxes === 1 ? "caja" : "cajas"}
+                    </strong>
+                  </span>
+                </div>
               </div>
               <div className="qo-picked-actions">
                 <button

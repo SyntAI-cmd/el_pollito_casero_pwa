@@ -674,6 +674,14 @@ export function createFloor({
       events.newsChanged?.();
       return json(200, { ok: true });
     }
+    if (newsOne && method === "DELETE") {
+      adminOnly(session);
+      const id = Number(newsOne[1]);
+      if (!store.news.remove(id)) fail(404, "La noticia no existe.");
+      store.audit.log(session, "news.delete", "news", String(id));
+      events.newsChanged?.();
+      return json(200, { ok: true });
+    }
 
     // ---- Listas de precios (mayorista / intermedio / minorista), editables desde Administración ----
     if (path === "/api/precios/listas" && method === "GET") {
