@@ -468,9 +468,10 @@ export function createFloor({
           o.items.map((i) => i.id),
           "producto",
         );
+        // Hasta 5000 kg: una pesada puede ser un bulto o varias cajas juntas, no solo un cajón.
         const gross = num(body.gross, {
           min: 0.1,
-          max: 200,
+          max: 5000,
           name: "el peso bruto",
         });
         const t =

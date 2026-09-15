@@ -186,6 +186,10 @@ test("pesaje en balanza recalcula líneas y total, conservando lo pedido", () =>
   assert.equal(r.total, 8820 + 3300 + 1500);
   assert.throws(() => applyWeights(order, { entero: 0 }));
   assert.throws(() => applyWeights(order, { entero: "x" }));
+  // Pesadas de bulto o de varias cajas juntas: valores límite exactos como 222 kg o 5000 kg pasan.
+  assert.equal(applyWeights(order, { entero: 222 }).items[0].kg, 222);
+  assert.equal(applyWeights(order, { entero: 5000 }).items[0].kg, 5000);
+  assert.throws(() => applyWeights(order, { entero: 5000.01 }));
 });
 
 test("un pago a cuenta cubre los pedidos más viejos y deja saldo a favor", () => {

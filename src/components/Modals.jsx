@@ -964,7 +964,7 @@ function Weights({ order }) {
                 inputMode="decimal"
                 step="0.01"
                 min="0.05"
-                max="1000"
+                max="5000"
                 value={kg[p.id]}
                 onChange={(e) => setKg({ ...kg, [p.id]: e.target.value })}
                 required

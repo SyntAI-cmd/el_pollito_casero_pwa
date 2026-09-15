@@ -238,7 +238,7 @@ export function accountSummary(orders, customer = {}) {
 
 /**
  * Aplica el peso real de balanza a las líneas de un pedido y recalcula importes.
- * `weights` es { [productId]: kg } con hasta dos decimales, de 0,05 a 1000 kg.
+ * `weights` es { [productId]: kg } con hasta dos decimales, de 0,05 a 5000 kg.
  */
 /** Cambia el precio por kilo de uno o más renglones de un pedido y recalcula importes (administración). */
 export function applyPrices(order, prices) {
@@ -273,7 +273,7 @@ export function applyWeights(order, weights) {
   const items = order.items.map((item) => {
     if (!(item.id in weights)) return item;
     const kg = Math.round(Number(weights[item.id]) * 100) / 100;
-    if (!Number.isFinite(kg) || kg < 0.05 || kg > 1000)
+    if (!Number.isFinite(kg) || kg < 0.05 || kg > 5000)
       throw Error(`Peso inválido para ${item.name}.`);
     return {
       ...item,

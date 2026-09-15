@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Truck,
   Plus,
@@ -72,11 +72,61 @@ export default function TruckLoading() {
     { crates: 0, loaded: 0, expected: 0, kg: 0 },
   );
 
-  async function load(o, count = 1) {
-    const free = liveCrates(o)
-      .filter((c) => !c.loadedAt)
+  // Cajones marcados desde esta pantalla y todavía no confirmados por el servidor: evita que un
+  // refresco (propio o del canal en vivo) pise el estado optimista y el contador "salte".
+  const pendingLoad = useRef(new Map()); // crateId -> loadedAt
+  const pendingUnload = useRef(new Set());
+  const inflight = useRef(0);
+  const latestDay = useRef(day);
+  latestDay.current = day;
+  useEffect(() => {
+    if (!pendingLoad.current.size && !pendingUnload.current.size) return;
+    setDay((d) => {
+      let changed = false;
+      const orders = d.orders.map((o) => {
+        if (!o.crates?.length) return o;
+        const crates = o.crates.map((c) => {
+          if (pendingLoad.current.has(c.id) && !c.loadedAt) {
+            changed = true;
+            return { ...c, loadedAt: pendingLoad.current.get(c.id) };
+          }
+          if (pendingUnload.current.has(c.id) && c.loadedAt) {
+            changed = true;
+            return { ...c, loadedAt: null };
+          }
+          return c;
+        });
+        return changed ? { ...o, crates } : o;
+      });
+      return changed ? { ...d, orders } : d;
+    });
+  }, [day, setDay]);
+  /** Ejecuta una llamada al servidor; cuando no queda ninguna en vuelo, refresca una sola vez. */
+  async function sync(fn) {
+    inflight.current++;
+    try {
+      await fn();
+    } catch (e) {
+      notify(e.message);
+    } finally {
+      if (--inflight.current === 0) {
+        await reload({ silent: true });
+        pendingLoad.current.clear();
+        pendingUnload.current.clear();
+      }
+    }
+  }
+  function load(o, count = 1) {
+    const current = latestDay.current.orders.find((x) => x.id === o.id) || o;
+    const free = liveCrates(current)
+      .filter((c) => !c.loadedAt && !pendingLoad.current.has(c.id))
       .slice(0, count);
     if (!free.length) return;
+    const at = new Date().toISOString();
+    for (const c of free) {
+      pendingUnload.current.delete(c.id);
+      pendingLoad.current.set(c.id, at);
+    }
     setDay((d) => ({
       ...d,
       orders: d.orders.map((x) =>
@@ -84,23 +134,38 @@ export default function TruckLoading() {
           ? {
               ...x,
               crates: x.crates.map((c) =>
-                free.some((f) => f.id === c.id)
-                  ? { ...c, loadedAt: new Date().toISOString() }
-                  : c,
+                free.some((f) => f.id === c.id) ? { ...c, loadedAt: at } : c,
               ),
             }
           : x,
       ),
     }));
-    for (const c of free)
-      await send(`/crates/${c.id}/load`, {}).catch((e) => notify(e.message));
-    reload({ silent: true });
+    sync(async () => {
+      for (const c of free) await send(`/crates/${c.id}/load`, {});
+    });
   }
-  async function unload(o) {
-    const last = [...liveCrates(o)].reverse().find((c) => c.loadedAt);
+  function unload(o) {
+    const current = latestDay.current.orders.find((x) => x.id === o.id) || o;
+    const last = [...liveCrates(current)]
+      .reverse()
+      .find((c) => c.loadedAt && !pendingUnload.current.has(c.id));
     if (!last) return;
-    await send(`/crates/${last.id}/unload`, {}).catch((e) => notify(e.message));
-    reload({ silent: true });
+    pendingLoad.current.delete(last.id);
+    pendingUnload.current.add(last.id);
+    setDay((d) => ({
+      ...d,
+      orders: d.orders.map((x) =>
+        x.id === o.id
+          ? {
+              ...x,
+              crates: x.crates.map((c) =>
+                c.id === last.id ? { ...c, loadedAt: null } : c,
+              ),
+            }
+          : x,
+      ),
+    }));
+    sync(() => send(`/crates/${last.id}/unload`, {}));
   }
   async function closeTruck() {
     setClosing(true);
