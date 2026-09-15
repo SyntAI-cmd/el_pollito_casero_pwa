@@ -27,6 +27,7 @@ import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { createFloor } from "./floor.mjs";
 import { createFleet } from "./fleet.mjs";
+import { createReceipts } from "./receipts.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
@@ -74,11 +75,14 @@ const actorOf = (s) =>
       ? s.name || "admin"
       : s?.name || "cliente";
 
+const PAY_METHODS = ["efectivo", "transferencia", "cheque", "mercadopago"];
+
 export function createApi({
   store,
   events,
   push,
   base = "http://localhost:5173",
+  dataDir = "data",
 }) {
   // Intentos de ingreso por minuto y por IP (LOGIN_LIMIT permite subirlo en pruebas).
   const attempts = Number(process.env.LOGIN_LIMIT) || 0;
@@ -572,12 +576,29 @@ export function createApi({
           "Los pedidos a cuenta se cobran desde la cuenta corriente del cliente (Registrar pago), así queda en el extracto.",
         );
       Object.assign(o, { paid: true, paidAt: now(), paidBy: actorOf(session) });
-      if (b.paidMethod)
-        o.paidMethod = oneOf(
-          b.paidMethod,
-          ["efectivo", "transferencia", "mercadopago"],
-          "medio",
-        );
+      // Cobro mixto: partes por medio (efectivo + transferencia, cheque + efectivo…) que suman el total.
+      if (Array.isArray(b.paidSplit) && b.paidSplit.length) {
+        const parts = b.paidSplit.map((p) => ({
+          method: oneOf(p.method, PAY_METHODS, "medio"),
+          amount: num(p.amount, {
+            min: 0.01,
+            max: 100000000,
+            name: "el importe",
+          }),
+          ref: str(p.ref, { max: 60, name: "la referencia", optional: true }),
+        }));
+        const sum = Math.round(parts.reduce((s, p) => s + p.amount, 0) * 100);
+        if (sum !== Math.round(o.total * 100))
+          fail(
+            400,
+            `Las partes suman ${(sum / 100).toFixed(2)} y el pedido es ${o.total.toFixed(2)}.`,
+          );
+        o.paidSplit = parts;
+        o.paidMethod = parts.length === 1 ? parts[0].method : "mixto";
+      } else if (b.paidMethod) {
+        o.paidMethod = oneOf(b.paidMethod, PAY_METHODS, "medio");
+        delete o.paidSplit;
+      }
     }
     if (b.status) {
       const next = oneOf(b.status, statuses, "estado");
@@ -596,6 +617,12 @@ export function createApi({
       if (next === "entregado") {
         if (o.payment !== "cuenta" && !o.paid)
           fail(400, "Registrá el cobro antes de completar la entrega.");
+        // En la calle la entrega se cierra con foto: comprobante de transferencia/cheque o remito firmado.
+        if (role === "repartidor" && !store.receipts.forOrder(o.id).length)
+          fail(
+            400,
+            "Subí la foto del comprobante (transferencia, cheque o remito firmado) para cerrar la entrega.",
+          );
         const boxes = num(b.boxes ?? 0, {
           min: 0,
           max: 100,
@@ -653,7 +680,16 @@ export function createApi({
         after.push(() => refreshEta(o));
     }
     if (b.prices !== undefined) {
-      if (role !== "admin") fail(403, "Solo administración cambia precios.");
+      // Administración siempre; el preventista solo en sus pedidos y mientras estén en ruta.
+      if (
+        role !== "admin" &&
+        !(
+          role === "repartidor" &&
+          o.driver === session.driver &&
+          o.status !== "entregado"
+        )
+      )
+        fail(403, "Solo administración cambia precios.");
       if (o.paid && o.payment !== "cuenta")
         fail(
           400,
@@ -794,11 +830,7 @@ export function createApi({
       max: 100000000,
       name: "importe",
     });
-    const method = oneOf(
-      body.method || "efectivo",
-      ["efectivo", "transferencia", "mercadopago"],
-      "medio",
-    );
+    const method = oneOf(body.method || "efectivo", PAY_METHODS, "medio");
     const note = str(body.note, { max: 200, name: "nota", optional: true });
     return store.transaction(() => {
       const customerOrders = store.orders.forCustomer(customer.phone);
@@ -862,6 +894,7 @@ export function createApi({
   });
 
   const fleet = createFleet({ store, events, isStaff, actorOf, driverNames });
+  const receipts = createReceipts({ store, events, isStaff, actorOf, dataDir });
 
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
   return async function handle({ method, path, body, query, session, ip }) {
@@ -870,6 +903,15 @@ export function createApi({
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });
     if (fromFleet) return fromFleet;
+    const fromReceipts = await receipts({
+      method,
+      path,
+      body,
+      query,
+      session,
+      ip,
+    });
+    if (fromReceipts) return fromReceipts;
     // Modo equipo: sin cuentas de clientes, sin pedidos anónimos, sin ingreso por celular.
     if (
       appMode === "equipo" &&
@@ -1640,6 +1682,7 @@ export function createApi({
         expected: money(body.expected, "esperado"),
         received: money(body.received, "recibido"),
         transfers: money(body.transfers, "transferencias"),
+        cheques: money(body.cheques, "cheques"),
         accountCash: money(body.accountCash, "cobros a cuenta"),
         note: str(body.note, { max: 300, name: "nota", optional: true }),
         by: actorOf(session),

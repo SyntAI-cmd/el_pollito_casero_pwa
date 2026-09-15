@@ -33,7 +33,7 @@ const push = await createPush({
   dataDir,
   contact: `mailto:pedidos@${baseHost.split(":")[0] === "localhost" ? "pollitocasero.local" : baseHost}`,
 });
-const api = createApi({ store, events, push, base });
+const api = createApi({ store, events, push, base, dataDir });
 // Repartidores: la tabla se siembra desde business.json y después se administra desde Equipo.
 if (!store.drivers.all().length)
   drivers.forEach((d, i) =>
@@ -255,11 +255,11 @@ const json = (res, status, value, headers = {}) => {
   });
   res.end(JSON.stringify(value ?? null));
 };
-async function readBody(req) {
+async function readBody(req, limit = 50000) {
   let text = "";
   for await (const c of req) {
     text += c;
-    if (text.length > 50000)
+    if (text.length > limit)
       throw new ApiError(413, "Solicitud demasiado grande.");
   }
   try {
@@ -333,7 +333,14 @@ const server = http.createServer(async (req, res) => {
         });
         return events.subscribe(res, session);
       }
-      const body = req.method === "GET" ? {} : await readBody(req);
+      // Las fotos de comprobantes viajan en base64 (JPEG reducido en el celular): hasta 3,5 MB.
+      const body =
+        req.method === "GET"
+          ? {}
+          : await readBody(
+              req,
+              /\/comprobantes?$/.test(path) ? 3_500_000 : 50000,
+            );
       const result = await api({
         method: req.method,
         path,

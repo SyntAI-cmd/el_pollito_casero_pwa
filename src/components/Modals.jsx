@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { uploadReceipt, receiptsOf } from "../lib/photo.js";
+import Receipts from "./Receipts.jsx";
 import DeliveryPoint from "./DeliveryPoint.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
 import { FichaForm } from "../pages/Customers.jsx";
@@ -17,6 +19,7 @@ import {
   ShieldCheck,
   Trash2,
   Fingerprint,
+  Camera,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
@@ -737,10 +740,84 @@ function Notifications() {
   );
 }
 
+/**
+ * Cobro en la puerta: efectivo, transferencia, cheque o Mercado Pago, o **mixto** (partes por medio
+ * que suman el total). En la calle, transferencia y cheque piden la foto del comprobante.
+ */
 function Payment({ order }) {
-  const { busy, update, setModal } = useStore();
+  const { busy, update, setModal, session } = useStore();
   const [method, setMethod] = useState(
     order.payment === "transferencia" ? "transferencia" : "efectivo",
+  );
+  const [mixed, setMixed] = useState(false);
+  const [parts, setParts] = useState([
+    { method: "efectivo", amount: "" },
+    { method: "transferencia", amount: "" },
+  ]);
+  const [photo, setPhoto] = useState(null); // { file, name }
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const driver = session?.role === "repartidor";
+  const num = (v) =>
+    Math.round((Number(String(v).replace(",", ".")) || 0) * 100) / 100;
+  const sum =
+    Math.round(parts.reduce((s, p) => s + num(p.amount), 0) * 100) / 100;
+  const rest = Math.round((order.total - sum) * 100) / 100;
+  const usedMethods = mixed
+    ? parts.filter((p) => num(p.amount) > 0).map((p) => p.method)
+    : [method];
+  const needsPhoto =
+    driver && usedMethods.some((m) => m === "transferencia" || m === "cheque");
+  const photoKind = usedMethods.includes("cheque") ? "cheque" : "transferencia";
+  const setPart = (i, patch) =>
+    setParts((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  async function confirm() {
+    setError("");
+    if (mixed && rest !== 0)
+      return setError(
+        rest > 0
+          ? `Faltan ${money(rest)} para completar el total.`
+          : `Las partes se pasan por ${money(-rest)}.`,
+      );
+    if (needsPhoto && !photo)
+      return setError("Sacá la foto del comprobante para registrar el cobro.");
+    try {
+      if (photo) {
+        setUploading(true);
+        await uploadReceipt(order.id, photo.file, {
+          kind: photoKind,
+          amount: mixed
+            ? parts
+                .filter((p) => p.method === photoKind)
+                .reduce((s, p) => s + num(p.amount), 0) || undefined
+            : order.total,
+        });
+      }
+    } catch (e) {
+      setUploading(false);
+      return setError(e.message);
+    }
+    setUploading(false);
+    const ok = await update(
+      order,
+      mixed
+        ? {
+            paid: true,
+            paidSplit: parts
+              .filter((p) => num(p.amount) > 0)
+              .map((p) => ({ method: p.method, amount: num(p.amount) })),
+          }
+        : { paid: true, paidMethod: method },
+    );
+    if (ok) setModal(null);
+  }
+  const methodOptions = (
+    <>
+      <option value="efectivo">Efectivo</option>
+      <option value="transferencia">Transferencia (alias / CVU)</option>
+      <option value="cheque">Cheque</option>
+      <option value="mercadopago">Mercado Pago (QR / link)</option>
+    </>
   );
   return (
     <>
@@ -752,38 +829,147 @@ function Payment({ order }) {
           ? ` El cliente avisó una transferencia a las ${new Date(order.transfer.reportedAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${order.transfer.reference ? " (ref. " + order.transfer.reference + ")" : ""}: verificá el ingreso antes de confirmar.`
           : ""}
       </p>
-      <label>
-        ¿Cómo pagó?
-        <select value={method} onChange={(e) => setMethod(e.target.value)}>
-          <option value="efectivo">Efectivo</option>
-          <option value="transferencia">Transferencia (alias / CVU)</option>
-          <option value="mercadopago">Mercado Pago (QR / link)</option>
-        </select>
-      </label>
+      {!mixed ? (
+        <label>
+          ¿Cómo pagó?
+          <select value={method} onChange={(e) => setMethod(e.target.value)}>
+            {methodOptions}
+          </select>
+        </label>
+      ) : (
+        <div className="pay-split">
+          {parts.map((p, i) => (
+            <div className="pay-part" key={i}>
+              <select
+                value={p.method}
+                onChange={(e) => setPart(i, { method: e.target.value })}
+                aria-label={"Medio de la parte " + (i + 1)}
+              >
+                {methodOptions}
+              </select>
+              <input
+                inputMode="decimal"
+                placeholder="0"
+                value={p.amount}
+                onChange={(e) => setPart(i, { amount: e.target.value })}
+                aria-label={"Importe de la parte " + (i + 1)}
+              />
+              {i === parts.length - 1 && rest > 0 && (
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() =>
+                    setPart(i, { amount: String(num(p.amount) + rest) })
+                  }
+                >
+                  resto
+                </button>
+              )}
+            </div>
+          ))}
+          <div className="pay-split-foot">
+            <button
+              type="button"
+              className="link-button"
+              onClick={() =>
+                setParts((ps) => [...ps, { method: "cheque", amount: "" }])
+              }
+            >
+              + otra parte
+            </button>
+            <span className={rest === 0 ? "green" : "red"}>
+              {rest === 0
+                ? "Suma el total"
+                : rest > 0
+                  ? `Faltan ${money(rest)}`
+                  : `Sobran ${money(-rest)}`}
+            </span>
+          </div>
+        </div>
+      )}
       <button
-        disabled={busy}
-        className="primary full"
-        onClick={async () => {
-          if (await update(order, { paid: true, paidMethod: method }))
-            setModal(null);
-        }}
+        type="button"
+        className="link-button"
+        onClick={() => setMixed((m) => !m)}
       >
-        Ya recibí el pago <Check size={16} />
+        {mixed
+          ? "Un solo medio de pago"
+          : "Pago mixto (efectivo + transferencia, cheque…)"}
+      </button>
+      {needsPhoto && (
+        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
+          <Camera size={15} />{" "}
+          {photo
+            ? `Foto lista: ${photo.name}`
+            : `Foto del ${photoKind === "cheque" ? "cheque" : "comprobante de transferencia"} (obligatoria)`}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPhoto({ file: f, name: f.name || "foto" });
+            }}
+          />
+        </label>
+      )}
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+      <button
+        disabled={busy || uploading}
+        className="primary full"
+        onClick={confirm}
+      >
+        {uploading ? "Subiendo la foto…" : "Ya recibí el pago"}{" "}
+        <Check size={16} />
       </button>
     </>
   );
 }
 
+/** Entrega: envases que quedan y, en la calle, foto del remito firmado si el pedido no tiene comprobante. */
 function Boxes({ order, kind }) {
-  const { busy, update, setModal, formError } = useStore();
+  const { busy, update, setModal, formError, session } = useStore();
   const returning = kind === "return";
   const pending = order.boxes - order.returned;
   const wholesale = order.plan === "mayorista";
+  const driver = session?.role === "repartidor";
+  const [receipts, setReceipts] = useState(null);
+  const [photo, setPhoto] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (returning) return;
+    receiptsOf(order.id)
+      .then(setReceipts)
+      .catch(() => setReceipts([]));
+  }, [order.id, returning]);
+  const needsPhoto =
+    !returning && driver && receipts !== null && receipts.length === 0;
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
+        setError("");
         const count = Number(new FormData(e.target).get("boxes") || 0);
+        if (needsPhoto && !photo)
+          return setError(
+            "Sacá la foto del remito firmado (o del comprobante) para cerrar la entrega.",
+          );
+        if (photo) {
+          setUploading(true);
+          try {
+            await uploadReceipt(order.id, photo.file, { kind: "firma" });
+          } catch (err) {
+            setUploading(false);
+            return setError(err.message);
+          }
+          setUploading(false);
+        }
         const ok = await update(
           order,
           returning
@@ -819,13 +1005,42 @@ function Boxes({ order, kind }) {
       ) : (
         <p>Pedido minorista: sin envases retornables.</p>
       )}
-      {formError && (
-        <p className="form-error" role="alert">
-          {formError}
+      {!returning && receipts !== null && (
+        <p className="muted small">
+          {receipts.length
+            ? `${receipts.length} comprobante${receipts.length === 1 ? "" : "s"} ya cargado${receipts.length === 1 ? "" : "s"}.`
+            : driver
+              ? "Sin comprobantes: sacá la foto del remito firmado."
+              : "Sin comprobantes."}
         </p>
       )}
-      <button className="primary full" disabled={busy}>
-        Confirmar <Check size={16} />
+      {!returning && (
+        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
+          <Camera size={15} />{" "}
+          {photo
+            ? `Foto lista: ${photo.name}`
+            : needsPhoto
+              ? "Foto del remito firmado (obligatoria)"
+              : "Agregar foto del remito firmado"}
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPhoto({ file: f, name: f.name || "foto" });
+            }}
+          />
+        </label>
+      )}
+      {(formError || error) && (
+        <p className="form-error" role="alert">
+          {error || formError}
+        </p>
+      )}
+      <button className="primary full" disabled={busy || uploading}>
+        {uploading ? "Subiendo la foto…" : "Confirmar"} <Check size={16} />
       </button>
     </form>
   );
@@ -1088,6 +1303,7 @@ function AccountPayment({ customer }) {
         <select name="method" defaultValue="efectivo">
           <option value="efectivo">Efectivo</option>
           <option value="transferencia">Transferencia</option>
+          <option value="cheque">Cheque</option>
         </select>
       </label>
       <label>
@@ -1212,6 +1428,8 @@ export default function Modals() {
         <BoxesReturn customer={modal.customer} />
       ) : type === "account-payment" ? (
         <AccountPayment customer={modal.customer} />
+      ) : type === "receipts" ? (
+        <Receipts order={modal.order} />
       ) : type === "cancel" ? (
         <Cancel order={modal.order} />
       ) : type === "statement" ? (

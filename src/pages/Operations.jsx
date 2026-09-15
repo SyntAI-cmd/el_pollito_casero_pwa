@@ -28,6 +28,7 @@ import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
 import CashClosure from "../components/CashClosure.jsx";
+import ReceiptsDay from "../components/ReceiptsDay.jsx";
 
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
@@ -308,6 +309,7 @@ export default function Operations() {
           </div>
           <RouteSheet sheet={sheet} />
           <CashClosure sheet={sheet} date={date} driver={selectedDriver} />
+          <ReceiptsDay date={date} driver={selectedDriver} />
         </section>
       )}
 

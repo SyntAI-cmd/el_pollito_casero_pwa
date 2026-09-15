@@ -718,3 +718,109 @@ dialog form .delivery-point-status {
     min-height: 320px;
   }
 }
+
+/* Cobros mixtos, fotos de comprobantes y desglose del cierre */
+.pay-split {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+}
+.pay-part {
+  display: grid;
+  grid-template-columns: 1fr 120px auto;
+  gap: 6px;
+  align-items: center;
+}
+.pay-part input {
+  text-align: right;
+}
+.pay-split-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.receipt-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.receipt-button.ok {
+  background: #e7f5ea;
+  border-color: #bfe6c6;
+}
+.receipt-button.busy {
+  opacity: 0.7;
+}
+.receipt-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.receipt-list li {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  background: #f6f4ef;
+  border-radius: 12px;
+  padding: 6px;
+}
+.receipt-list img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  background: #ddd;
+}
+.receipt-list li div {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+.receipt-list li small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.receipt-list.compact li {
+  grid-template-columns: 48px 1fr auto;
+}
+.receipt-list.compact img {
+  width: 48px;
+  height: 48px;
+}
+.closure-breakdown {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+.closure-breakdown b {
+  color: var(--black);
+}
+
+.receipts-groups {
+  display: grid;
+  gap: 12px;
+}
+.receipts-groups article {
+  border: 1px solid #e3dfd4;
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: #fff;
+}
+.receipts-groups header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+.receipts-groups header small {
+  color: var(--muted);
+}

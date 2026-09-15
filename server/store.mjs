@@ -123,6 +123,12 @@ CREATE TABLE IF NOT EXISTS trip_track(
   id INTEGER PRIMARY KEY AUTOINCREMENT, trip_id TEXT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
   lat REAL NOT NULL, lng REAL NOT NULL, speed REAL, heading REAL, by_actor TEXT, at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS trip_track_trip ON trip_track(trip_id, id);
+CREATE TABLE IF NOT EXISTS receipts(
+  id TEXT PRIMARY KEY, order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE, customer TEXT,
+  kind TEXT NOT NULL, amount REAL, note TEXT, file TEXT NOT NULL, mime TEXT NOT NULL, bytes INTEGER NOT NULL,
+  by_actor TEXT NOT NULL, at TEXT NOT NULL, voided INTEGER NOT NULL DEFAULT 0, void_reason TEXT);
+CREATE INDEX IF NOT EXISTS receipts_order ON receipts(order_id);
+CREATE INDEX IF NOT EXISTS receipts_at ON receipts(at);
 `;
 
 export async function openStore(path, { log = console } = {}) {
@@ -183,6 +189,15 @@ export async function openStore(path, { log = console } = {}) {
   db.exec(
     "CREATE INDEX IF NOT EXISTS orders_delivery ON orders(delivery_date)",
   );
+  // v6: cierre de caja con cheques desglosados.
+  const closureCols = db
+    .prepare("PRAGMA table_info(cash_closures)")
+    .all()
+    .map((c) => c.name);
+  if (!closureCols.includes("cheques"))
+    db.exec(
+      "ALTER TABLE cash_closures ADD COLUMN cheques REAL NOT NULL DEFAULT 0",
+    );
   const itemCols = db
     .prepare("PRAGMA table_info(order_items)")
     .all()
@@ -484,16 +499,29 @@ export async function openStore(path, { log = console } = {}) {
       "INSERT INTO audit_log(at, actor_role, actor, action, entity, entity_id, detail) VALUES(?,?,?,?,?,?,?)",
     ),
     closuresFor: db.prepare(
-      "SELECT id, date, driver, expected, received, transfers, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures WHERE date = ? ORDER BY driver",
+      "SELECT id, date, driver, expected, received, transfers, cheques, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures WHERE date = ? ORDER BY driver",
     ),
     closuresRecent: db.prepare(
-      "SELECT id, date, driver, expected, received, transfers, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures ORDER BY date DESC, driver LIMIT ?",
+      "SELECT id, date, driver, expected, received, transfers, cheques, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures ORDER BY date DESC, driver LIMIT ?",
     ),
     upsertClosure:
-      db.prepare(`INSERT INTO cash_closures(date, driver, expected, received, transfers, account_cash, note, by_actor, at)
-      VALUES(?,?,?,?,?,?,?,?,?)
+      db.prepare(`INSERT INTO cash_closures(date, driver, expected, received, transfers, cheques, account_cash, note, by_actor, at)
+      VALUES(?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(date, driver) DO UPDATE SET expected=excluded.expected, received=excluded.received, transfers=excluded.transfers,
-        account_cash=excluded.account_cash, note=excluded.note, by_actor=excluded.by_actor, at=excluded.at`),
+        cheques=excluded.cheques, account_cash=excluded.account_cash, note=excluded.note, by_actor=excluded.by_actor, at=excluded.at`),
+    receiptsFor: db.prepare(
+      "SELECT * FROM receipts WHERE order_id = ? AND voided = 0 ORDER BY id",
+    ),
+    receipt: db.prepare("SELECT * FROM receipts WHERE id = ?"),
+    receiptsForDate: db.prepare(
+      "SELECT * FROM receipts WHERE voided = 0 AND at >= ? AND at < ? ORDER BY at",
+    ),
+    insertReceipt: db.prepare(
+      "INSERT INTO receipts(id, order_id, customer, kind, amount, note, file, mime, bytes, by_actor, at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+    ),
+    voidReceipt: db.prepare(
+      "UPDATE receipts SET voided = 1, void_reason = ? WHERE id = ?",
+    ),
     auditFor: db.prepare(
       "SELECT * FROM audit_log WHERE entity = ? AND entity_id = ? ORDER BY id DESC LIMIT 100",
     ),
@@ -800,6 +828,23 @@ export async function openStore(path, { log = console } = {}) {
           departedAt: r.departed_at || null,
           created: r.created,
           updated: r.updated,
+        }
+      : null;
+  const rowToReceipt = (r) =>
+    r
+      ? {
+          id: r.id,
+          orderId: r.order_id,
+          customer: r.customer,
+          kind: r.kind,
+          amount: r.amount,
+          note: r.note || "",
+          file: r.file,
+          mime: r.mime,
+          bytes: r.bytes,
+          by: r.by_actor,
+          at: r.at,
+          voided: !!r.voided,
         }
       : null;
   const rowToCrate = (r) =>
@@ -1200,6 +1245,7 @@ export async function openStore(path, { log = console } = {}) {
           c.expected,
           c.received,
           c.transfers || 0,
+          c.cheques || 0,
           c.accountCash || 0,
           c.note || null,
           c.by,
@@ -1207,6 +1253,35 @@ export async function openStore(path, { log = console } = {}) {
         );
         return q.closuresFor.all(c.date).find((x) => x.driver === c.driver);
       },
+    },
+    receipts: {
+      forOrder: (orderId) => q.receiptsFor.all(orderId).map(rowToReceipt),
+      get: (id) => rowToReceipt(q.receipt.get(id)),
+      // Comprobantes del día en hora local de Mendoza (UTC−3): de 03:00Z de ese día a 03:00Z del siguiente.
+      forDate: (date) => {
+        const from = new Date(date + "T03:00:00.000Z");
+        const to = new Date(from.getTime() + 86400000);
+        return q.receiptsForDate
+          .all(from.toISOString(), to.toISOString())
+          .map(rowToReceipt);
+      },
+      add: (r) => {
+        q.insertReceipt.run(
+          r.id,
+          r.orderId,
+          r.customer || null,
+          r.kind,
+          r.amount ?? null,
+          r.note || null,
+          r.file,
+          r.mime,
+          r.bytes,
+          r.by,
+          r.at || now(),
+        );
+        return rowToReceipt(q.receipt.get(r.id));
+      },
+      void: (id, reason) => q.voidReceipt.run(reason || null, id).changes,
     },
     staff: {
       all: () => q.staffAll.all().map((r) => ({ ...r, active: !!r.active })),

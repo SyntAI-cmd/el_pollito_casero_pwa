@@ -10,6 +10,7 @@ import {
   Clock,
   Store,
   Scale,
+  Camera,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import {
@@ -24,6 +25,7 @@ import {
 } from "../lib/format.js";
 import { StatusBadge } from "./ui.jsx";
 import RemitoActions from "./RemitoActions.jsx";
+import { methodNames } from "../lib/photo.js";
 import { Tags, Trash2 } from "lucide-react";
 
 const mapsLink = (o) =>
@@ -153,7 +155,17 @@ export default function OrderCard({ order: o, role }) {
         <Wallet size={15} /> {paymentLabel(o)} ·{" "}
         <b className={o.paid ? "green" : o.payment === "cuenta" ? "" : "red"}>
           {o.paid
-            ? `Cobrado${o.paidMethod && o.paidMethod !== o.payment ? " (" + o.paidMethod + ")" : ""}`
+            ? `Cobrado${o.paidMethod && o.paidMethod !== o.payment ? " (" + (methodNames[o.paidMethod] || o.paidMethod) + ")" : ""}${
+                Array.isArray(o.paidSplit) && o.paidSplit.length > 1
+                  ? ": " +
+                    o.paidSplit
+                      .map(
+                        (p) =>
+                          `${methodNames[p.method] || p.method} ${money(p.amount)}`,
+                      )
+                      .join(" + ")
+                  : ""
+              }`
             : o.payment === "cuenta"
               ? "A cuenta"
               : o.payment === "transferencia" && o.transfer
@@ -252,7 +264,7 @@ export default function OrderCard({ order: o, role }) {
               <Scale size={15} /> {o.weighed ? "Corregir peso" : "Pesar"}
             </button>
           )}
-          {admin &&
+          {(admin || o.status !== "entregado") &&
             o.status !== "cancelado" &&
             !(o.paid && o.payment !== "cuenta") && (
               <button
@@ -263,6 +275,15 @@ export default function OrderCard({ order: o, role }) {
                 <Tags size={15} /> Precios
               </button>
             )}
+          {o.status !== "cancelado" && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => setModal({ type: "receipts", order: o })}
+            >
+              <Camera size={15} /> Comprobantes
+            </button>
+          )}
           {unpaid && o.payment !== "cuenta" && (
             <button
               className="secondary"

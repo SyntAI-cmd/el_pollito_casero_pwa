@@ -130,3 +130,33 @@ test("por cobrar descuenta el saldo a favor de la cuenta corriente", () => {
   );
   assert.equal(r.total, 11000);
 });
+
+test("un cobro mixto reparte efectivo, transferencia y cheque; solo el efectivo se rinde", () => {
+  const sheet = routeSheet(
+    [
+      order("PC-M1", {
+        payment: "entrega",
+        paid: true,
+        paidBy: "Franco",
+        paidMethod: "mixto",
+        paidSplit: [
+          { method: "efectivo", amount: 4000 },
+          { method: "transferencia", amount: 3000 },
+          { method: "cheque", amount: 2000 },
+        ],
+      }),
+      order("PC-M2", {
+        payment: "entrega",
+        paid: true,
+        paidBy: "Franco",
+        paidMethod: "cheque",
+      }),
+    ],
+    customers,
+    { driver: "Franco", date: today },
+  );
+  assert.equal(sheet.collected, 4000);
+  assert.equal(sheet.transfers, 3000);
+  assert.equal(sheet.cheques, 2000 + 9000);
+  assert.equal(sheet.toSettle, 4000);
+});

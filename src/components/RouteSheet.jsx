@@ -191,6 +191,10 @@ export default function RouteSheet({ sheet }) {
               <dt>Transferencias / Mercado Pago (no van en efectivo)</dt>
               <dd>{money(sheet.transfers + sheet.accountTransfers)}</dd>
             </div>
+            <div>
+              <dt>Cheques recibidos (se entregan con la rendición)</dt>
+              <dd>{money(sheet.cheques + sheet.accountCheques)}</dd>
+            </div>
           </dl>
         </section>
         <section>
@@ -210,7 +214,13 @@ export default function RouteSheet({ sheet }) {
             </div>
             <div>
               <dt>Cobrado a cuenta hoy</dt>
-              <dd>{money(sheet.accountCash + sheet.accountTransfers)}</dd>
+              <dd>
+                {money(
+                  sheet.accountCash +
+                    sheet.accountTransfers +
+                    sheet.accountCheques,
+                )}
+              </dd>
             </div>
           </dl>
         </section>

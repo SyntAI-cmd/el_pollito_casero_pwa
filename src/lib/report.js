@@ -22,6 +22,19 @@ const orderDay = (o) => dayKey(o.departedAt || o.created);
 /** Medio con el que efectivamente se cobró (o se cobrará) un pedido. */
 export const paidMethodOf = (o) =>
   o.paidMethod || (o.payment === "entrega" ? "efectivo" : o.payment);
+/** Importe cobrado de un pedido por medio (soporta cobros mixtos con `paidSplit`). */
+export function paidByMethod(o) {
+  const out = { efectivo: 0, transferencia: 0, cheque: 0, mercadopago: 0 };
+  if (!o.paid || o.payment === "cuenta") return out;
+  if (Array.isArray(o.paidSplit) && o.paidSplit.length)
+    for (const p of o.paidSplit)
+      out[p.method in out ? p.method : "transferencia"] += p.amount;
+  else {
+    const m = paidMethodOf(o);
+    out[m in out ? m : "transferencia"] += o.total;
+  }
+  return out;
+}
 
 /**
  * Total por cobrar del negocio: pedidos sin pagar que no van a cuenta corriente,
@@ -89,6 +102,7 @@ export function routeSheet(orders, customers, { driver, date }) {
       const customer = customers.find((c) => c.phone === o.customer);
       const method = paidMethodOf(o);
       const delivered = o.status === "entregado";
+      const by = paidByMethod(o);
       return {
         order: o,
         customer,
@@ -96,12 +110,9 @@ export function routeSheet(orders, customers, { driver, date }) {
         method,
         // Efectivo que el repartidor debe cobrar en la puerta (pendiente) o ya cobró él mismo.
         cash: o.payment === "entrega" && !o.paid ? o.total : 0,
-        collected:
-          o.paid && method === "efectivo" && o.paidBy === driver ? o.total : 0,
-        transfers:
-          o.paid && o.payment !== "cuenta" && method !== "efectivo"
-            ? o.total
-            : 0,
+        collected: o.paidBy === driver ? by.efectivo : 0,
+        transfers: by.transferencia + by.mercadopago,
+        cheques: by.cheque,
         accountPlanned: o.payment === "cuenta" ? o.total : 0,
         account: o.payment === "cuenta" && delivered ? o.total : 0,
         boxesLeft: o.boxes || 0,
@@ -138,7 +149,12 @@ export function routeSheet(orders, customers, { driver, date }) {
   );
   const accountTransfers = round(
     accountPayments
-      .filter((p) => p.method !== "efectivo")
+      .filter((p) => p.method !== "efectivo" && p.method !== "cheque")
+      .reduce((s, p) => s + p.amount, 0),
+  );
+  const accountCheques = round(
+    accountPayments
+      .filter((p) => p.method === "cheque")
       .reduce((s, p) => s + p.amount, 0),
   );
   const departures = stops
@@ -170,10 +186,12 @@ export function routeSheet(orders, customers, { driver, date }) {
     cash: round(sum("cash") + sum("collected")),
     collected: sum("collected"),
     transfers: sum("transfers"),
+    cheques: sum("cheques"),
     pendingCash: sum("cash"),
     accountPayments,
     accountCash,
     accountTransfers,
+    accountCheques,
     // Solo el efectivo que pasó por las manos del repartidor: cobros en la puerta y de cuenta corriente.
     toSettle: round(sum("collected") + accountCash),
     accountPlanned: sum("accountPlanned"),

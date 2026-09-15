@@ -46,6 +46,7 @@ export default function CashClosure({ sheet, date, driver }) {
         expected,
         received: value,
         transfers: sheet.transfers + sheet.accountTransfers,
+        cheques: sheet.cheques + sheet.accountCheques,
         accountCash: sheet.accountCash,
         note,
       });
@@ -71,6 +72,15 @@ export default function CashClosure({ sheet, date, driver }) {
         <div className="closure-figure">
           <span>Debe rendir (efectivo)</span>
           <strong>{money(expected)}</strong>
+        </div>
+        <div className="closure-breakdown">
+          <span>
+            Transferencias / MP{" "}
+            <b>{money(sheet.transfers + sheet.accountTransfers)}</b>
+          </span>
+          <span>
+            Cheques <b>{money(sheet.cheques + sheet.accountCheques)}</b>
+          </span>
         </div>
         <label>
           Efectivo recibido
@@ -133,6 +143,7 @@ export default function CashClosure({ sheet, date, driver }) {
           Cerrada por {mine.by} a las {timeText(mine.at)} · esperado{" "}
           {money(mine.expected)} · recibido {money(mine.received)}
           {mine.transfers ? ` · transferencias ${money(mine.transfers)}` : ""}
+          {mine.cheques ? ` · cheques ${money(mine.cheques)}` : ""}
         </p>
       )}
       {closures.filter((c) => c.driver !== driver).length > 0 && (
