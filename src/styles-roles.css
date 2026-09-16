@@ -2527,3 +2527,15 @@ dialog label.check input {
 .lists-table td.num {
   text-align: right;
 }
+
+/* Pesaje: buscador y número de pedido en cada tarjeta */
+.weigh-search {
+  margin-bottom: 12px;
+  max-width: 480px;
+}
+.floor-card-num {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+  color: var(--red, #c9262e);
+  margin-right: 2px;
+}

@@ -7,10 +7,11 @@ import {
   Package,
   WifiOff,
   CircleCheck,
+  Search,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute } from "../lib/router.jsx";
-import { kgText, money } from "../lib/format.js";
+import { kgText, money, normalize, orderNumber } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import {
   useDay,
@@ -55,20 +56,27 @@ export default function Weighing() {
   const tare = day.tare || 1.7;
   const back = session?.role === "admin" ? "/operacion" : "/reparto";
 
-  // Pedidos de hoy ordenados: primero los que están a medio pesar, después los pendientes.
+  // Pedidos de hoy en el orden en que se cargaron (N° de pedido), con búsqueda por cliente o N°.
+  const [search, setSearch] = useState("");
+  const q = normalize(search.trim());
   const list = useMemo(
     () =>
       day.orders
         .filter((o) => !["en_camino", "entregado"].includes(o.status))
+        .filter(
+          (o) =>
+            !q ||
+            normalize(
+              `${orderNumber(o)} ${Number(o.number) || ""} ${o.name} ${o.driver || ""} ${o.driver2 || ""} ${o.locality?.name || ""}`,
+            ).includes(q),
+        )
         .map((o) => ({ o, st: floorStatus(o) }))
         .sort(
           (a, b) =>
-            ["pesando", "pendiente", "pesado", "cargado"].indexOf(a.st) -
-              ["pesando", "pendiente", "pesado", "cargado"].indexOf(b.st) ||
-            (a.o.driver || "").localeCompare(b.o.driver || "") ||
-            a.o.name.localeCompare(b.o.name),
+            (a.o.number || 0) - (b.o.number || 0) ||
+            a.o.created.localeCompare(b.o.created),
         ),
-    [day.orders],
+    [day.orders, q],
   );
 
   useEffect(() => {
@@ -230,16 +238,33 @@ export default function Weighing() {
       {error && <p className="notice error">{error}</p>}
 
       {!order && (
+        <div className="search-field weigh-search">
+          <Search size={16} />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por cliente o N° de pedido…"
+            aria-label="Buscar pedido por cliente o número"
+          />
+        </div>
+      )}
+      {!order && (
         <section className="floor-list">
           {loading && !day.orders.length ? (
             <p className="muted">Cargando la nota del {dmy(date)}…</p>
           ) : list.length === 0 ? (
             <div className="floor-empty">
               <CircleCheck size={40} />
-              <h2>Nada por pesar el {dmy(date)}</h2>
+              <h2>
+                {q
+                  ? `Ningún pedido coincide con "${search.trim()}"`
+                  : `Nada por pesar el ${dmy(date)}`}
+              </h2>
               <p>
-                Los pedidos cargados para esa fecha ya salieron, o todavía no
-                hay ninguno.
+                {q
+                  ? "Probá con otra parte del nombre o el número de pedido."
+                  : "Los pedidos cargados para esa fecha ya salieron, o todavía no hay ninguno."}
               </p>
             </div>
           ) : (
@@ -259,9 +284,16 @@ export default function Weighing() {
                   }}
                 >
                   <span className="floor-card-main">
-                    <strong>{o.name}</strong>
+                    <strong>
+                      <span className="floor-card-num">
+                        N° {orderNumber(o)}
+                      </span>{" "}
+                      {o.name}
+                    </strong>
                     <small>
-                      {o.driver || "Sin camión"} · {o.locality?.name || ""} ·{" "}
+                      {o.driver || "Sin camión"}
+                      {o.driver2 ? ` + ${o.driver2}` : ""} ·{" "}
+                      {o.locality?.name || ""} ·{" "}
                       {o.items
                         .map(
                           (i) =>
