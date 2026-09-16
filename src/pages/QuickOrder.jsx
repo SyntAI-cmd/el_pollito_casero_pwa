@@ -151,9 +151,12 @@ export default function QuickOrder() {
       return Number.isFinite(v) ? v : NaN;
     }
     const own = picked?.prices?.[p.id];
+    // MVP: el precio es el propio del cliente (editable); sin precio propio queda "sin precio" y se
+    // tipea en la fila. Las listas mayorista/intermedio/minorista se retoman más adelante:
+    // return productPrice(p, picked?.plan || "mayorista");
     return Number.isFinite(Number(own)) && own !== null && own !== ""
       ? Number(own)
-      : productPrice(p, picked?.plan || "mayorista");
+      : NaN;
   };
   const rows = products.map((p) => {
     const l = lines[p.id] || {};
@@ -183,10 +186,10 @@ export default function QuickOrder() {
   async function submit(e) {
     e?.preventDefault();
     if (!canSubmit) return;
+    // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
     const editedPrices = Object.fromEntries(
-      Object.entries(priceEdits)
-        .filter(([, v]) => String(v).trim() !== "")
-        .map(([id, v]) => [id, Number(String(v).replace(",", "."))])
+      items
+        .map((r) => [r.p.id, r.price])
         .filter(([, v]) => Number.isFinite(v) && v > 0),
     );
     const order = await createStaffOrder({
@@ -546,7 +549,7 @@ export default function QuickOrder() {
                             : "")
                       }
                     >
-                      {isAdmin && picked && editingPrice === p.id ? (
+                      {picked && editingPrice === p.id ? (
                         <input
                           type="text"
                           inputMode="decimal"
@@ -568,7 +571,7 @@ export default function QuickOrder() {
                             }
                           }}
                         />
-                      ) : isAdmin && picked ? (
+                      ) : picked ? (
                         <button
                           type="button"
                           className="qo-price-btn"

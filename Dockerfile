@@ -18,7 +18,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server.mjs /app/domain.mjs /app/business.json /app/package.json ./
 COPY --from=build /app/server ./server
-COPY --from=build /app/scripts/limpiar.mjs /app/scripts/prueba.mjs ./scripts/
+COPY --from=build /app/scripts/limpiar.mjs /app/scripts/prueba.mjs /app/scripts/importar-gc.mjs ./scripts/
+COPY --from=build /app/seed ./seed
 # Corre como root: Railway monta el volumen de /data como root y el usuario "node" no podría escribir la base.
 RUN mkdir -p /data
 # Verificación: los módulos del servidor resuelven todas sus importaciones dentro de la imagen

@@ -1,0 +1,2603 @@
+{
+ "lists": [
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Ariel",
+   "prices": {
+    "entero": 4100.0,
+    "cuarto-trasero": 4000.0,
+    "suprema": 9700.0,
+    "alas": 3350.0,
+    "menudos": 1500.0
+   },
+   "raw": [
+    "Pollo $4100",
+    "Cuarto $4000",
+    "Suprema $9700",
+    "Alas $3350",
+    "Menudo $1500"
+   ],
+   "gcId": 107764,
+   "gcAlias": "RIVADAVIA",
+   "score": 65
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Andrés",
+   "prices": {
+    "entero": 4250.0
+   },
+   "raw": [
+    "Pollo $4250"
+   ],
+   "gcId": 107765,
+   "gcAlias": "RIVADAVIA",
+   "score": 65
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Walter",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Avícola centro",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Cuarto $"
+   ],
+   "gcId": 107925,
+   "gcAlias": "Avícola la blanca",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Pablo",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109942,
+   "gcAlias": "pablo rivadavia",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Victor",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Enrique",
+   "prices": {
+    "entero": 4250.0
+   },
+   "raw": [
+    "Pollo $4250"
+   ],
+   "gcId": 107922,
+   "gcAlias": "Enrique rivadavia",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Samuel",
+   "prices": {
+    "entero": 4700.0
+   },
+   "raw": [
+    "Pollo $4700"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Jose María",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Carlos",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Agustín",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Mariela",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Marcelo",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 107767,
+   "gcAlias": "",
+   "score": 65
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Fede",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rivadavia",
+   "name": "Lorena",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Keka",
+   "prices": {
+    "entero": 4300.0
+   },
+   "raw": [
+    "Pollo $",
+    "Pollo $3700",
+    "Pollo $4300",
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Joel",
+   "prices": {
+    "entero": 4300.0
+   },
+   "raw": [
+    "Pollo $4300",
+    "Pollo $"
+   ],
+   "gcId": 107774,
+   "gcAlias": "Joel junin",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Lucas",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Pollo $"
+   ],
+   "gcId": 107929,
+   "gcAlias": "Lucas Junín",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Andrés",
+   "prices": {
+    "entero": 3900.0
+   },
+   "raw": [
+    "Pollo $3900"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Patricia delgado",
+   "prices": {
+    "entero": 4750.0
+   },
+   "raw": [
+    "Pollo $4750"
+   ],
+   "gcId": 107930,
+   "gcAlias": "Patricia delgado",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Ale",
+   "prices": {
+    "entero": 3700.0
+   },
+   "raw": [
+    "Pollo $4200",
+    "Pollo $3700"
+   ],
+   "gcId": 107877,
+   "gcAlias": "Ale zabala",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Gustavo Quiroga",
+   "prices": {
+    "entero": 4000.0
+   },
+   "raw": [
+    "Pollo $4000"
+   ],
+   "gcId": 107940,
+   "gcAlias": "Gustavo tres porteñas",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Junin",
+   "name": "Xavier",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "La Colonia",
+   "name": "Pichu",
+   "prices": {},
+   "raw": [],
+   "gcId": 107934,
+   "gcAlias": "Pichu la colonia",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "La Colonia",
+   "name": "Gabriel",
+   "prices": {},
+   "raw": [],
+   "gcId": 109068,
+   "gcAlias": "gabriel maipu",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Seba b municipal",
+   "prices": {},
+   "raw": [],
+   "gcId": 109062,
+   "gcAlias": "Seba b° municipal",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Rubén Lucero",
+   "prices": {},
+   "raw": [],
+   "gcId": 109162,
+   "gcAlias": "ruben lucero",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Cristian barrio guemes",
+   "prices": {},
+   "raw": [],
+   "gcId": 119422,
+   "gcAlias": "Cristian B Guemes",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Gabi ozan",
+   "prices": {
+    "entero": 4200.0
+   },
+   "raw": [
+    "Pollo $4200"
+   ],
+   "gcId": 109165,
+   "gcAlias": "gabi ozan",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Seba terminal",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109062,
+   "gcAlias": "Seba b° municipal",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Ramiro",
+   "prices": {
+    "entero": 4300.0,
+    "suprema": 9580.0
+   },
+   "raw": [
+    "Pollo $4300",
+    "Suprema $9580"
+   ],
+   "gcId": 109071,
+   "gcAlias": "ramiro",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Joni",
+   "prices": {
+    "entero": 3900.0,
+    "suprema": 9400.0
+   },
+   "raw": [
+    "Pollo $3900",
+    "Suprema $9400"
+   ],
+   "gcId": 107772,
+   "gcAlias": "Joni san martin",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Néstor",
+   "prices": {
+    "entero": 4300.0
+   },
+   "raw": [
+    "Pollo $4300"
+   ],
+   "gcId": 107927,
+   "gcAlias": "Néstor",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Hernán",
+   "prices": {
+    "entero": 3900.0,
+    "suprema": 9280.0
+   },
+   "raw": [
+    "Pollo $3900",
+    "Suprema $9280"
+   ],
+   "gcId": 109060,
+   "gcAlias": "Hernán pedriel",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Alfredo",
+   "prices": {
+    "entero": 3550.0
+   },
+   "raw": [
+    "Pollo $3550"
+   ],
+   "gcId": 107768,
+   "gcAlias": "Alfredo",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Nico",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Juan lucero",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 108769,
+   "gcAlias": "Juan lavalle",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Seba centenario",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109062,
+   "gcAlias": "Seba b° municipal",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Arian",
+   "prices": {
+    "entero": 3700.0
+   },
+   "raw": [
+    "Pollo $3700"
+   ],
+   "gcId": 109066,
+   "gcAlias": "Arian - Facturar a Cuit de Joel Junin",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Emi Micheli",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Nahuel Nueva argentina",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109939,
+   "gcAlias": "nahuel nueva argentina",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Luis puebla",
+   "prices": {
+    "entero": 3900.0
+   },
+   "raw": [
+    "Pollo $3900"
+   ],
+   "gcId": 109941,
+   "gcAlias": "luis la dormida",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "San Martin",
+   "name": "Chino Salafia",
+   "prices": {
+    "entero": 3680.0
+   },
+   "raw": [
+    "Pollo $3680",
+    "Pollo $"
+   ],
+   "gcId": 111721,
+   "gcAlias": "Chino",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Barriales",
+   "name": "Luis",
+   "prices": {},
+   "raw": [],
+   "gcId": 109941,
+   "gcAlias": "luis la dormida",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Barriales",
+   "name": "Fernandez",
+   "prices": {
+    "entero": 3900.0
+   },
+   "raw": [
+    "Pollo $",
+    "Pollo $3900"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Palmira",
+   "name": "Ale zabala",
+   "prices": {},
+   "raw": [],
+   "gcId": 107877,
+   "gcAlias": "Ale zabala",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Palmira",
+   "name": "Hector",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Cuarto $"
+   ],
+   "gcId": 109069,
+   "gcAlias": "hector palmira",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Roque",
+   "name": "Diego",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109510,
+   "gcAlias": "diego palmira",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "San Roque",
+   "name": "Belen",
+   "prices": {
+    "entero": 3800.0
+   },
+   "raw": [
+    "Pollo $3800"
+   ],
+   "gcId": 119577,
+   "gcAlias": "Belen San Roque",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Beltran",
+   "name": "Avícola la blanca",
+   "prices": {
+    "entero": 3700.0,
+    "cuarto-trasero": 4000.0
+   },
+   "raw": [
+    "Pollo $3700",
+    "Cuarto $4000"
+   ],
+   "gcId": 107925,
+   "gcAlias": "Avícola la blanca",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Beltran",
+   "name": "Jorge",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Beltran",
+   "name": "Mauri",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Beltran",
+   "name": "Evelin",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Beltran",
+   "name": "Pablo",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109942,
+   "gcAlias": "pablo rivadavia",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Rodeo Del Medio",
+   "name": "Jose davila",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rodeo Del Medio",
+   "name": "Estancia grande",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rodeo Del Medio",
+   "name": "Emanuel",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 107932,
+   "gcAlias": "Emanuel colonia Segovia",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Corralito",
+   "name": "Avieste",
+   "prices": {
+    "entero": 3700.0
+   },
+   "raw": [
+    "Pollo $",
+    "Pollo $3700"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Rodeo De La Cruz",
+   "name": "Exe",
+   "prices": {
+    "entero": 3700.0
+   },
+   "raw": [
+    "Pollo $3700",
+    "Pollo $",
+    "Pollo $",
+    "Pollo $"
+   ],
+   "gcId": 107879,
+   "gcAlias": "Exe rodeo",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Guaymallen",
+   "name": "Daniel",
+   "prices": {
+    "entero": 3500.0,
+    "pechuga": 6550.0
+   },
+   "raw": [
+    "Pollo $3500",
+    "Pechuga $6550"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Guaymallen",
+   "name": "Luis tapón",
+   "prices": {},
+   "raw": [],
+   "gcId": 109941,
+   "gcAlias": "luis la dormida",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Guaymallen",
+   "name": "Martin",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Guaymallen",
+   "name": "Luis",
+   "prices": {},
+   "raw": [],
+   "gcId": 109941,
+   "gcAlias": "luis la dormida",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Graziotin",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Rodrigo",
+   "prices": {},
+   "raw": [],
+   "gcId": 107921,
+   "gcAlias": "Rodrigo maipu",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Gabriel",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109068,
+   "gcAlias": "gabriel maipu",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Lautaro sarmiento",
+   "prices": {
+    "entero": 3800.0
+   },
+   "raw": [
+    "Pollo $3800"
+   ],
+   "gcId": 107928,
+   "gcAlias": "Lautaro Sarmiento",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Rolando maipu",
+   "prices": {
+    "entero": 3750.0
+   },
+   "raw": [
+    "Pollo $3750"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Maipu",
+   "name": "Pechuga c/",
+   "prices": {
+    "alas": 5250.0
+   },
+   "raw": [
+    "alas $5250"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Dorrego",
+   "name": "Nadia",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Dorrego",
+   "name": "Cinthia",
+   "prices": {
+    "entero": 3750.0
+   },
+   "raw": [
+    "Pollo $3750"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Godoy Cruz",
+   "name": "Leandro",
+   "prices": {},
+   "raw": [],
+   "gcId": 107778,
+   "gcAlias": "Leandro godoy cruz",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Godoy Cruz",
+   "name": "Agustina",
+   "prices": {
+    "entero": 4100.0,
+    "suprema": 9500.0
+   },
+   "raw": [
+    "Pollo $4100",
+    "Suprema $9500"
+   ],
+   "gcId": 107924,
+   "gcAlias": "Agustina godoy cruz",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Godoy Cruz",
+   "name": "Franco",
+   "prices": {
+    "entero": 3800.0
+   },
+   "raw": [
+    "Pollo $3800"
+   ],
+   "gcId": 107926,
+   "gcAlias": "Franco godoy cruz",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Godoy Cruz",
+   "name": "Gustavo guiñazú",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 107940,
+   "gcAlias": "Gustavo tres porteñas",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Godoy Cruz",
+   "name": "Maxi",
+   "prices": {
+    "entero": 3750.0,
+    "pechuga": 6700.0
+   },
+   "raw": [
+    "Pollo $3750",
+    "Pechuga $6700"
+   ],
+   "gcId": 107769,
+   "gcAlias": "Maxi godoy cruz",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Lujan",
+   "name": "Matías",
+   "prices": {
+    "entero": 3480.0
+   },
+   "raw": [
+    "Pollo $3480"
+   ],
+   "gcId": 107931,
+   "gcAlias": "Matías Luján",
+   "score": 90
+  },
+  {
+   "shift": "manana",
+   "zone": "Lujan",
+   "name": "Nacho",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Lujan",
+   "name": "Aldo                   Pollo s/",
+   "prices": {},
+   "raw": [
+    "menu $"
+   ],
+   "gcId": 109070,
+   "gcAlias": "aldo lujan",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Lujan",
+   "name": "Valentina",
+   "prices": {
+    "suprema": 9700.0
+   },
+   "raw": [
+    "Suprema $9700"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Lujan",
+   "name": "Hernán pedriel",
+   "prices": {
+    "entero": 3980.0,
+    "suprema": 9380.0,
+    "cuarto-trasero": 4400.0
+   },
+   "raw": [
+    "Pollo $3980",
+    "Suprema $9380",
+    "Cuarto $4400"
+   ],
+   "gcId": 109060,
+   "gcAlias": "Hernán pedriel",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Pepe",
+   "prices": {
+    "entero": 3690.0,
+    "menudos": 1600.0,
+    "alas": 3350.0,
+    "rancho": 800.0
+   },
+   "raw": [
+    "Pollo $3690",
+    "Menudo $1600",
+    "Alas $3350",
+    "Rancho $800"
+   ],
+   "gcId": 107777,
+   "gcAlias": "Pepe",
+   "score": 100
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Marcelo",
+   "prices": {
+    "entero": 3980.0
+   },
+   "raw": [
+    "Pollo $3800",
+    "Pollo $3980"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Vanesa (4 sucursales)",
+   "prices": {
+    "suprema": 9380.0
+   },
+   "raw": [
+    "Suprema $9380"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Benedetti (varios)  Suprema",
+   "prices": {
+    "muslo": 10540.0
+   },
+   "raw": [
+    "muslo $10540"
+   ],
+   "gcId": 107780,
+   "gcAlias": "Benedetti",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Pollo",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Viomar (varios)",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Oscar (varios)",
+   "prices": {},
+   "raw": [
+    "Cuarto $",
+    "Muslo $",
+    "Alas $",
+    "Pechuga $",
+    "Suprema $"
+   ],
+   "gcId": 109059,
+   "gcAlias": "Oscar",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Pechuga c/",
+   "prices": {
+    "entero": 3690.0
+   },
+   "raw": [
+    "alas $",
+    "Rancho $",
+    "Menudo $",
+    "Garra $",
+    "Pollo $3690"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Rizzo (varios)",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Cuarto $"
+   ],
+   "gcId": 107779,
+   "gcAlias": "Rizzo",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Peladero",
+   "prices": {
+    "entero": 4100.0
+   },
+   "raw": [
+    "Pollo $4100"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Juan lucero",
+   "prices": {
+    "entero": 3900.0
+   },
+   "raw": [
+    "Pollo $3900"
+   ],
+   "gcId": 108769,
+   "gcAlias": "Juan lavalle",
+   "score": 60
+  },
+  {
+   "shift": "manana",
+   "zone": "Las Heras",
+   "name": "Leo lucero",
+   "prices": {
+    "cuarto-trasero": 4400.0
+   },
+   "raw": [
+    "Cuarto $4400"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Gustavo",
+   "prices": {
+    "entero": 4100.0,
+    "cuarto-trasero": 4000.0,
+    "alas": 3350.0
+   },
+   "raw": [
+    "Pollo $4100",
+    "Cuarto $4000",
+    "Alas $3350"
+   ],
+   "gcId": 107940,
+   "gcAlias": "Gustavo tres porteñas",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "San ago",
+   "prices": {
+    "entero": 4800.0,
+    "alas": 3550.0,
+    "cuarto-trasero": 4200.0
+   },
+   "raw": [
+    "Pollo $4800",
+    "Alas $3550",
+    "Cuarto $4200"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Diego",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 109510,
+   "gcAlias": "diego palmira",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Fabio sosa",
+   "prices": {
+    "entero": 3600.0,
+    "cuarto-trasero": 4000.0,
+    "alas": 3350.0,
+    "pechuga": 6550.0
+   },
+   "raw": [
+    "Pollo $3600",
+    "Cuarto $4000",
+    "Alas $3350",
+    "Pechuga $6550"
+   ],
+   "gcId": 107770,
+   "gcAlias": "Fabio tres porteñas",
+   "score": 60
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Mario",
+   "prices": {
+    "entero": 3750.0
+   },
+   "raw": [
+    "Pollo $3750"
+   ],
+   "gcId": 109063,
+   "gcAlias": "Mario 3 porteñas",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Vanesa",
+   "prices": {
+    "entero": 4050.0,
+    "cuarto-trasero": 4000.0,
+    "alas": 3350.0
+   },
+   "raw": [
+    "Pollo $4050",
+    "Cuarto $4000",
+    "Alas $3350"
+   ],
+   "gcId": 107776,
+   "gcAlias": "Vanesa lujan",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Leo",
+   "prices": {},
+   "raw": [
+    "pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Tres Porteñas",
+   "name": "Francisco",
+   "prices": {},
+   "raw": [
+    "Suprema $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "tarde",
+   "zone": "California",
+   "name": "Jose",
+   "prices": {
+    "entero": 3800.0
+   },
+   "raw": [
+    "Pollo $4150",
+    "Pollo $3800",
+    "Pollo $3800"
+   ],
+   "gcId": 107933,
+   "gcAlias": "Jose escudero",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "California",
+   "name": "Alberto",
+   "prices": {
+    "entero": 4300.0
+   },
+   "raw": [
+    "Pollo $4300"
+   ],
+   "gcId": 107936,
+   "gcAlias": "Alberto california",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "California",
+   "name": "Anibal",
+   "prices": {},
+   "raw": [],
+   "gcId": 107939,
+   "gcAlias": "Aníbal california",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "California",
+   "name": "Sonia",
+   "prices": {
+    "entero": 3900.0,
+    "muslo": 5290.0
+   },
+   "raw": [
+    "Pollo $3900",
+    "Muslo $5290"
+   ],
+   "gcId": 107878,
+   "gcAlias": "Sonia california",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Costa",
+   "name": "Cris an",
+   "prices": {
+    "entero": 4000.0,
+    "garras": 700.0,
+    "cuarto-trasero": 4000.0
+   },
+   "raw": [
+    "Pollo $4200",
+    "Pollo $4000",
+    "Garra $700",
+    "Cuarto $4000"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Costa",
+   "name": "Irene",
+   "prices": {
+    "entero": 4800.0
+   },
+   "raw": [
+    "Pollo $4800"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Costa",
+   "name": "Claudio",
+   "prices": {
+    "entero": 5000.0
+   },
+   "raw": [
+    "Pollo sin menudo $5000"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "tarde",
+   "zone": "Costa",
+   "name": "Gallego",
+   "prices": {},
+   "raw": [],
+   "gcId": 107937,
+   "gcAlias": "Gallego",
+   "score": 100
+  },
+  {
+   "shift": "tarde",
+   "zone": "Costa",
+   "name": "Sonia",
+   "prices": {
+    "entero": 4500.0,
+    "cuarto-trasero": 4000.0
+   },
+   "raw": [
+    "Pollo $4500",
+    "Cuarto $4000"
+   ],
+   "gcId": 107878,
+   "gcAlias": "Sonia california",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Juan",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": 108769,
+   "gcAlias": "Juan lavalle",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Abasto",
+   "prices": {
+    "entero": 4100.0,
+    "cuarto-trasero": 4000.0,
+    "suprema": 9700.0
+   },
+   "raw": [
+    "Pollo $4100",
+    "Cuarto $4000",
+    "Suprema $9700"
+   ],
+   "gcId": 107771,
+   "gcAlias": "Abasto Lavalle",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Fabian             Suprema",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Rafael",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Mauricio cardenas",
+   "prices": {},
+   "raw": [
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Lavalle",
+   "name": "Macarena",
+   "prices": {},
+   "raw": [
+    "Pollo $",
+    "Pollo $"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Colonia Segovia",
+   "name": "Emanuel",
+   "prices": {},
+   "raw": [],
+   "gcId": 107932,
+   "gcAlias": "Emanuel colonia Segovia",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Alto Verde",
+   "name": "Tamagnone",
+   "prices": {
+    "entero": 5100.0,
+    "cuarto-trasero": 4300.0
+   },
+   "raw": [
+    "Pollo $5100",
+    "Cuarto $4300"
+   ],
+   "gcId": 109943,
+   "gcAlias": "tamagnone",
+   "score": 100
+  },
+  {
+   "shift": "tarde",
+   "zone": "Alto Verde",
+   "name": "Marcelo",
+   "prices": {
+    "suprema": 9700.0,
+    "entero": 4300.0
+   },
+   "raw": [
+    "Suprema $9700",
+    "Pollo $4300"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 40
+  },
+  {
+   "shift": "tarde",
+   "zone": "Mirador",
+   "name": "Miguel",
+   "prices": {
+    "entero": 4400.0
+   },
+   "raw": [
+    "Pollo $4400",
+    "Pollo $4400"
+   ],
+   "gcId": 109163,
+   "gcAlias": "miguel mirador",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Mirador",
+   "name": "Leo",
+   "prices": {
+    "entero": 4000.0
+   },
+   "raw": [
+    "Pollo $",
+    "Pollo $4000"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Santa Rosa",
+   "name": "Jose luis",
+   "prices": {
+    "cuarto-trasero": 4000.0,
+    "alas": 3450.0
+   },
+   "raw": [
+    "Cuarto $4000",
+    "Alas $3450",
+    "Pollo $"
+   ],
+   "gcId": 107933,
+   "gcAlias": "Jose escudero",
+   "score": 60
+  },
+  {
+   "shift": "tarde",
+   "zone": "Santa Rosa",
+   "name": "Elena",
+   "prices": {
+    "muslo": 5100.0,
+    "entero": 4200.0
+   },
+   "raw": [
+    "Muslo $5100",
+    "Pollo $4200"
+   ],
+   "gcId": 109511,
+   "gcAlias": "elena santa rosa",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Santa Rosa",
+   "name": "Sosa",
+   "prices": {},
+   "raw": [],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Santa Rosa",
+   "name": "Enzo",
+   "prices": {},
+   "raw": [],
+   "gcId": 107773,
+   "gcAlias": "Enzo santa rosa",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Catitas",
+   "name": "José escudero",
+   "prices": {},
+   "raw": [],
+   "gcId": 107933,
+   "gcAlias": "Jose escudero",
+   "score": 100
+  },
+  {
+   "shift": "tarde",
+   "zone": "Catitas",
+   "name": "Emanuel",
+   "prices": {
+    "entero": 4500.0
+   },
+   "raw": [
+    "Pollo $4500"
+   ],
+   "gcId": 107932,
+   "gcAlias": "Emanuel colonia Segovia",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Catitas",
+   "name": "Fabian jofre",
+   "prices": {
+    "entero": 4300.0
+   },
+   "raw": [
+    "Pollo $4300"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "Catitas",
+   "name": "Norma",
+   "prices": {
+    "menudos": 1500.0
+   },
+   "raw": [
+    "Menudo $1500"
+   ],
+   "gcId": 109164,
+   "gcAlias": "norma catita",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "Catitas",
+   "name": "Anahi",
+   "prices": {
+    "entero": 5300.0,
+    "cuarto-trasero": 4600.0
+   },
+   "raw": [
+    "Pollo $5300",
+    "Cuarto $4600"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Dormida",
+   "name": "Luis",
+   "prices": {
+    "alas": 3750.0,
+    "cuarto-trasero": 4000.0
+   },
+   "raw": [
+    "Alas $3750",
+    "Cuarto $4000"
+   ],
+   "gcId": 109941,
+   "gcAlias": "luis la dormida",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Dormida",
+   "name": "Pancho",
+   "prices": {
+    "entero": 5300.0
+   },
+   "raw": [
+    "Pollo $5300"
+   ],
+   "gcId": 107920,
+   "gcAlias": "Pancho la dormida",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Paz",
+   "name": "Emiliano",
+   "prices": {
+    "entero": 4200.0,
+    "cuarto-trasero": 4000.0,
+    "alas": 3550.0
+   },
+   "raw": [
+    "Pollo $4200",
+    "Cuarto $4000",
+    "Alas $3550"
+   ],
+   "gcId": 108771,
+   "gcAlias": "Emiliano la paz",
+   "score": 90
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Paz",
+   "name": "Pajarito",
+   "prices": {
+    "suprema": 10000.0,
+    "entero": 4550.0,
+    "cuarto-trasero": 4500.0
+   },
+   "raw": [
+    "Suprema $9980",
+    "Pollo $5500",
+    "Cuarto $4500",
+    "Pollo $4550",
+    "Suprema $10.000"
+   ],
+   "gcId": 109512,
+   "gcAlias": "pajarito",
+   "score": 100
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Paz",
+   "name": "Rodolfo",
+   "prices": {
+    "entero": 5500.0
+   },
+   "raw": [
+    "Pollo $5500"
+   ],
+   "gcId": null,
+   "gcAlias": null,
+   "score": 0
+  },
+  {
+   "shift": "tarde",
+   "zone": "La Paz",
+   "name": "chacho",
+   "prices": {
+    "muslo": 5700.0,
+    "entero": 4400.0
+   },
+   "raw": [
+    "Muslo $5700",
+    "Pollo $4400"
+   ],
+   "gcId": 107935,
+   "gcAlias": "Chacho La Paz",
+   "score": 90
+  }
+ ],
+ "gc": [
+  {
+   "id": 107764,
+   "cuit": 20250190442,
+   "razon": "ARIEL SALVADOR",
+   "alias": "RIVADAVIA",
+   "phone": "2634871682",
+   "address": null,
+   "district": null,
+   "cp": null
+  },
+  {
+   "id": 107765,
+   "cuit": 30719015170,
+   "razon": "ANDRES",
+   "alias": "RIVADAVIA",
+   "phone": "2634",
+   "address": null,
+   "district": null,
+   "cp": null
+  },
+  {
+   "id": 107766,
+   "cuit": 20147593482,
+   "razon": "WALTER TONON",
+   "alias": "",
+   "phone": "",
+   "address": null,
+   "district": null,
+   "cp": null
+  },
+  {
+   "id": 107767,
+   "cuit": 20179257069,
+   "razon": "MARCELO LORCA",
+   "alias": "",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: LEANDRO N. ALEM Nº: 156",
+   "district": "RIVADAVIA, RIVADAVIA - MENDOZA",
+   "cp": "5577"
+  },
+  {
+   "id": 107768,
+   "cuit": 30718470788,
+   "razon": "ABASTO SAN GABRIEL S. A. S.",
+   "alias": "Alfredo",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: TOMAS THOMAS Nº: 1540",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 107769,
+   "cuit": 20276152751,
+   "razon": "MAXIMILIANO MAURO ADRIAN ORQUERA",
+   "alias": "Maxi godoy cruz",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: DAVILA Nº: 3130",
+   "district": "VILLANUEVA, VILLANUEVA - MENDOZA",
+   "cp": "5521"
+  },
+  {
+   "id": 107770,
+   "cuit": 20203868317,
+   "razon": "FABIO CEFERINO SOSA",
+   "alias": "Fabio tres porteñas",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: VERDAGUER S/N Nº: 0",
+   "district": "TRES PORTEÑAS, TRES PORTEÑAS - MENDOZA",
+   "cp": "5589"
+  },
+  {
+   "id": 107771,
+   "cuit": 20166719748,
+   "razon": "ANTONIO LUIS FALCON",
+   "alias": "Abasto Lavalle",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: BELGRANO Nº: 580",
+   "district": "LAVALLE, LAVALLE - MENDOZA",
+   "cp": "5533"
+  },
+  {
+   "id": 107772,
+   "cuit": 23444059729,
+   "razon": "JONATHAN DARIO MARTIN",
+   "alias": "Joni san martin",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: 9 DE JULIO Nº: 77",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 107773,
+   "cuit": 20352100510,
+   "razon": "ENZO DAMIAN SALLEMI",
+   "alias": "Enzo santa rosa",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: MB C1 B° JARDIN Nº: 0",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 107774,
+   "cuit": 30719282608,
+   "razon": "J.D S. A. S.",
+   "alias": "Joel junin",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: BELGRANO Nº: 329 - REFERENCIA: SIN DATO",
+   "district": "CIUDAD DE JUNIN, CIUDAD DE JUNIN - MENDOZA",
+   "cp": "5573"
+  },
+  {
+   "id": 107775,
+   "cuit": 30708737360,
+   "razon": "VIOMAR Y CIA SRL",
+   "alias": "",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: MARIANO MORENO  ESQ. INDEPENDENCIA Nº: 0 - DEPTO: 5 - REFERENCIA: ESQ. INDEPENDENCIA",
+   "district": "FRAY LUIS BELTRAN, FRAY LUIS BELTRAN - MENDOZA",
+   "cp": "5531"
+  },
+  {
+   "id": 107776,
+   "cuit": 30716161346,
+   "razon": "MARKET MULTIRRUBRO M Y M S.A.S.",
+   "alias": "Vanesa lujan",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: BARRIO HIGUERITA Nº: 0 - DEPTO: 12",
+   "district": "VILLANUEVA, VILLANUEVA - MENDOZA",
+   "cp": "5521"
+  },
+  {
+   "id": 107777,
+   "cuit": 27403722567,
+   "razon": "AILEN MICAELA ECHEVARRIETA",
+   "alias": "Pepe",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: ARISTÓBULO DEL VALLE Nº: 1558",
+   "district": "LAS HERAS, LAS HERAS - MENDOZA",
+   "cp": "5539"
+  },
+  {
+   "id": 107778,
+   "cuit": 20370024155,
+   "razon": "LEANDRO FABRICIO TESTINI",
+   "alias": "Leandro godoy cruz",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: B° REMEDIOS DE SAN MARTIN Nº: 7",
+   "district": "COQUIMBITO, COQUIMBITO - MENDOZA",
+   "cp": "5513"
+  },
+  {
+   "id": 107779,
+   "cuit": 30716047500,
+   "razon": "DON CHICHO RIZZO S.R.L.",
+   "alias": "Rizzo",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: ALTOS HORNOS DE ZAPLA Nº: 1661 - REFERENCIA: .",
+   "district": "GODOY CRUZ, GODOY CRUZ - MENDOZA",
+   "cp": "5501"
+  },
+  {
+   "id": 107780,
+   "cuit": 30709390712,
+   "razon": "ALMA S.R.L.",
+   "alias": "Benedetti",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: RODRIGUEZ PEÑA Nº: 1100",
+   "district": "COQUIMBITO, COQUIMBITO - MENDOZA",
+   "cp": "5513"
+  },
+  {
+   "id": 107877,
+   "cuit": 20343515317,
+   "razon": "ALEJANDRO EMANUEL ZABALA",
+   "alias": "Ale zabala",
+   "phone": "2634270760",
+   "address": "TIPO: REAL - CALLE: B° PROSPERIDAD BARRIALINA - CASA Nº: 9 - REFERENCIA: PROSPERIDAD BARRIALI",
+   "district": "LOS BARRIALES, LOS BARRIALES - MENDOZA",
+   "cp": "5585"
+  },
+  {
+   "id": 107878,
+   "cuit": 23355465314,
+   "razon": "SONIA RAQUEL FREDES CABRERA",
+   "alias": "Sonia california",
+   "phone": "2634945196",
+   "address": "TIPO: REAL - CALLE: BRASERAS Nº: 1 - DEPTO: 3",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 107879,
+   "cuit": 20390870281,
+   "razon": "CARLOS EXEQUIEL CARDOZO",
+   "alias": "Exe rodeo",
+   "phone": "2617506624",
+   "address": "TIPO: REAL - CALLE: BUENOS VECINOS Nº: 1804",
+   "district": "RODEO DE LA CRUZ, RODEO DE LA CRUZ - MENDOZA",
+   "cp": "5525"
+  },
+  {
+   "id": 107920,
+   "cuit": 20293674885,
+   "razon": "JORGE FRANCISCO FIGUEROA",
+   "alias": "Pancho la dormida",
+   "phone": "2634335157",
+   "address": "TIPO: REAL - CALLE: SAN JUAN Nº: 314",
+   "district": "LA DORMIDA, LA DORMIDA - MENDOZA",
+   "cp": "5592"
+  },
+  {
+   "id": 107921,
+   "cuit": 20300002944,
+   "razon": "RODRIGO ALBERTO HERRERA",
+   "alias": "Rodrigo maipu",
+   "phone": "2612474564",
+   "address": "TIPO: REAL - CALLE: ADOLFO CALLE Nº: 475",
+   "district": "MAIPU, MAIPU - MENDOZA",
+   "cp": "5515"
+  },
+  {
+   "id": 107922,
+   "cuit": 27279858331,
+   "razon": "CINTIA VALERIA ENRIQUEZ",
+   "alias": "Enrique rivadavia",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: B° AMUPPOL MANZANA:C CASA:1 Nº: 6 - PISO: 0 - REFERENCIA: SIN DATOS",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 107923,
+   "cuit": 27459668298,
+   "razon": "KATIA NICOL MARTIN",
+   "alias": "Joni San Martín",
+   "phone": "2634276652",
+   "address": "TIPO: REAL - CALLE: 9 DE JULIO Nº: 77",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 107924,
+   "cuit": 27367533914,
+   "razon": "AGUSTINA BELEN VARGAS FERRIGNA",
+   "alias": "Agustina godoy cruz",
+   "phone": "2615520491",
+   "address": "TIPO: REAL - CALLE: PERITO MORENO Nº: 165 - PISO: PB - DEPTO: 1",
+   "district": "GODOY CRUZ, GODOY CRUZ - MENDOZA",
+   "cp": "5501"
+  },
+  {
+   "id": 107925,
+   "cuit": 20268304879,
+   "razon": "DANIEL ALBERTO PAUTASSO",
+   "alias": "Avícola la blanca",
+   "phone": "2613039500",
+   "address": "TIPO: REAL - CALLE: CARRIL VIEJO Nº: 0",
+   "district": "FRAY LUIS BELTRAN, FRAY LUIS BELTRAN - MENDOZA",
+   "cp": "5531"
+  },
+  {
+   "id": 107926,
+   "cuit": 20423778092,
+   "razon": "FRANCO JAVIER TORRES MAURINO",
+   "alias": "Franco godoy cruz",
+   "phone": "2614721086",
+   "address": "TIPO: REAL - CALLE: MZ D CASA Nº: 11",
+   "district": "GODOY CRUZ, GODOY CRUZ - MENDOZA",
+   "cp": "5501"
+  },
+  {
+   "id": 107927,
+   "cuit": 20299963285,
+   "razon": "ORESTES NESTOR AGÜERO",
+   "alias": "Néstor",
+   "phone": "2634665543",
+   "address": "TIPO: REAL - CALLE: RODRIGUEZ Nº: 150 - PISO: 0 - DEPTO: 0",
+   "district": "MONTECASEROS, MONTECASEROS - MENDOZA",
+   "cp": "5571"
+  },
+  {
+   "id": 107928,
+   "cuit": 27442470540,
+   "razon": "SABRINA ABRIL VILA",
+   "alias": "Lautaro Sarmiento",
+   "phone": "2617124007",
+   "address": "TIPO: REAL - CALLE: SARMIENTO Nº: 1945",
+   "district": "COQUIMBITO, COQUIMBITO - MENDOZA",
+   "cp": "5513"
+  },
+  {
+   "id": 107929,
+   "cuit": 20366182560,
+   "razon": "LUCAS ELIAS IRRAZABAL",
+   "alias": "Lucas Junín",
+   "phone": "2634510400",
+   "address": "TIPO: REAL - CALLE: LUIS MARCO Y AVELLANEDA Nº: 1 - REFERENCIA: FRENTE A OSEP",
+   "district": "CIUDAD DE JUNIN, CIUDAD DE JUNIN - MENDOZA",
+   "cp": "5573"
+  },
+  {
+   "id": 107930,
+   "cuit": 27464759528,
+   "razon": "ALDANA GUADALUPE MOYANO DELGADO",
+   "alias": "Patricia delgado",
+   "phone": "2634369649",
+   "address": "TIPO: REAL - CALLE: CHACO Nº: 0",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 107931,
+   "cuit": 20368189546,
+   "razon": "MATIAS EZEQUIEL DIAZ BAIGORRIA",
+   "alias": "Matías Luján",
+   "phone": "2615119138",
+   "address": "TIPO: REAL - CALLE: S/N Nº: 0 - DEPTO: 8 - REFERENCIA: PAULA ALBARRACIN",
+   "district": "PERDRIEL, PERDRIEL - MENDOZA",
+   "cp": "5509"
+  },
+  {
+   "id": 107932,
+   "cuit": 20362780218,
+   "razon": "EMANUEL ALEJANDRO PARAVANI",
+   "alias": "Emanuel colonia Segovia",
+   "phone": "2615133545",
+   "address": "TIPO: REAL - CALLE: ROQUE SAENZ PEÑA Nº: 0 - REFERENCIA: COLONIA MOLINA",
+   "district": "LOS CORRALITOS, LOS CORRALITOS - MENDOZA",
+   "cp": "5527"
+  },
+  {
+   "id": 107933,
+   "cuit": 20363936475,
+   "razon": "JOSE EMANUEL ESCUDERO",
+   "alias": "Jose escudero",
+   "phone": "2634338801",
+   "address": "TIPO: REAL - CALLE: JULIO A ROCA Nº: 281",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 107934,
+   "cuit": 20416995827,
+   "razon": "ESTEBAN CALEB FUNEZ",
+   "alias": "Pichu la colonia",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: CALLEJON MERLETTI Nº: 101",
+   "district": "LA COLONIA, LA COLONIA - MENDOZA",
+   "cp": "5572"
+  },
+  {
+   "id": 107935,
+   "cuit": 27396779272,
+   "razon": "ALDANA FABIANA SAFARANO",
+   "alias": "Chacho La Paz",
+   "phone": "2634730037",
+   "address": "TIPO: REAL - CALLE: RUTA 50 LOS LOTES Nº: 0 - REFERENCIA: ZONA RURAL",
+   "district": "LAS CATITAS, LAS CATITAS - MENDOZA",
+   "cp": "5594"
+  },
+  {
+   "id": 107936,
+   "cuit": 20253272741,
+   "razon": "JOSE ALBERTO GARCIA",
+   "alias": "Alberto california",
+   "phone": "2634478474",
+   "address": "TIPO: REAL - CALLE: VELLOTA Nº: 0",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 107937,
+   "cuit": 20279687974,
+   "razon": "CLAUDIO ADRIAN MIRABILE",
+   "alias": "Gallego",
+   "phone": "2616006369",
+   "address": "TIPO: REAL - CALLE: 9 DE JULIO Nº: 0 - REFERENCIA: COSTA DE ARAUJO",
+   "district": "LAVALLE, LAVALLE - MENDOZA",
+   "cp": "5533"
+  },
+  {
+   "id": 107938,
+   "cuit": 20140253848,
+   "razon": "JOSE GUILLERMO MERINO",
+   "alias": "José california",
+   "phone": "2616019418",
+   "address": "TIPO: REAL - CALLE: SANTA MARINA S/N Nº: 0 - REFERENCIA: MOLINARI",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 107939,
+   "cuit": 20302709948,
+   "razon": "ANIBAL SIXTO LUCERO",
+   "alias": "Aníbal california",
+   "phone": "2634273216",
+   "address": "TIPO: REAL - CALLE: FERNANDO VILLOTA Nº: 3 - DEPTO: 0",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 107940,
+   "cuit": 20284067844,
+   "razon": "JESUS GUSTAVO CHAVERO",
+   "alias": "Gustavo tres porteñas",
+   "phone": "2634328275",
+   "address": "TIPO: REAL - CALLE: CARRIL SAN PEDRO Y YOSA Nº: 0 - PISO: 0 - DEPTO: 0",
+   "district": "TRES PORTEÑAS, TRES PORTEÑAS - MENDOZA",
+   "cp": "5589"
+  },
+  {
+   "id": 107941,
+   "cuit": 27259349988,
+   "razon": "SONIA JAQUELINA GONZALEZ",
+   "alias": "Sonia costa",
+   "phone": "2617564829",
+   "address": "TIPO: REAL - CALLE: HILARIOS CUADROS Nº: 0 - DEPTO: CAS",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 108731,
+   "cuit": 27397679956,
+   "razon": "YESICA CECILIA FUENTES",
+   "alias": "cecilia fuentes",
+   "phone": "2634612107",
+   "address": "TIPO: REAL - CALLE: AGUADO Nº: 568",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 108732,
+   "cuit": 20234230396,
+   "razon": "SANTIAGO JACINTO BARZOLA",
+   "alias": "Santiago barzola",
+   "phone": "2634369057",
+   "address": "TIPO: REAL - CALLE: MIGUEZ Nº: 521",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 108769,
+   "cuit": 20355140106,
+   "razon": "JUAN JOSE PELOC MENECES",
+   "alias": "Juan lavalle",
+   "phone": "2616667042",
+   "address": "TIPO: REAL - CALLE: Ocho Nº: 0 - REFERENCIA: Sin Datos",
+   "district": "TRES DE MAYO, TRES DE MAYO - MENDOZA",
+   "cp": "5543"
+  },
+  {
+   "id": 108771,
+   "cuit": 20362777853,
+   "razon": "ALEXIS RAMIRO SANTAMARIA",
+   "alias": "Emiliano la paz",
+   "phone": "2634784011",
+   "address": "TIPO: REAL - CALLE: MANZ C CASA 10 Nº: 10 - REFERENCIA: FELIX DARDO PALORMA",
+   "district": "LA PAZ, LA PAZ - MENDOZA",
+   "cp": "5590"
+  },
+  {
+   "id": 109059,
+   "cuit": 30719295831,
+   "razon": "AVICOLA COCHABAMBA MENDOZA S. A. S.",
+   "alias": "Oscar",
+   "phone": "2616123717",
+   "address": "TIPO: REAL - CALLE: PERITO MORENO Nº: 1576 - DEPTO: B - REFERENCIA: GODOY CRUZ",
+   "district": "GODOY CRUZ, GODOY CRUZ - MENDOZA",
+   "cp": "5501"
+  },
+  {
+   "id": 109060,
+   "cuit": 30719391571,
+   "razon": "BENECAP S. A. S.",
+   "alias": "Hernán pedriel",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: TERRADA Nº: 6701 - DEPTO: 4 - REFERENCIA: LOMAS DE TERRADA",
+   "district": "CARRODILLA, CARRODILLA - MENDOZA",
+   "cp": "5505"
+  },
+  {
+   "id": 109061,
+   "cuit": 20343125365,
+   "razon": "HERNAN HUMBERTO HERNANDEZ",
+   "alias": "hernan san martin",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: B° BUEN ORDEN  - M:A  - C: Nº: 16",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 109062,
+   "cuit": 27343126498,
+   "razon": "YESICA MARIELA PALERMO",
+   "alias": "Seba b° municipal",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: PUEYRREDON Nº: 1543 - DEPTO: 0",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 109063,
+   "cuit": 20236303730,
+   "razon": "MARIO MEDARDO LEGUIZA",
+   "alias": "Mario 3 porteñas",
+   "phone": "2634733762",
+   "address": "TIPO: REAL - CALLE: BELGRANO Nº: 0",
+   "district": "NUEVA CALIFORNI, NUEVA CALIFORNIA - MENDOZA",
+   "cp": "5535"
+  },
+  {
+   "id": 109064,
+   "cuit": 27318453441,
+   "razon": "ESTER VANESA LEPPEZ",
+   "alias": "vanesa 3 porteñas",
+   "phone": "2634572665",
+   "address": "TIPO: REAL - CALLE: YOSA Nº: 0",
+   "district": "TRES PORTEÑAS, TRES PORTEÑAS - MENDOZA",
+   "cp": "5589"
+  },
+  {
+   "id": 109066,
+   "cuit": 20435437436,
+   "razon": "ARIAN ALEXIS ALBINO FARINA",
+   "alias": "Arian - Facturar a Cuit de Joel Junin",
+   "phone": "2634556260",
+   "address": "TIPO: REAL - CALLE: MANZANA J CASA 8 Bº NUEVA ARGENTINA Nº: 0 - REFERENCIA: NUEVA ARGENTINA",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 109068,
+   "cuit": 20451440633,
+   "razon": "GABRIEL JESUS DUARTE",
+   "alias": "gabriel maipu",
+   "phone": "2615680153",
+   "address": "TIPO: REAL - CALLE: SANTA FE Nº: 9571",
+   "district": "RODEO DEL MEDIO, RODEO DEL MEDIO - MENDOZA",
+   "cp": "5529"
+  },
+  {
+   "id": 109069,
+   "cuit": 20203870494,
+   "razon": "HECTOR OSVALDO HUDSON",
+   "alias": "hector palmira",
+   "phone": "1128500156",
+   "address": "TIPO: REAL - CALLE: CARRIL BARRIALES Nº: 1131",
+   "district": "PALMIRA, PALMIRA - MENDOZA",
+   "cp": "5584"
+  },
+  {
+   "id": 109070,
+   "cuit": 27263611476,
+   "razon": "GABRIELA ANGELICA CASTRO",
+   "alias": "aldo lujan",
+   "phone": "2616601433",
+   "address": "TIPO: REAL - CALLE: B 5 DE JULIO Nº: 16",
+   "district": "PERDRIEL, PERDRIEL - MENDOZA",
+   "cp": "5509"
+  },
+  {
+   "id": 109071,
+   "cuit": 20326242269,
+   "razon": "RAMIRO FERNANDO CAIRO",
+   "alias": "ramiro",
+   "phone": "2634646544",
+   "address": "TIPO: REAL - CALLE: CARRIL CHIMBAS CALLE CARBONE Nº: 0 - PISO: 0 - DEPTO: 0 - REFERENCIA: KM 10",
+   "district": "PALMIRA, PALMIRA - MENDOZA",
+   "cp": "5584"
+  },
+  {
+   "id": 109072,
+   "cuit": 20300912843,
+   "razon": "SANTIAGO DANIEL BLANCO",
+   "alias": "santiago 3 porteñas",
+   "phone": "2616217169",
+   "address": "TIPO: REAL - CALLE: PERITO MORENO Nº: 1751 - REFERENCIA: TROPERO Y RUTA 60",
+   "district": "COQUIMBITO, COQUIMBITO - MENDOZA",
+   "cp": "5513"
+  },
+  {
+   "id": 109162,
+   "cuit": 20277180627,
+   "razon": "RUBEN ALBERTO LUCERO",
+   "alias": "ruben lucero",
+   "phone": "2634567224",
+   "address": "TIPO: REAL - CALLE: FRAY LUIS BELTRAN Nº: 157",
+   "district": "CIUDAD DE JUNIN, CIUDAD DE JUNIN - MENDOZA",
+   "cp": "5573"
+  },
+  {
+   "id": 109163,
+   "cuit": 23255417509,
+   "razon": "MIGUEL ANGEL TELLO",
+   "alias": "miguel mirador",
+   "phone": "2634943450",
+   "address": "TIPO: REAL - CALLE: CARRIL 50 Nº: 1010",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 109164,
+   "cuit": 27148989805,
+   "razon": "BEATRIZ NORMA BARROSO",
+   "alias": "norma catita",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: Enrique Gonzalez Nº: 341 - REFERENCIA: Sin Datos",
+   "district": "LAS CATITAS, LAS CATITAS - MENDOZA",
+   "cp": "5594"
+  },
+  {
+   "id": 109165,
+   "cuit": 27240671706,
+   "razon": "GABRIELA CARINA OZAN",
+   "alias": "gabi ozan",
+   "phone": "2634530001",
+   "address": "TIPO: REAL - CALLE: PERITO MORENO Nº: 0 - DEPTO: 5 - REFERENCIA: PERITO MORENO",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 109510,
+   "cuit": 20232040131,
+   "razon": "DIEGO ANTONIO SOSA",
+   "alias": "diego palmira",
+   "phone": "2634508610",
+   "address": "TIPO: REAL - CALLE: 1 De Marzo Nº: 650 - REFERENCIA: Sin Datos",
+   "district": "PALMIRA, PALMIRA - MENDOZA",
+   "cp": "5584"
+  },
+  {
+   "id": 109511,
+   "cuit": 30715785745,
+   "razon": "AUTOSERVICIO MAYORISTA SAN JOSE S.R.L.",
+   "alias": "elena santa rosa",
+   "phone": "2634948094",
+   "address": "TIPO: REAL - CALLE: RUTA 50 KM 1001 Nº: 0",
+   "district": "SANTA ROSA, SANTA ROSA - MENDOZA",
+   "cp": "5596"
+  },
+  {
+   "id": 109512,
+   "cuit": 20340411200,
+   "razon": "JOSE GASTON FERREYRA",
+   "alias": "pajarito",
+   "phone": "2635023587",
+   "address": "TIPO: REAL - CALLE: B PAN C 16 Nº: 0",
+   "district": "LA PAZ, LA PAZ - MENDOZA",
+   "cp": "5590"
+  },
+  {
+   "id": 109939,
+   "cuit": 20390883839,
+   "razon": "NAHUEL EDUARDO MAGALLANES MODON",
+   "alias": "nahuel nueva argentina",
+   "phone": "2634660841",
+   "address": "TIPO: REAL - CALLE: BARRIO NUEVA ARGENTINA Nº: 0 - PISO: 20 - REFERENCIA: NUEVA ARGENTINA",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 109940,
+   "cuit": 20321304460,
+   "razon": "ARNALDO GABRIEL RIBAS",
+   "alias": "gabriel la colonia",
+   "phone": "2634226564",
+   "address": "TIPO: REAL - CALLE: CARBAJAL Nº: 0",
+   "district": "CIUDAD DE JUNIN, CIUDAD DE JUNIN - MENDOZA",
+   "cp": "5573"
+  },
+  {
+   "id": 109941,
+   "cuit": 20346766493,
+   "razon": "JOSE LUIS ROMERO",
+   "alias": "luis la dormida",
+   "phone": "2616242869",
+   "address": "TIPO: REAL - CALLE: ISIDRO HERAS Nº: 1 - PISO: 01",
+   "district": "LA DORMIDA, LA DORMIDA - MENDOZA",
+   "cp": "5592"
+  },
+  {
+   "id": 109942,
+   "cuit": 20294525476,
+   "razon": "PABLO ALEJANDRO IBAÑEZ",
+   "alias": "pablo rivadavia",
+   "phone": "2634414600",
+   "address": "TIPO: REAL - CALLE: MANZANA H CASA 5 Nº: 0 - REFERENCIA: B° JARDIN II",
+   "district": "RIVADAVIA, RIVADAVIA - MENDOZA",
+   "cp": "5577"
+  },
+  {
+   "id": 109943,
+   "cuit": 20084706095,
+   "razon": "ALFREDO TAMAGNONE",
+   "alias": "tamagnone",
+   "phone": "2634714117",
+   "address": "TIPO: REAL - CALLE: BERUTTI Nº: 913",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 111721,
+   "cuit": 20400722671,
+   "razon": "Brian  Salafia",
+   "alias": "Chino",
+   "phone": "2615165323",
+   "address": null,
+   "district": null,
+   "cp": null
+  },
+  {
+   "id": 119422,
+   "cuit": 20250351799,
+   "razon": "CRISTIAN DANIEL GUEVARA",
+   "alias": "Cristian B Guemes",
+   "phone": "2634304526",
+   "address": "TIPO: REAL - CALLE: M11 C12 B°GUEMES Nº: 0 - REFERENCIA: Barrio Guemes Manza 11 Casa n°12",
+   "district": "Ciudad, San Martin - Mendoza",
+   "cp": "5570"
+  },
+  {
+   "id": 119423,
+   "cuit": 30719328179,
+   "razon": "MILAS ARGENTINAS S. A. S.",
+   "alias": "Vanesa Godoy Cruz",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: JUAN B JUSTO Nº: 353 - REFERENCIA:  JUAB B JUSTO 353 BARRIO BOMBAL SUD 5501 MENDOZA",
+   "district": "GODOY CRUZ, GODOY CRUZ - MENDOZA",
+   "cp": "5501"
+  },
+  {
+   "id": 119476,
+   "cuit": 30718806735,
+   "razon": "BRUMARK S. A. S.",
+   "alias": "Vanesa Lujan",
+   "phone": "2616916817",
+   "address": "TIPO: REAL - CALLE: JUAN B JUSTO Nº: 353 - REFERENCIA: Distrito: Carrodilla - Departamento Lujan de Cuyo - San Martin 6119",
+   "district": "CARRODILLA, CARRODILLA - MENDOZA",
+   "cp": "5505"
+  },
+  {
+   "id": 119577,
+   "cuit": 27239505630,
+   "razon": "ESTELA MARGARITA CRUZATE",
+   "alias": "Belen San Roque",
+   "phone": "",
+   "address": "TIPO: REAL - CALLE: RESPLANDOR Y PTO MOR Nº: 1",
+   "district": "FRAY LUIS BELTRAN, FRAY LUIS BELTRAN - MENDOZA",
+   "cp": "5531"
+  }
+ ]
+}

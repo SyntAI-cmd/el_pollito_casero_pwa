@@ -25,6 +25,17 @@ const log = {
   warn: (...a) => console.warn(new Date().toISOString(), ...a),
   error: (...a) => console.error(new Date().toISOString(), ...a),
 };
+// IMPORTAR_CLIENTES=1: importa las fichas de GC y las listas de precios de seed/ antes de abrir la
+// base (una sola vez; sacar la variable después). Idempotente: no pisa saldos ni pedidos.
+if (process.env.IMPORTAR_CLIENTES && dbPath !== ":memory:") {
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(
+    process.execPath,
+    ["scripts/importar-gc.mjs", "--clientes", "seed/clientes.xlsx", "--precios", "seed/precios.json", "--db", dbPath],
+    { encoding: "utf8" },
+  );
+  log.info("Importar clientes:", (r.stdout || "").trim().slice(-400), (r.stderr || "").trim().slice(-400));
+}
 const store = await openStore(dbPath, { log });
 const events = createEvents();
 const push = await createPush({

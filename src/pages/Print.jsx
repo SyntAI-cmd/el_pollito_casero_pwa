@@ -10,6 +10,7 @@ import Remito from "../components/Remito.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import TripSheet from "../components/TripSheet.jsx";
 import SettlementSheet from "../components/SettlementSheet.jsx";
+import Tickets from "../components/Tickets.jsx";
 import { api } from "../lib/api.js";
 
 /**
@@ -85,6 +86,43 @@ export default function Print() {
                 ) || a.name.localeCompare(b.name),
             )
         : null;
+  if (tipo === "tickets") {
+    const pedido = query.get("pedido");
+    const list = pedido
+      ? orders.filter((o) => o.id === pedido)
+      : orders
+          .filter((o) => o.deliveryDate === fecha && o.status !== "cancelado")
+          .filter(
+            (o) =>
+              !repartidor || repartidor === "todos" || o.driver === repartidor,
+          )
+          .sort(
+            (a, b) =>
+              (a.driver || "").localeCompare(b.driver || "") ||
+              (a.number || 0) - (b.number || 0),
+          );
+    return (
+      <div className="print-page tickets-page">
+        <style>{"@page { size: 80mm auto; margin: 0; }"}</style>
+        <div className="print-toolbar no-print">
+          <Link
+            to={session.role === "admin" ? "/operacion" : "/reparto"}
+            className="secondary"
+          >
+            <ArrowLeft size={15} /> Volver
+          </Link>
+          <span className="muted">
+            {list.length} {list.length === 1 ? "ticket" : "tickets"} · comandera
+            80 mm, blanco y negro
+          </span>
+          <button className="primary" onClick={() => window.print()}>
+            <Printer size={16} /> Imprimir
+          </button>
+        </div>
+        <Tickets orders={list} customers={customers} />
+      </div>
+    );
+  }
   if (tipo === "rendicion") {
     if (session.role !== "admin")
       return (

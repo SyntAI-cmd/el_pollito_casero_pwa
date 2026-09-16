@@ -85,13 +85,18 @@ const DRIVER_ROUTES = {
   "/reparto/nuevo": QuickOrder,
   "/reparto/pesada": Weighing,
   "/reparto/carga": TruckLoading,
+  "/reparto/imprimir": PrintHub,
   "/imprimir": Print,
   "/ayuda": Help,
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
+/** MVP: barra reducida (Pedidos · Cargar · Pesaje · Imprimir · Clientes · Equipo). */
+const SIMPLE_NAV = true;
 const homeFor = (role) =>
   role === "admin"
-    ? "/operacion/dia"
+    ? SIMPLE_NAV
+      ? "/operacion"
+      : "/operacion/dia"
     : role === "repartidor"
       ? "/reparto"
       : "/";
@@ -385,24 +390,35 @@ function ClientShell({ Page, path }) {
 function StaffShell({ Page, path }) {
   const { session, orders, logout, config, live } = useStore();
   const admin = session.role === "admin";
+  // MVP simple: cinco secciones. Las demás pantallas siguen existiendo por URL (Nota del día,
+  // Carga, Flota, Rendición, Listas de precios) pero no van en la barra; SIMPLE_NAV = false las vuelve a mostrar.
   const nav = admin
-    ? [
-        ["/operacion/dia", "Nota del día", ClipboardList],
-        ["/operacion/nuevo", "Cargar pedido", Plus],
-        ["/operacion/pesada", "Pesada", Scale],
-        ["/operacion/carga", "Carga", Package],
-        ["/operacion/flota", "Flota", MapPin],
-        ["/operacion/imprimir", "Imprimir", Printer],
-        ["/operacion", "Pedidos", ClipboardList],
-        ["/operacion/reparto", "Rendición", Truck],
-        ["/operacion/clientes", "Clientes", Users],
-        ["/operacion/equipo", "Equipo", ShieldCheck],
-      ]
+    ? SIMPLE_NAV
+      ? [
+          ["/operacion", "Pedidos", ClipboardList],
+          ["/operacion/nuevo", "Cargar pedido", Plus],
+          ["/operacion/pesada", "Pesaje", Scale],
+          ["/operacion/imprimir", "Imprimir", Printer],
+          ["/operacion/clientes", "Clientes", Users],
+          ["/operacion/equipo", "Equipo", ShieldCheck],
+        ]
+      : [
+          ["/operacion/dia", "Nota del día", ClipboardList],
+          ["/operacion/nuevo", "Cargar pedido", Plus],
+          ["/operacion/pesada", "Pesada", Scale],
+          ["/operacion/carga", "Carga", Package],
+          ["/operacion/flota", "Flota", MapPin],
+          ["/operacion/imprimir", "Imprimir", Printer],
+          ["/operacion", "Pedidos", ClipboardList],
+          ["/operacion/reparto", "Rendición", Truck],
+          ["/operacion/clientes", "Clientes", Users],
+          ["/operacion/equipo", "Equipo", ShieldCheck],
+        ]
     : [
         ["/reparto", "Mis entregas", Truck],
         ["/reparto/nuevo", "Cargar pedido", Plus],
-        ["/reparto/pesada", "Pesada", Scale],
-        ["/reparto/carga", "Carga", Package],
+        ["/reparto/pesada", "Pesaje", Scale],
+        ["/reparto/imprimir", "Imprimir", Printer],
       ];
   const received = orders.filter((o) => o.status === "recibido").length;
   return (
@@ -489,7 +505,7 @@ export default function App() {
       return;
     }
     if (role === "admin" && !inAdmin && !inLogin)
-      navigate("/operacion/dia", { replace: true });
+      navigate(homeFor("admin"), { replace: true });
     else if (role === "repartidor" && !inDriver && !inLogin)
       navigate("/reparto", { replace: true });
     else if (role === "cliente" && (inAdmin || inDriver) && !inClient)

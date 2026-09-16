@@ -26,8 +26,39 @@ def norm(s):
     s = unicodedata.normalize("NFD", fix(s)).encode("ascii", "ignore").decode()
     return re.sub(r"\s+", " ", s).strip().lower()
 
+def pdf_text_layout(path):
+    """Texto con disposición de columnas: pdftotext -layout si está instalado; si no, PyMuPDF
+    (palabras agrupadas por renglón, con sangría para la columna derecha)."""
+    try:
+        return subprocess.run(["pdftotext", "-layout", path, "-"], capture_output=True, check=True).stdout.decode("utf8", "replace")
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+    import fitz
+    out = []
+    for page in fitz.open(path):
+        words = page.get_text("words")  # x0, y0, x1, y1, texto, bloque, línea, palabra
+        rows = {}
+        for x0, y0, x1, y1, w, *_ in words:
+            key = round(y0 / 6)
+            rows.setdefault(key, []).append((x0, w))
+        width = page.rect.width or 600
+        for key in sorted(rows):
+            ws = sorted(rows[key])
+            line, cursor = "", 0.0
+            for x0, w in ws:
+                col = int(x0 / width * 110)
+                if col > cursor:
+                    line += " " * int(col - cursor)
+                elif line:
+                    line += " "
+                line += w
+                cursor = col + len(w)
+            out.append(line)
+        out.append(chr(12))
+    return chr(10).join(out)
+
 def parse(path, shift):
-    txt = subprocess.run(["pdftotext", "-layout", path, "-"], capture_output=True).stdout.decode("utf8", "replace")
+    txt = pdf_text_layout(path)
     zone, client, out, pending = None, None, [], []
     item_re = re.compile(r"([A-Za-z\u00f1\u00d1\u00e1\u00e9\u00ed\u00f3\u00fa]+(?: sin menudo)?)\s*\$\s*([\d.]*)")
     for raw in txt.splitlines():

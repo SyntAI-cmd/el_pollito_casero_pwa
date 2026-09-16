@@ -27,6 +27,7 @@ import {
 import { routeSheet, receivables, today } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
+import OrdersList from "../components/OrdersList.jsx";
 import RouteSheet from "../components/RouteSheet.jsx";
 import CashClosure from "../components/CashClosure.jsx";
 import ReceiptsDay from "../components/ReceiptsDay.jsx";
@@ -62,6 +63,19 @@ export default function Operations() {
   // Filtros del tablero en la URL: se comparten y sobreviven al botón atrás.
   const [showAll, setShowAll] = useState(query.get("todo") === "1");
   const [search, setSearch] = useState(query.get("q") || "");
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem("pedidos-vista") || "lista";
+    } catch {
+      return "lista";
+    }
+  });
+  const chooseView = (v) => {
+    setView(v);
+    try {
+      localStorage.setItem("pedidos-vista", v);
+    } catch {}
+  };
   const [driverFilter, setDriverFilter] = useState(query.get("rep") || "");
   useEffect(() => {
     if (path !== "/operacion") return;
@@ -202,12 +216,22 @@ export default function Operations() {
       {tab === "pedidos" && <News compact />}
       {tab === "pedidos" && (
         <div className="board-toolbar">
-          <p className="board-hint">
-            Los pedidos entran a <strong>Recibidos</strong>. Pesalos y pasalos a{" "}
-            <strong>En preparación</strong>, asigná repartidor y tocá{" "}
-            <strong>Iniciar reparto</strong>; el repartidor cobra y completa la
-            entrega desde su app.
-          </p>
+          <div className="view-toggle" role="group" aria-label="Vista">
+            <button
+              type="button"
+              className={view === "lista" ? "active" : ""}
+              onClick={() => chooseView("lista")}
+            >
+              Lista
+            </button>
+            <button
+              type="button"
+              className={view === "tarjetas" ? "active" : ""}
+              onClick={() => chooseView("tarjetas")}
+            >
+              Tarjetas
+            </button>
+          </div>
           <div className="board-filters">
             <input
               type="search"
@@ -237,7 +261,30 @@ export default function Operations() {
           </div>
         </div>
       )}
-      {tab === "pedidos" && (
+      {tab === "pedidos" && view === "lista" && (
+        <section className="panel">
+          <OrdersList
+            orders={[...orders]
+              .filter(
+                (o) => matches(o) && (showAll || o.status !== "cancelado"),
+              )
+              .filter(
+                (o) =>
+                  showAll ||
+                  o.status !== "entregado" ||
+                  recent([o], "entregado").length,
+              )
+              .sort(
+                (a, b) =>
+                  (a.deliveryDate || "").localeCompare(b.deliveryDate || "") ||
+                  (a.driver || "").localeCompare(b.driver || "") ||
+                  (a.number || 0) - (b.number || 0),
+              )}
+            role="admin"
+          />
+        </section>
+      )}
+      {tab === "pedidos" && view === "tarjetas" && (
         <div className="board">
           {columns.map(([status, title, hint]) => {
             const list = recent(

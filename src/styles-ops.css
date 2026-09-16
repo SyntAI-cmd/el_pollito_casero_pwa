@@ -1117,3 +1117,249 @@ dialog form .delivery-point-status {
   padding-top: 4px;
   color: #555;
 }
+
+/* Pedidos en lista */
+.view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: #ece9e1;
+}
+.view-toggle button {
+  border: 0;
+  border-radius: 9px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: transparent;
+  color: #4a4842;
+  cursor: pointer;
+}
+.view-toggle button.active {
+  background: #fff;
+  color: var(--black);
+  box-shadow: 0 1px 3px #0002;
+}
+.orders-list td {
+  vertical-align: top;
+}
+.orders-list tr.loaded td {
+  background: #eefaf0;
+}
+.orders-list td.check,
+.orders-list th.check {
+  text-align: center;
+}
+.orders-list td.check input {
+  width: 22px;
+  height: 22px;
+  accent-color: #1c6b34;
+}
+.orders-list-detail td {
+  background: #f7f5ef;
+  padding: 10px;
+}
+/* Hoja de pedidos (impresa): planilla amarilla */
+.hoja {
+  background: #fff;
+  color: #111;
+  font-family: Arial, Helvetica, sans-serif;
+}
+.hoja-head {
+  display: grid;
+  grid-template-columns: 170px 1fr;
+  grid-template-rows: auto auto;
+  gap: 6px 14px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.hoja-brand img {
+  width: 160px;
+  height: auto;
+  grid-row: 1 / span 2;
+}
+.hoja-head h1 {
+  margin: 0;
+  font-size: 19px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+.hoja-topline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  margin: 0;
+  border: 1px solid #8c7628;
+  background: #f0cf63;
+}
+.hoja-topline div {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-right: 1px solid #8c7628;
+  font-size: 11px;
+}
+.hoja-topline div:last-child {
+  border-right: 0;
+}
+.hoja-topline dt {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.hoja-topline dd {
+  margin: 0;
+  font-weight: 700;
+}
+.hoja-group {
+  margin-bottom: 12px;
+  break-inside: avoid;
+}
+.hoja-group h2 {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin: 8px 0 4px;
+}
+.hoja-group h2 small {
+  font-weight: 400;
+  color: #444;
+}
+.hoja-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 11px;
+}
+.hoja-table th,
+.hoja-table td {
+  border: 1px solid #777;
+  padding: 4px 6px;
+  vertical-align: top;
+}
+.hoja-table th {
+  background: #e3b935;
+  text-transform: uppercase;
+  font-size: 10px;
+  text-align: left;
+}
+.hoja-table .c-client {
+  width: 22%;
+}
+.hoja-table .c-num {
+  width: 8%;
+  font-weight: 700;
+}
+.hoja-table .c-products {
+  width: 26%;
+}
+.hoja-table .c-kg,
+.hoja-table .c-price {
+  width: 9%;
+  text-align: right;
+  white-space: nowrap;
+}
+.hoja-table .c-obs {
+  width: 18%;
+  background: #fffdf3;
+}
+.hoja-table .c-check {
+  width: 8%;
+  text-align: center;
+  font-size: 16px;
+}
+.hoja-table td small,
+.hoja-table td em {
+  display: block;
+  color: #555;
+  font-size: 10px;
+  font-style: normal;
+}
+.hoja-table .line {
+  display: inline-block;
+  width: 40px;
+  border-bottom: 1px solid #999;
+  height: 11px;
+}
+.hoja-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 10px;
+  font-size: 10px;
+  color: #444;
+}
+/* Tickets térmicos 80 mm */
+.tickets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ticket {
+  width: 80mm;
+  background: #fff;
+  color: #000;
+  padding: 4mm;
+  font:
+    12px/1.3 "Courier New",
+    Courier,
+    monospace;
+  box-shadow: 0 0 0 1px #cfcfcf;
+  break-after: page;
+  page-break-after: always;
+}
+.ticket .t-center {
+  text-align: center;
+}
+.ticket .t-big {
+  font-size: 15px;
+  font-weight: 700;
+}
+.ticket .t-huge {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 2px 0;
+  word-break: break-word;
+}
+.ticket .t-small {
+  font-size: 10px;
+}
+.ticket .t-strong {
+  font-weight: 700;
+}
+.ticket .t-rule {
+  border-top: 1px dashed #000;
+  margin: 6px 0;
+}
+.ticket .t-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ticket .t-product {
+  margin: 4px 0;
+}
+.ticket .t-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  font-size: 13px;
+  margin-top: 2px;
+}
+@media print {
+  .tickets {
+    display: block;
+  }
+  .ticket {
+    box-shadow: none;
+    margin: 0;
+    padding: 3mm;
+  }
+  .tickets-page .print-page,
+  .tickets-page {
+    padding: 0;
+    max-width: none;
+  }
+}

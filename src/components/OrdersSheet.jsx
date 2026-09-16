@@ -1,135 +1,137 @@
 import React from "react";
-import {
-  money,
-  kgText,
-  timeText,
-  paymentLabel,
-  labels,
-  orderNumber,
-} from "../lib/format.js";
+import { orderNumber } from "../lib/format.js";
 import { dayLabel } from "../lib/report.js";
 
-/** Hoja de pedidos del día para preparar en el local. */
+const shiftName = { manana: "Mañana", tarde: "Tarde" };
+const kg = (n) =>
+  Number(n || 0).toLocaleString("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+const money = (n) =>
+  new Intl.NumberFormat("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  }).format(Number(n) || 0);
+
+/**
+ * Hoja de pedidos (impresa, A4 apaisada): la planilla amarilla del piso, una sección por
+ * preventista. Cabecera EL POLLITO CASERO · fecha · kilos totales; por pedido CLIENTE, N° PEDIDO,
+ * PRODUCTOS, KG (pesados o en blanco), PRECIO UNITARIO, OBSERVACIÓN (en blanco, a lapicera) y
+ * CHECKLIST de cargado. Se descarga en PDF desde el navegador (Imprimir → Guardar como PDF).
+ */
 export default function OrdersSheet({ sheet }) {
+  const shifts = [...new Set(sheet.orders.map((o) => o.shift).filter(Boolean))];
   return (
-    <div className="sheet">
-      <header className="sheet-head">
-        <div>
-          <span className="eyebrow">HOJA DE PEDIDOS</span>
-          <h2>Pollito Casero</h2>
-          <p>{dayLabel(sheet.date)}</p>
+    <div className="hoja">
+      <header className="hoja-head">
+        <div className="hoja-brand">
+          <img src="/brand/logo-texto.png" alt="El Pollito Casero" />
         </div>
-        <dl className="sheet-facts">
+        <h1>Hoja de pedidos</h1>
+        <dl className="hoja-topline">
+          <div>
+            <dt>Fecha</dt>
+            <dd>{dayLabel(sheet.date)}</dd>
+          </div>
+          <div>
+            <dt>Turno</dt>
+            <dd>
+              {shifts.length
+                ? shifts.map((s) => shiftName[s] || s).join(" / ")
+                : "—"}
+            </dd>
+          </div>
           <div>
             <dt>Pedidos</dt>
             <dd>{sheet.orders.length}</dd>
           </div>
           <div>
-            <dt>Kilos</dt>
-            <dd>{kgText(sheet.kg)}</dd>
+            <dt>Kilos totales</dt>
+            <dd>{kg(sheet.kg)} kg</dd>
           </div>
-          <div>
-            <dt>Importe</dt>
-            <dd>{money(sheet.total)}</dd>
-          </div>
-          {sheet.cancelled > 0 && (
-            <div>
-              <dt>Cancelados</dt>
-              <dd>{sheet.cancelled}</dd>
-            </div>
-          )}
         </dl>
       </header>
-      <div className="sheet-summary compact">
-        <section>
-          <h3>Total a preparar</h3>
-          <dl>
-            {sheet.byProduct.map(([name, kg]) => (
-              <div key={name}>
-                <dt>{name}</dt>
-                <dd>{kgText(kg)}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      </div>
       {sheet.byDriver.map(([driver, list]) => (
-        <section key={driver} className="sheet-group">
-          <h3>
-            {driver}{" "}
+        <section key={driver} className="hoja-group">
+          <h2>
+            Preventista: {driver}
             <small>
-              · {list.length} pedidos ·{" "}
-              {kgText(
+              {list.length} {list.length === 1 ? "pedido" : "pedidos"} ·{" "}
+              {kg(
                 list.reduce(
-                  (s, o) => s + o.items.reduce((n, p) => n + p.kg, 0),
+                  (s, o) => s + o.items.reduce((n, p) => n + (p.kg || 0), 0),
                   0,
                 ),
-              )}
+              )}{" "}
+              kg
             </small>
-          </h3>
-          <div className="table-scroll">
-            <table className="sheet-table">
-              <thead>
-                <tr>
-                  <th>Pedido</th>
-                  <th>Hora</th>
-                  <th>Cliente</th>
-                  <th>Dirección</th>
-                  <th>Productos</th>
-                  <th className="num">Kg</th>
-                  <th className="num">Importe</th>
-                  <th>Pago</th>
-                  <th>Estado</th>
-                  <th className="check">Cargado</th>
-                  <th className="obs">Observaciones</th>
+          </h2>
+          <table className="hoja-table">
+            <thead>
+              <tr>
+                <th className="c-client">Cliente</th>
+                <th className="c-num">Pedido</th>
+                <th className="c-products">Productos</th>
+                <th className="c-kg">Kg</th>
+                <th className="c-price">Precio unitario</th>
+                <th className="c-obs">Observación</th>
+                <th className="c-check">Cargado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((o) => (
+                <tr key={o.id}>
+                  <td className="c-client">
+                    <strong>{o.name}</strong>
+                    <small>
+                      {[o.zone || o.locality?.name, o.address]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                  </td>
+                  <td className="c-num">{orderNumber(o)}</td>
+                  <td className="c-products">
+                    {o.items.map((p) => (
+                      <div key={p.id}>
+                        {p.boxes
+                          ? `${p.boxes} ${p.boxes === 1 ? "caja" : "cajas"} `
+                          : `${kg(p.ordered ?? p.kg)} kg `}
+                        {p.name.toLowerCase()}
+                      </div>
+                    ))}
+                    {o.notes ? <em>“{o.notes}”</em> : null}
+                  </td>
+                  <td className="c-kg">
+                    {o.items.map((p) => (
+                      <div key={p.id}>
+                        {p.kg > 0 ? kg(p.kg) : <span className="line" />}
+                      </div>
+                    ))}
+                  </td>
+                  <td className="c-price">
+                    {o.items.map((p) => (
+                      <div key={p.id}>{money(p.price)}</div>
+                    ))}
+                  </td>
+                  <td className="c-obs" />
+                  <td className="c-check">{o.loaded ? "☑" : "☐"}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {list.map((o) => (
-                  <tr key={o.id}>
-                    <td>{orderNumber(o)}</td>
-                    <td>{timeText(o.created)}</td>
-                    <td>
-                      <strong>{o.name}</strong>
-                      <br />
-                      <small>{o.phone}</small>
-                    </td>
-                    <td>
-                      {o.address}
-                      <br />
-                      <small>{o.locality?.name}</small>
-                      {o.notes && (
-                        <>
-                          <br />
-                          <small>“{o.notes}”</small>
-                        </>
-                      )}
-                    </td>
-                    <td>
-                      {o.items.map((p) => (
-                        <div key={p.id}>
-                          {p.name} · {kgText(p.kg)}
-                        </div>
-                      ))}
-                    </td>
-                    <td className="num">
-                      {o.items.reduce((n, p) => n + p.kg, 0)}
-                    </td>
-                    <td className="num">{money(o.total)}</td>
-                    <td>{paymentLabel(o)}</td>
-                    <td>{labels[o.status]}</td>
-                    <td className="check">☐</td>
-                    <td className="obs"></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </section>
       ))}
       {sheet.orders.length === 0 && (
         <p className="muted">No hay pedidos para esta fecha.</p>
       )}
+      <footer className="hoja-foot">
+        <span>
+          Observaciones: ______________________________________________
+        </span>
+        <span>Control / Administración: ____________________________</span>
+      </footer>
     </div>
   );
 }

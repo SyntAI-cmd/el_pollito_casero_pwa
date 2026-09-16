@@ -10,18 +10,18 @@ import {
 import { orderNumber } from "../lib/remito.js";
 
 /**
- * Hoja de pedidos del repartidor (PDF, A4 apaisada): el consolidado de la camioneta que se lleva el
- * reparto y vuelve completado a mano. Cabecera con fecha, preventistas, pedidos, kilos e importe
- * total; una fila por pedido con N° PEDIDO (= N° de remito), CLIENTE, CUIT, DETALLE, CAJONES,
- * CAJAS ADEUDADAS y TOTAL, y columnas en blanco para MÉTODO DE PAGO (T/E/CH), PAGO, SALDO y
- * comprobante/remito adjuntos. Hasta ~18 pedidos por hoja; sigue en otra hoja si hay más.
+ * Hoja de ruta · rendición de reparto (PDF, A4 apaisada): la que se lleva cada preventista y
+ * rinde en papel. Cabecera con fecha, repartidor(es), ruta/zona y vehículo; por pedido
+ * N° PEDIDO / REMITO, CLIENTE, TOTAL PEDIDO, SALDO DE CAJAS y columnas en blanco EFECTIVO,
+ * TRANSFERENCIA, CHEQUE y SALDO; totales, cuadro de rendición (total hoja de ruta, efectivo,
+ * transferencias, cheques, saldo, total rendido, diferencia), observaciones y firmas.
+ * Compacta: hasta 26 pedidos por hoja; sigue en otra hoja si hay más.
  */
 
-const RED = "#dc2626";
-const INK = "#111111";
-const MUTED = "#555555";
-const LINE = "#bdbdbd";
-const HAND = "#fffbea";
+const INK = "#000";
+const MUTED = "#333";
+const LINE = "#000";
+const HAND = "#fffdf2";
 
 const money = (n) =>
   new Intl.NumberFormat("es-AR", {
@@ -30,140 +30,156 @@ const money = (n) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(Number(n) || 0);
-const kg = (n) =>
-  Number(n || 0).toLocaleString("es-AR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 2,
-  });
 const dmy = (iso) => (iso || "").split("-").reverse().join("/");
 
 const s = StyleSheet.create({
   page: {
     backgroundColor: "#fff",
-    paddingVertical: 22,
-    paddingHorizontal: 26,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     fontFamily: "Helvetica",
-    fontSize: 8.5,
+    fontSize: 8,
     color: INK,
   },
   head: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     borderBottomWidth: 2,
-    borderBottomColor: RED,
-    paddingBottom: 8,
-    marginBottom: 8,
+    borderBottomColor: LINE,
+    paddingBottom: 6,
+    marginBottom: 6,
   },
-  logo: { width: 120, height: 36, objectFit: "contain" },
-  title: { fontSize: 15, fontFamily: "Helvetica-Bold" },
-  meta: { flexDirection: "row", gap: 18 },
-  metaItem: { alignItems: "flex-start" },
-  metaLabel: {
-    fontSize: 6.5,
-    color: MUTED,
-    letterSpacing: 0.8,
+  logo: { width: 110, height: 33, objectFit: "contain", marginRight: 10 },
+  title: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
   },
-  metaValue: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 1 },
+  sub: { fontSize: 7, color: MUTED, marginTop: 2 },
+  data: { flexDirection: "row", gap: 16, marginTop: 6 },
+  field: { flexDirection: "row", alignItems: "flex-end" },
+  label: { fontFamily: "Helvetica-Bold", fontSize: 7.5, marginRight: 4 },
+  value: {
+    fontSize: 8.5,
+    borderBottomWidth: 1,
+    borderBottomColor: LINE,
+    width: 90,
+    paddingBottom: 1,
+  },
   table: { borderWidth: 1, borderColor: LINE },
   tr: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: LINE,
-    minHeight: 24,
+    minHeight: 15,
   },
   th: {
-    backgroundColor: "#f5c400",
+    backgroundColor: "#eee",
     fontFamily: "Helvetica-Bold",
-    fontSize: 7,
-    letterSpacing: 0.4,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    fontSize: 6.8,
+    textTransform: "uppercase",
+    textAlign: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 3,
     borderRightWidth: 1,
     borderRightColor: LINE,
   },
   td: {
-    paddingVertical: 3,
-    paddingHorizontal: 4,
+    paddingVertical: 2.5,
+    paddingHorizontal: 3,
     borderRightWidth: 1,
     borderRightColor: LINE,
     justifyContent: "center",
   },
   hand: { backgroundColor: HAND },
   num: { textAlign: "right" },
-  small: { fontSize: 7, color: MUTED },
   bold: { fontFamily: "Helvetica-Bold" },
-  cNum: { width: 40 },
-  cClient: { width: 120 },
-  cCuit: { width: 62 },
-  cDetail: { flex: 1.4 },
-  cCrates: { width: 46 },
-  cOwed: { width: 44 },
-  cTotal: { width: 66 },
-  cMethod: { width: 60 },
-  cPaid: { width: 62 },
-  cBalance: { width: 62 },
-  cDocs: { width: 58 },
-  foot: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-    fontSize: 8,
-    color: MUTED,
+  small: { fontSize: 6.5, color: MUTED },
+  cNum: { width: 58 },
+  cClient: { flex: 1 },
+  cTotal: { width: 76 },
+  cBoxes: { width: 70 },
+  cPay: { width: 78 },
+  foot: { flexDirection: "row", gap: 10, marginTop: 8 },
+  summary: {
+    borderWidth: 2,
+    borderColor: LINE,
+    width: 300,
   },
-  sign: {
-    flexDirection: "row",
-    gap: 30,
-    marginTop: 26,
+  sRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE },
+  sLabel: {
+    flex: 1,
+    paddingVertical: 3.5,
+    paddingHorizontal: 5,
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+    textTransform: "uppercase",
   },
-  signBox: { flex: 1, borderTopWidth: 1, borderTopColor: INK, paddingTop: 3 },
-  signText: { fontSize: 7.5, color: MUTED, textAlign: "center" },
+  sValue: {
+    width: 110,
+    borderLeftWidth: 1,
+    borderLeftColor: LINE,
+    paddingVertical: 3.5,
+    paddingHorizontal: 5,
+    textAlign: "right",
+    fontFamily: "Helvetica-Bold",
+  },
+  grand: { backgroundColor: "#eee", fontSize: 9.5 },
+  obs: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: LINE,
+    padding: 5,
+    minHeight: 90,
+  },
+  obsTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 7.5,
+    textTransform: "uppercase",
+  },
+  sign: { flexDirection: "row", gap: 60, marginTop: 22, paddingHorizontal: 40 },
+  signBox: { flex: 1, borderTopWidth: 1, borderTopColor: LINE, paddingTop: 3 },
+  signText: { fontSize: 7, textAlign: "center" },
+  note: { fontSize: 6.5, color: MUTED, marginTop: 4 },
   pageNum: {
     position: "absolute",
-    bottom: 12,
-    right: 26,
-    fontSize: 7,
+    bottom: 10,
+    right: 24,
+    fontSize: 6.5,
     color: MUTED,
   },
 });
 
-const ROWS_PER_PAGE = 18;
+const ROWS_PER_PAGE = 26;
 
-function Head({ date, drivers, vehicle, orders, logo }) {
-  const totalKg = orders.reduce(
-    (a, o) => a + o.items.reduce((k, i) => k + (i.kg || 0), 0),
-    0,
-  );
-  const total = orders.reduce((a, o) => a + o.total, 0);
+function Header({ date, drivers, zone, vehicle, logo }) {
   return (
     <View style={s.head}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
         {logo ? <Image style={s.logo} src={logo} /> : null}
         <View>
-          <Text style={s.title}>Hoja de pedidos</Text>
-          <Text style={s.small}>
-            {vehicle ? `${vehicle} · ` : ""}
-            Preventistas: {drivers.length ? drivers.join(" / ") : "—"}
+          <Text style={s.title}>Hoja de ruta · Rendición de reparto</Text>
+          <Text style={s.sub}>
+            El número de pedido coincide con el número de remito.
           </Text>
         </View>
       </View>
-      <View style={s.meta}>
-        <View style={s.metaItem}>
-          <Text style={s.metaLabel}>Fecha</Text>
-          <Text style={s.metaValue}>{dmy(date)}</Text>
+      <View style={s.data}>
+        <View style={s.field}>
+          <Text style={s.label}>Fecha:</Text>
+          <Text style={s.value}>{dmy(date)}</Text>
         </View>
-        <View style={s.metaItem}>
-          <Text style={s.metaLabel}>Pedidos</Text>
-          <Text style={s.metaValue}>{orders.length}</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Repartidor:</Text>
+          <Text style={[s.value, { width: 150 }]}>
+            {drivers.length ? drivers.join(" / ") : " "}
+          </Text>
         </View>
-        <View style={s.metaItem}>
-          <Text style={s.metaLabel}>Kilos totales</Text>
-          <Text style={s.metaValue}>{totalKg ? `${kg(totalKg)} kg` : "—"}</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Ruta / Zona:</Text>
+          <Text style={[s.value, { width: 150 }]}>{zone || " "}</Text>
         </View>
-        <View style={s.metaItem}>
-          <Text style={s.metaLabel}>Importe total</Text>
-          <Text style={s.metaValue}>{money(total)}</Text>
+        <View style={s.field}>
+          <Text style={s.label}>Vehículo:</Text>
+          <Text style={[s.value, { width: 150 }]}>{vehicle || " "}</Text>
         </View>
       </View>
     </View>
@@ -171,57 +187,37 @@ function Head({ date, drivers, vehicle, orders, logo }) {
 }
 
 function Row({ o, c }) {
-  const crates = o.items.reduce((n, i) => n + (i.boxes || 0), 0);
   const owed = Math.max(0, c?.summary?.boxes || 0);
-  const detail = o.items
-    .map((i) =>
-      i.kg > 0
-        ? `${kg(i.kg)} kg ${i.name.toLowerCase()}${i.boxes ? ` (${i.boxes} cj)` : ""}`
-        : i.boxes
-          ? `${i.boxes} cajas ${i.name.toLowerCase()}`
-          : `${kg(i.ordered ?? i.kg)} kg ${i.name.toLowerCase()}`,
-    )
-    .join(" · ");
   return (
     <View style={s.tr} wrap={false}>
       <View style={[s.td, s.cNum]}>
         <Text style={s.bold}>{orderNumber(o)}</Text>
       </View>
       <View style={[s.td, s.cClient]}>
-        <Text style={s.bold}>{c?.alias || o.name}</Text>
-        <Text style={s.small}>
-          {[o.zone || c?.zone, o.payment === "cuenta" ? "cta. cte." : "contado"]
-            .filter(Boolean)
-            .join(" · ")}
+        <Text>
+          <Text style={s.bold}>{c?.alias || o.name}</Text>
+          {o.zone || c?.zone ? (
+            <Text style={s.small}> {o.zone || c?.zone}</Text>
+          ) : null}
         </Text>
-      </View>
-      <View style={[s.td, s.cCuit]}>
-        <Text>{c?.cuit || "—"}</Text>
-      </View>
-      <View style={[s.td, s.cDetail]}>
-        <Text>{detail}</Text>
-        {o.notes ? <Text style={s.small}>“{o.notes}”</Text> : null}
-      </View>
-      <View style={[s.td, s.cCrates, s.num]}>
-        <Text>{crates || "—"}</Text>
-      </View>
-      <View style={[s.td, s.cOwed, s.num]}>
-        <Text>{owed || "—"}</Text>
       </View>
       <View style={[s.td, s.cTotal, s.num]}>
         <Text style={s.bold}>{money(o.total)}</Text>
       </View>
-      <View style={[s.td, s.cMethod, s.hand]}>
-        <Text style={s.small}>T · E · CH</Text>
+      <View style={[s.td, s.cBoxes, s.num]}>
+        <Text>{owed || " "}</Text>
       </View>
-      <View style={[s.td, s.cPaid, s.hand]}>
+      <View style={[s.td, s.cPay, s.hand]}>
         <Text> </Text>
       </View>
-      <View style={[s.td, s.cBalance, s.hand]}>
+      <View style={[s.td, s.cPay, s.hand]}>
         <Text> </Text>
       </View>
-      <View style={[s.td, s.cDocs, s.hand, { borderRightWidth: 0 }]}>
-        <Text style={s.small}>[ ] compr. [ ] remito</Text>
+      <View style={[s.td, s.cPay, s.hand]}>
+        <Text> </Text>
+      </View>
+      <View style={[s.td, s.cPay, s.hand, { borderRightWidth: 0 }]}>
+        <Text> </Text>
       </View>
     </View>
   );
@@ -231,6 +227,7 @@ export function HojaDocument({
   date,
   drivers = [],
   vehicle = "",
+  zone = "",
   orders,
   customers = [],
   logo = "/brand/logo-texto.png",
@@ -240,98 +237,155 @@ export function HojaDocument({
   for (let i = 0; i < Math.max(1, sorted.length); i += ROWS_PER_PAGE)
     pages.push(sorted.slice(i, i + ROWS_PER_PAGE));
   const total = orders.reduce((a, o) => a + o.total, 0);
+  const boxes = orders.reduce(
+    (a, o) =>
+      a +
+      Math.max(
+        0,
+        customers.find((x) => x.phone === o.customer)?.summary?.boxes || 0,
+      ),
+    0,
+  );
+  const zones =
+    zone ||
+    [...new Set(orders.map((o) => o.zone).filter(Boolean))]
+      .slice(0, 3)
+      .join(" / ");
   return (
     <Document
-      title={`Hoja de pedidos ${dmy(date)} ${drivers.join(" y ")}`}
+      title={`Hoja de ruta ${dmy(date)} ${drivers.join(" y ")}`}
       author="El Pollito Casero"
       language="es-AR"
     >
-      {pages.map((chunk, pi) => (
-        <Page key={pi} size="A4" orientation="landscape" style={s.page}>
-          <Head
-            date={date}
-            drivers={drivers}
-            vehicle={vehicle}
-            orders={orders}
-            logo={logo}
-          />
-          <View style={s.table}>
-            <View style={s.tr}>
-              <Text style={[s.th, s.cNum]}>PEDIDO</Text>
-              <Text style={[s.th, s.cClient]}>CLIENTE</Text>
-              <Text style={[s.th, s.cCuit]}>CUIT</Text>
-              <Text style={[s.th, s.cDetail]}>DETALLE</Text>
-              <Text style={[s.th, s.cCrates, s.num]}>CAJ.</Text>
-              <Text style={[s.th, s.cOwed, s.num]}>CAJAS ADEUD.</Text>
-              <Text style={[s.th, s.cTotal, s.num]}>TOTAL</Text>
-              <Text style={[s.th, s.cMethod]}>MÉTODO DE PAGO</Text>
-              <Text style={[s.th, s.cPaid]}>PAGO</Text>
-              <Text style={[s.th, s.cBalance]}>SALDO</Text>
-              <Text style={[s.th, s.cDocs, { borderRightWidth: 0 }]}>
-                ADJUNTOS
-              </Text>
+      {pages.map((chunk, pi) => {
+        const last = pi === pages.length - 1;
+        return (
+          <Page key={pi} size="A4" orientation="landscape" style={s.page}>
+            <Header
+              date={date}
+              drivers={drivers}
+              zone={zones}
+              vehicle={vehicle}
+              logo={logo}
+            />
+            <View style={s.table}>
+              <View style={s.tr}>
+                <Text style={[s.th, s.cNum]}>N° Pedido / Remito</Text>
+                <Text style={[s.th, s.cClient]}>Cliente</Text>
+                <Text style={[s.th, s.cTotal]}>Total pedido</Text>
+                <Text style={[s.th, s.cBoxes]}>Saldo de cajas</Text>
+                <Text style={[s.th, s.cPay]}>Efectivo</Text>
+                <Text style={[s.th, s.cPay]}>Transferencia</Text>
+                <Text style={[s.th, s.cPay]}>Cheque</Text>
+                <Text style={[s.th, s.cPay, { borderRightWidth: 0 }]}>
+                  Saldo
+                </Text>
+              </View>
+              {chunk.map((o) => (
+                <Row
+                  key={o.id}
+                  o={o}
+                  c={customers.find((x) => x.phone === o.customer)}
+                />
+              ))}
+              {last && (
+                <View
+                  style={[
+                    s.tr,
+                    { backgroundColor: "#f5f5f5", borderBottomWidth: 0 },
+                  ]}
+                >
+                  <View style={[s.td, s.cNum]}>
+                    <Text style={s.bold}>TOTALES</Text>
+                  </View>
+                  <View style={[s.td, s.cClient]}>
+                    <Text style={s.bold}>
+                      {orders.length}{" "}
+                      {orders.length === 1 ? "pedido" : "pedidos"}
+                    </Text>
+                  </View>
+                  <View style={[s.td, s.cTotal, s.num]}>
+                    <Text style={s.bold}>{money(total)}</Text>
+                  </View>
+                  <View style={[s.td, s.cBoxes, s.num]}>
+                    <Text style={s.bold}>{boxes || " "}</Text>
+                  </View>
+                  <View style={[s.td, s.cPay, s.hand]}>
+                    <Text> </Text>
+                  </View>
+                  <View style={[s.td, s.cPay, s.hand]}>
+                    <Text> </Text>
+                  </View>
+                  <View style={[s.td, s.cPay, s.hand]}>
+                    <Text> </Text>
+                  </View>
+                  <View style={[s.td, s.cPay, s.hand, { borderRightWidth: 0 }]}>
+                    <Text> </Text>
+                  </View>
+                </View>
+              )}
             </View>
-            {chunk.map((o) => (
-              <Row
-                key={o.id}
-                o={o}
-                c={customers.find((x) => x.phone === o.customer)}
-              />
-            ))}
-            {pi === pages.length - 1 && (
-              <View style={[s.tr, { backgroundColor: "#f4f2ec" }]}>
-                <View style={[s.td, { flex: 1 }]}>
-                  <Text style={s.bold}>
-                    TOTAL · {orders.length}{" "}
-                    {orders.length === 1 ? "pedido" : "pedidos"}
-                  </Text>
+            {last && (
+              <>
+                <View style={s.foot}>
+                  <View>
+                    <View style={s.summary}>
+                      {[
+                        ["Total hoja de ruta", money(total), true],
+                        ["Efectivo total", ""],
+                        ["Transferencias", ""],
+                        ["Cheques", ""],
+                        ["Saldo / cuenta corriente", ""],
+                        ["Total rendido / justificado", ""],
+                        ["Diferencia", "", false, true],
+                      ].map(([label, value, grand, lastRow], i) => (
+                        <View
+                          key={i}
+                          style={[
+                            s.sRow,
+                            grand ? s.grand : null,
+                            lastRow ? { borderBottomWidth: 0 } : null,
+                          ]}
+                        >
+                          <Text
+                            style={[s.sLabel, grand ? { fontSize: 9.5 } : null]}
+                          >
+                            {label}
+                          </Text>
+                          <Text
+                            style={[s.sValue, grand ? { fontSize: 9.5 } : null]}
+                          >
+                            {value || " "}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    <Text style={s.note}>
+                      Control: total pedido = efectivo + transferencia + cheque
+                      + saldo. El saldo de cajas se controla por separado y no
+                      integra el total monetario.
+                    </Text>
+                  </View>
+                  <View style={s.obs}>
+                    <Text style={s.obsTitle}>Observaciones</Text>
+                  </View>
                 </View>
-                <View style={[s.td, s.cTotal, s.num]}>
-                  <Text style={s.bold}>{money(total)}</Text>
+                <View style={s.sign}>
+                  <View style={s.signBox}>
+                    <Text style={s.signText}>Firma repartidor</Text>
+                  </View>
+                  <View style={s.signBox}>
+                    <Text style={s.signText}>Control / Administración</Text>
+                  </View>
                 </View>
-                <View style={[s.td, s.cMethod, s.hand]}>
-                  <Text> </Text>
-                </View>
-                <View style={[s.td, s.cPaid, s.hand]}>
-                  <Text> </Text>
-                </View>
-                <View style={[s.td, s.cBalance, s.hand]}>
-                  <Text> </Text>
-                </View>
-                <View style={[s.td, s.cDocs, s.hand, { borderRightWidth: 0 }]}>
-                  <Text> </Text>
-                </View>
-              </View>
+              </>
             )}
-          </View>
-          {pi === pages.length - 1 && (
-            <>
-              <View style={s.foot}>
-                <Text>
-                  Método de pago: T = transferencia · E = efectivo · CH =
-                  cheque. Adjuntar foto del comprobante y del remito firmado
-                  desde la app.
-                </Text>
-                <Text>
-                  Efectivo rendido $ __________ · Transferencias $ __________ ·
-                  Cheques $ __________
-                </Text>
-              </View>
-              <View style={s.sign}>
-                <View style={s.signBox}>
-                  <Text style={s.signText}>Firma repartidor</Text>
-                </View>
-                <View style={s.signBox}>
-                  <Text style={s.signText}>Firma administración</Text>
-                </View>
-              </View>
-            </>
-          )}
-          <Text style={s.pageNum}>
-            Hoja {pi + 1} de {pages.length}
-          </Text>
-        </Page>
-      ))}
+            <Text style={s.pageNum}>
+              Hoja {pi + 1} de {pages.length}
+            </Text>
+          </Page>
+        );
+      })}
     </Document>
   );
 }

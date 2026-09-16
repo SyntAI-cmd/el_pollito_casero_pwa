@@ -269,12 +269,6 @@ export function seedPrueba(store, { borrar = false, log = console.log } = {}) {
     });
   });
 
-  store.news?.add?.(
-    `Datos de prueba cargados: 10 clientes "Prueba N" y 10 pedidos para el ${today.split("-").reverse().join("/")}. Para borrarlos: node scripts/prueba.mjs --borrar`,
-    "Sistema",
-    true,
-  );
-
   log(
     `Listo: 10 clientes y ${orders.length} pedidos para ${today}; vehículos ${[v1, v2].map((v) => v.name).join(" y ")}.`,
   );

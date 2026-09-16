@@ -553,6 +553,13 @@ export function createApi({
     if (!isStaff(session)) fail(403, "Sin permiso.");
     if (o.status === "cancelado")
       fail(400, "El pedido fue cancelado por el cliente.");
+    // Casillero "cargado" de la lista de pedidos (administración o el preventista del pedido).
+    if (b.loaded !== undefined) {
+      if (role !== "admin" && !mine(session, o))
+        fail(403, "Ese pedido no es tuyo.");
+      o.loaded = bool(b.loaded, "cargado");
+      o.loadedAt = o.loaded ? now() : null;
+    }
     if (b.driver !== undefined) {
       if (role !== "admin")
         fail(403, "Solo administración asigna repartidores.");
