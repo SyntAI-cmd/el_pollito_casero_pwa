@@ -9,9 +9,11 @@ import HojaActions from "../components/HojaActions.jsx";
 import { vehicleLabel } from "../components/Vehicles.jsx";
 import { todayKey, dmy } from "../lib/day.js";
 
+const shiftName = { manana: "Mañana", tarde: "Tarde" };
+
 /**
- * Imprimir (solo administración): hoja de pedidos, hoja de ruta · rendición por preventista
- * (exige vehículo asignado), tickets y remitos. El vehículo de cada preventista se elige acá y
+ * Imprimir (solo administración): hoja de pedidos (PDF A4 apaisada), hoja de ruta · rendición
+ * por preventista (exige vehículo asignado), tickets y remitos (PDF, 4 por hoja A4). El vehículo de cada preventista se elige acá y
  * queda guardado como salida del día.
  */
 export default function PrintHub() {
@@ -30,6 +32,7 @@ export default function PrintHub() {
   const drivers = (config?.drivers || []).filter((d) =>
     day.some((o) => o.driver === d || o.driver2 === d),
   );
+  const shifts = [...new Set(day.map((o) => o.shift).filter(Boolean))];
   const loadTrips = useCallback(
     () =>
       api("/salidas?fecha=" + date)
@@ -83,16 +86,25 @@ export default function PrintHub() {
             <ClipboardList size={17} /> Hoja de pedidos
           </h2>
           <p className="muted">
-            Control general del día: todos los pedidos en una tabla, con kg,
-            precio, importe, observación en blanco y casillero de cargado.
+            PDF A4 apaisado con todos los pedidos de la fecha: N° de pedido (=
+            N° de remito), cliente y dirección, producto, kg y observación.
           </p>
           <div className="actions-row">
             <Link
               to={`/imprimir?tipo=pedidos&fecha=${date}`}
               className="primary"
             >
-              <Printer size={15} /> Imprimir
+              <Printer size={15} /> Generar PDF
             </Link>
+            {shifts.map((s) => (
+              <Link
+                key={s}
+                to={`/imprimir?tipo=pedidos&fecha=${date}&turno=${s}`}
+                className="link-button"
+              >
+                Solo {shiftName[s]}
+              </Link>
+            ))}
             <a
               className="secondary"
               href={`/api/export/consolidado?fecha=${date}`}
@@ -118,7 +130,9 @@ export default function PrintHub() {
                   <b>{d}</b>
                   <select
                     value={trip?.vehicleId || ""}
-                    onChange={(e) => e.target.value && setVehicle(d, e.target.value)}
+                    onChange={(e) =>
+                      e.target.value && setVehicle(d, e.target.value)
+                    }
                     aria-label={"Vehículo de " + d}
                   >
                     <option value="">Vehículo…</option>
@@ -129,7 +143,9 @@ export default function PrintHub() {
                     ))}
                   </select>
                   <HojaActions
-                    orders={day.filter((o) => o.driver === d || o.driver2 === d)}
+                    orders={day.filter(
+                      (o) => o.driver === d || o.driver2 === d,
+                    )}
                     date={date}
                     drivers={[d]}
                     vehicle={vehicle ? vehicleLabel(vehicle) : ""}
@@ -176,15 +192,31 @@ export default function PrintHub() {
             <FileText size={17} /> Remitos
           </h2>
           <p className="muted">
-            Original y duplicado de cada pedido, en un solo PDF.
+            Un solo original por pedido, 4 remitos de 10 × 15 cm por hoja A4,
+            listos para cortar. El respaldo queda en el sistema.
           </p>
           <div className="actions-row">
+            <Link
+              to={`/imprimir?tipo=remitos&fecha=${date}`}
+              className="primary"
+            >
+              <Printer size={15} /> Generar PDF
+            </Link>
             <RemitoActions
               orders={day}
               date={date}
-              actions={["open", "download"]}
-              labels={{ open: "Imprimir remitos", download: "PDF" }}
+              actions={["download"]}
+              labels={{ download: "Descargar" }}
             />
+            {drivers.map((d) => (
+              <Link
+                key={d}
+                to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
+                className="link-button"
+              >
+                {d}
+              </Link>
+            ))}
           </div>
         </section>
       </div>

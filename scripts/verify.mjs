@@ -1888,12 +1888,16 @@ try {
   });
   await expect(ops.locator(".weigh-counter")).toContainText("Cajón 2 de 2");
   await ops.screenshot({ path: "test-results/pesada.png", fullPage: true });
-  // Remito 10 × 15 del pedido.
+  // Remito del pedido: PDF generado en el navegador (4 por hoja A4, solo original).
   await ops.goto(base + "/imprimir?tipo=remito&pedido=" + quickId);
-  await expect(ops.locator(".remito")).toHaveCount(1);
-  await expect(ops.locator(".remito")).toContainText("REMITO INTERNO");
-  await expect(ops.locator(".remito")).toContainText("Cliente Navegador");
-  await expect(ops.locator(".remito-table")).toContainText("20,0");
+  await expect(ops.locator(".pdf-preview")).toContainText("1 remito");
+  await expect(
+    ops.locator(".pdf-preview").getByRole("button", { name: "Descargar" }),
+  ).toBeEnabled({ timeout: 20000 });
+  await expect(ops.locator(".pdf-preview-frame")).toHaveAttribute(
+    "data",
+    /^blob:/,
+  );
   await ops.screenshot({ path: "test-results/remito.png" });
   await ops.goto(base + "/operacion/nuevo");
   await ops
@@ -1961,8 +1965,10 @@ try {
   await ops.goto(base + "/imprimir?tipo=ruta&repartidor=Maxi");
   await expect(ops.locator(".sheet")).toContainText("HOJA DE RUTA Y RENDICIÓN");
   await ops.goto(base + "/imprimir?tipo=pedidos");
-  await expect(ops.locator(".sheet")).toContainText("HOJA DE PEDIDOS");
-  await expect(ops.locator(".sheet")).toContainText("Cliente Navegador");
+  await expect(ops.locator(".pdf-preview")).toContainText("A4 apaisada");
+  await expect(
+    ops.locator(".pdf-preview").getByRole("button", { name: "Descargar" }),
+  ).toBeEnabled({ timeout: 20000 });
   await ops.emulateMedia({ media: "print" });
   await expect(ops.locator(".sidebar")).toBeHidden();
   await ops.screenshot({

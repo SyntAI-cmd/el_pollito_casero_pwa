@@ -360,6 +360,43 @@ dialog form .delivery-point-status {
   min-height: 44px;
   padding: 0 18px;
 }
+/* Vista previa de PDF generado en el navegador (hoja de pedidos y remitos) */
+.pdf-preview .print-toolbar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pdf-preview-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.pdf-preview .actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pdf-preview-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.pdf-preview-frame {
+  display: block;
+  width: 100%;
+  height: min(78vh, 1100px);
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  background: #f4f2ec;
+}
+.pdf-preview-frame > p {
+  padding: 24px;
+}
+@media (max-width: 700px) {
+  .pdf-preview-frame {
+    height: 60vh;
+  }
+}
 @media (max-width: 740px) {
   .push-card {
     flex-wrap: wrap;
@@ -391,7 +428,7 @@ dialog form .delivery-point-status {
   }
   body.printing .sidebar,
   body.printing .topbar,
-  body.printing footer:not(.hoja-foot),
+  body.printing footer,
   body.printing .mobile-nav,
   body.printing .mobile-cart-bar,
   body.printing .toast,
@@ -1162,138 +1199,6 @@ dialog form .delivery-point-status {
   background: #f7f5ef;
   padding: 10px;
 }
-/* Hoja de pedidos (impresa): una sola tabla, control general del día */
-.hoja {
-  background: #fff;
-  color: #111;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 11px;
-}
-.hoja-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  border-bottom: 2px solid #c9262e;
-  padding-bottom: 8px;
-  margin-bottom: 10px;
-}
-.hoja-head img {
-  width: 150px;
-  height: auto;
-}
-.hoja-title h1 {
-  margin: 0;
-  font-size: 20px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.hoja-title p {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #444;
-}
-.hoja-facts {
-  display: flex;
-  gap: 22px;
-  margin: 0;
-}
-.hoja-facts div {
-  text-align: right;
-}
-.hoja-facts dt {
-  font-size: 9px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: #666;
-}
-.hoja-facts dd {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-}
-.hoja-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-.hoja-table th,
-.hoja-table td {
-  border: 1px solid #888;
-  padding: 4px 6px;
-  vertical-align: top;
-  font-size: 11px;
-  line-height: 1.25;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.hoja-table th {
-  background: #e3b935;
-  text-transform: uppercase;
-  font-size: 9.5px;
-  letter-spacing: 0.4px;
-  text-align: left;
-}
-.hoja-table .c-num {
-  width: 6%;
-  font-weight: 700;
-}
-.hoja-table .c-client {
-  width: 20%;
-}
-.hoja-table .c-driver {
-  width: 10%;
-}
-.hoja-table .c-products {
-  width: 20%;
-}
-.hoja-table .c-kg,
-.hoja-table .c-price,
-.hoja-table .c-total {
-  width: 8%;
-  text-align: right;
-  white-space: nowrap;
-}
-.hoja-table th.c-kg,
-.hoja-table th.c-price,
-.hoja-table th.c-total {
-  text-align: right;
-}
-.hoja-table .c-obs {
-  width: 14%;
-  background: #fffdf3;
-}
-.hoja-table .c-check {
-  width: 6%;
-  text-align: center;
-}
-.hoja-table td.c-check {
-  font-size: 15px;
-}
-.hoja-table td small {
-  display: block;
-  color: #555;
-  font-size: 9.5px;
-  overflow-wrap: anywhere;
-}
-.hoja-table tfoot td {
-  background: #f4f2ec;
-  font-weight: 700;
-}
-.hoja-foot {
-  display: flex;
-  justify-content: space-between;
-  gap: 40px;
-  margin-top: 26px;
-  font-size: 10px;
-  color: #444;
-}
-.hoja-foot span {
-  flex: 1;
-  border-top: 1px solid #111;
-  padding-top: 4px;
-  text-align: center;
-}
 /* Tickets térmicos 80 mm */
 .tickets {
   display: flex;
@@ -1388,57 +1293,4 @@ dialog form .delivery-point-status {
 .hub-route select {
   min-height: 36px;
   padding: 4px 8px;
-}
-/* Hoja de pedidos: en pantalla se lee como planilla; en papel entra justo en A4 apaisada */
-.print-page .hoja {
-  padding: 18px 20px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  overflow-x: auto;
-}
-/* En pantalla la planilla no se aplasta: se desplaza de costado en el celular */
-.print-page .hoja-table {
-  min-width: 860px;
-}
-@media (max-width: 700px) {
-  .hoja-head {
-    flex-wrap: wrap;
-  }
-  .hoja-facts {
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-}
-@media print {
-  .print-page .hoja {
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    overflow: visible;
-  }
-  .hoja-table,
-  .print-page .hoja-table {
-    min-width: 0;
-    width: 100%;
-    font-size: 10px;
-  }
-  .hoja-table th,
-  .hoja-table td {
-    padding: 3px 5px;
-    font-size: 10px;
-  }
-  .hoja-table thead {
-    display: table-header-group;
-  }
-  .hoja-table tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-  .hoja-table th {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .hoja-foot {
-    margin-top: 18px;
-  }
 }

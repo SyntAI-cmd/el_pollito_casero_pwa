@@ -260,7 +260,11 @@ export function HojaDocument({
   );
   const balances = orders.reduce(
     (a, o) =>
-      a + previousBalance(o, customers.find((x) => x.phone === o.customer)),
+      a +
+      previousBalance(
+        o,
+        customers.find((x) => x.phone === o.customer),
+      ),
     0,
   );
   const zones =
@@ -326,7 +330,9 @@ export function HojaDocument({
                     <Text style={s.bold}>{money(total)}</Text>
                   </View>
                   <View style={[s.td, s.cBalance, s.num]}>
-                    <Text style={s.bold}>{balances ? money(balances) : " "}</Text>
+                    <Text style={s.bold}>
+                      {balances ? money(balances) : " "}
+                    </Text>
                   </View>
                   <View style={[s.td, s.cBoxes, s.num]}>
                     <Text style={s.bold}>{boxes || " "}</Text>

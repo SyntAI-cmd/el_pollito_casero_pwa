@@ -343,7 +343,7 @@ export default function TruckLoading() {
               to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
               className="secondary"
             >
-              <Printer size={15} /> Talonario 10×15
+              <Printer size={15} /> Ver remitos
             </Link>
           )}
         </div>

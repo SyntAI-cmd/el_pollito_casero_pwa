@@ -24,8 +24,9 @@ const dmy = (o) => {
 };
 
 /**
- * Datos ya formateados del remito de un pedido (compartidos por el PDF y la vista HTML):
- * cabecera, cliente, renglones, cajas adeudadas, saldo y total.
+ * Datos ya formateados del remito de un pedido: cabecera, cliente, renglones, cajas adeudadas,
+ * saldo (de cuenta corriente, con este remito incluido) y total. Las cajas y el saldo van en
+ * blanco cuando son cero: el remito no lleva guiones ni "0".
  */
 export function remitoData(o, c) {
   const lines = o.items
@@ -41,6 +42,7 @@ export function remitoData(o, c) {
   const previous = c
     ? Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100
     : 0;
+  const after = Math.round((previous + onAccount) * 100) / 100;
   return {
     number: remitoNumber(o),
     date: dmy(o),
@@ -56,10 +58,16 @@ export function remitoData(o, c) {
     notes: o.notes || "",
     lines,
     owedBoxes,
+    owedBoxesText: owedBoxes
+      ? `${owedBoxes} ${owedBoxes === 1 ? "caja" : "cajas"}`
+      : "",
     total: money(o.total),
+    /** Saldo de cuenta corriente con este remito incluido; vacío si no debe nada. */
+    saldo: after !== 0 ? money(after) : "",
+    previous: previous !== 0 ? money(previous) : "",
     balance:
       previous !== 0
-        ? `Saldo anterior: ${money(previous)} · Saldo con este remito: ${money(previous + onAccount)}`
+        ? `Saldo anterior: ${money(previous)} · Saldo con este remito: ${money(after)}`
         : "",
   };
 }

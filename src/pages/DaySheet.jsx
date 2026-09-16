@@ -105,7 +105,7 @@ export default function DaySheet() {
             to={`/imprimir?tipo=pedidos&fecha=${date}`}
             className="secondary"
           >
-            <Printer size={15} /> Nota
+            <Printer size={15} /> Hoja de pedidos
           </Link>
           <RemitoActions
             orders={day.orders}
@@ -182,7 +182,7 @@ export default function DaySheet() {
                 drivers={[driver]}
                 actions={["open", "share"]}
                 small
-                label="Hoja de pedidos PDF"
+                label="Hoja de ruta PDF"
               />
               {" · "}
               <RemitoActions
@@ -197,7 +197,7 @@ export default function DaySheet() {
               <Link
                 to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
               >
-                Talonario 10×15
+                Ver remitos
               </Link>
             </span>
           </div>

@@ -11,8 +11,8 @@ const canShareFiles = () =>
   });
 
 /**
- * Botones de la hoja de pedidos del repartidor (PDF por camioneta/preventistas): descargar,
- * compartir (WhatsApp) e imprimir.
+ * Botones de la hoja de ruta · rendición del repartidor (PDF por camioneta/preventistas):
+ * descargar, compartir (WhatsApp) e imprimir.
  */
 export default function HojaActions({
   orders,
@@ -21,7 +21,7 @@ export default function HojaActions({
   vehicle = "",
   actions = ["open", "download", "share"],
   small = false,
-  label = "Hoja de pedidos (PDF)",
+  label = "Hoja de ruta (PDF)",
 }) {
   const { customers, notify } = useStore();
   const [busy, setBusy] = useState("");
