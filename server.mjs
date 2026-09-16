@@ -114,21 +114,20 @@ if (dbPath !== ":memory:") {
 // (para probar la app publicada sin entrar por SSH). Sacar la variable después.
 if (process.env.PRUEBA_DATOS) {
   try {
-    const { seedPrueba, seedReales } = await import("./scripts/prueba.mjs");
-    const v = process.env.PRUEBA_DATOS;
-    // "reales" / "reales-borrar": 15 pedidos simulados sobre clientes reales (sin crear fichas).
-    if (v.startsWith("reales")) {
-      // Los clientes "Prueba N" se van siempre que se simula con clientes reales.
-      seedPrueba(store, { borrar: true, log: (m) => log.info("Datos de prueba:", m) });
-      seedReales(store, {
-        borrar: v.endsWith("borrar"),
-        log: (m) => log.info("Datos de prueba:", m),
-      });
-    } else
-      seedPrueba(store, {
-        borrar: v === "borrar",
-        log: (m) => log.info("Datos de prueba:", m),
-      });
+    const { seedPrueba, seedReales, seedLimpiar } =
+      await import("./scripts/prueba.mjs");
+    const dlog = (m) => log.info("Datos de prueba:", m);
+    // Pasos separados por "+": limpiar · borrar · 1 · reales[:preventista[:n]] · reales-borrar
+    for (const step of process.env.PRUEBA_DATOS.split("+")) {
+      const [name, forced = "", n = ""] = step.split(":");
+      if (name === "limpiar") seedLimpiar(store, { log: dlog });
+      else if (name === "reales-borrar")
+        seedReales(store, { borrar: true, log: dlog });
+      else if (name === "reales") {
+        seedPrueba(store, { borrar: true, log: dlog });
+        seedReales(store, { driver: forced, n: Number(n) || 15, log: dlog });
+      } else seedPrueba(store, { borrar: name === "borrar", log: dlog });
+    }
   } catch (e) {
     log.warn("Datos de prueba:", e.message);
   }

@@ -22,9 +22,40 @@ const PRUEBA = /^Prueba \d+$/;
  * preventistas (el del cliente si lo tiene), con cajas y/o kilos al precio propio de cada uno.
  * Llevan clave "sim-…" para poder borrarlos sin tocar las fichas: seedReales(store, { borrar: true }).
  */
+/**
+ * Limpia la operación: pedidos (con cajones, comprobantes, movimientos), pagos, cierres, chat,
+ * noticias y salidas. Conserva clientes, precios propios, usuarios, preventistas, vehículos y ajustes.
+ */
+export function seedLimpiar(store, { log = console.log } = {}) {
+  const db = store.db;
+  const count = (t) => db.prepare(`SELECT count(*) AS n FROM ${t}`).get().n;
+  const before = { pedidos: count("orders"), pagos: count("payments") };
+  for (const t of [
+    "receipts",
+    "crates",
+    "order_track",
+    "order_events",
+    "order_items",
+    "box_movements",
+    "orders",
+    "payments",
+    "cash_closures",
+    "messages",
+    "news",
+    "trip_track",
+    "trips",
+  ])
+    db.exec(`DELETE FROM ${t}`);
+  db.exec("UPDATE customers SET credit_balance = 0");
+  log(
+    `Limpieza: ${before.pedidos} pedidos y ${before.pagos} pagos borrados; clientes y precios intactos.`,
+  );
+  return before;
+}
+
 export function seedReales(
   store,
-  { n = 15, borrar = false, log = console.log } = {},
+  { n = 15, borrar = false, driver: forced = "", log = console.log } = {},
 ) {
   const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
   const sims = store.orders
@@ -78,9 +109,12 @@ export function seedReales(
       province: "Mendoza",
       country: "Argentina",
     };
-    const driver = drivers.includes(c.truck || c.driver)
-      ? c.truck || c.driver
-      : drivers[i % drivers.length];
+    const driver =
+      forced && drivers.includes(forced)
+        ? forced
+        : drivers.includes(c.truck || c.driver)
+          ? c.truck || c.driver
+          : drivers[i % drivers.length];
     const payment = c.credit === false ? "entrega" : "cuenta";
     const pricedOrder = priceOrder(
       {
@@ -434,7 +468,14 @@ if (process.argv[1] && /prueba\.mjs$/.test(process.argv[1])) {
     process.env.DB_PATH ||
     `${(process.env.DATA_DIR || "data").replace(/\/$/, "")}/pollito.sqlite`;
   const store = await openStore(dbPath, { log: { info() {}, warn() {} } });
-  if (process.argv.includes("--reales"))
-    seedReales(store, { borrar: process.argv.includes("--borrar") });
+  if (process.argv.includes("--limpiar")) seedLimpiar(store);
+  else if (process.argv.includes("--reales"))
+    seedReales(store, {
+      borrar: process.argv.includes("--borrar"),
+      driver:
+        process.argv.find((a) => a.startsWith("--preventista="))?.slice(14) ||
+        "",
+      n: Number(process.argv.find((a) => a.startsWith("--n="))?.slice(4)) || 15,
+    });
   else seedPrueba(store, { borrar: process.argv.includes("--borrar") });
 }
