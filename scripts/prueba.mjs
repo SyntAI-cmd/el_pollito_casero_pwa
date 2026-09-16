@@ -62,6 +62,10 @@ export function seedReales(
     .all()
     .filter((o) => String(o.key || "").includes(":sim-"));
   for (const o of sims) store.orders.remove(o.id);
+  const simTrips = store.trips
+    .forDate(today)
+    .filter((t) => String(t.id).startsWith("sim-"));
+  for (const t of simTrips) store.trips.remove(t.id);
   log(`Borrados ${sims.length} pedidos simulados.`);
   if (borrar) return { borrado: true };
   const drivers = store.drivers
@@ -201,6 +205,169 @@ export function seedReales(
   log(
     `Listo: ${made} pedidos simulados (pesados) para ${today} con clientes reales.`,
   );
+  return { orders: made, today };
+}
+
+/** Nombre de preventista sin acentos, en minúsculas, primera palabra ("Nahuel Castro" → "nahuel"). */
+const firstName = (name) =>
+  String(name || "")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)[0];
+
+/**
+ * Carga real de prueba: `n` pedidos de HOY sobre clientes reales, SIN pesar (estado "recibido", con
+ * las cajas pedidas), repartidos entre camionetas con dos preventistas cada una y con la salida del
+ * día creada. Los precios son los propios de cada cliente (lista importada).
+ *
+ *   spec: "Maxi,Franco@A974NR;Nahuel,Brian@AC226GC;Miguel,Andres@ENQ091"
+ *         (nombres por primera palabra, sin acentos; vehículo por patente)
+ *
+ * Los pedidos llevan clave "sim-…": se borran con seedReales(store, { borrar: true }).
+ */
+export function seedCarga(store, { spec, n = 50, log = console.log } = {}) {
+  const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  seedReales(store, { borrar: true, log });
+  const drivers = store.drivers.all().filter((d) => d.active);
+  const vehicles = store.vehicles.all().filter((v) => v.active);
+  const driverByFirst = (first) => {
+    const d = drivers.find((x) => firstName(x.name) === firstName(first));
+    if (!d) throw Error(`Preventista no encontrado: ${first}`);
+    return d.name;
+  };
+  const trucks = String(spec || "")
+    .split(";")
+    .filter(Boolean)
+    .map((part) => {
+      const [names, plate] = part.split("@");
+      const crew = names.split(",").map(driverByFirst);
+      const v = vehicles.find(
+        (x) => x.plate.replace(/\s/g, "").toUpperCase() === plate.toUpperCase(),
+      );
+      if (!v) throw Error(`Vehículo no encontrado: ${plate}`);
+      return { crew, vehicle: v, orders: [] };
+    });
+  if (!trucks.length) throw Error("Indicá las parejas y camionetas.");
+  const priced = store.prices.all();
+  const pool = store.customers
+    .all()
+    .filter((c) => !PRUEBA.test(c.name) && !c.archived && priced[c.phone])
+    .sort(
+      (a, b) =>
+        (a.zone || "zz").localeCompare(b.zone || "zz") ||
+        a.name.localeCompare(b.name),
+    )
+    .slice(0, n);
+  // Reparto: primero por preventista habitual del cliente; el resto por zona, equilibrando.
+  const cap = Math.ceil(pool.length / trucks.length);
+  const rest = [];
+  for (const c of pool) {
+    const habitual = firstName(c.truck || c.driver);
+    const t = trucks.find(
+      (x) =>
+        x.orders.length < cap && x.crew.some((d) => firstName(d) === habitual),
+    );
+    if (habitual && t) t.orders.push(c);
+    else rest.push(c);
+  }
+  for (const c of rest) {
+    const t = [...trucks].sort((a, b) => a.orders.length - b.orders.length)[0];
+    t.orders.push(c);
+  }
+  const lists = store.settings.get("priceLists", null);
+  const productsAll = [
+    "entero",
+    "cuarto-trasero",
+    "alas",
+    "pechuga",
+    "suprema",
+    "menudos",
+  ];
+  let made = 0;
+  let i = 0;
+  for (const t of trucks) {
+    for (const c of t.orders) {
+      const own = priced[c.phone] || {};
+      const withPrice = productsAll.filter((p) => own[p]);
+      // Las cajas son de pollo entero si el cliente tiene precio; los demás cortes van por kilo.
+      const main = own.entero ? "entero" : withPrice[0] || "entero";
+      const others = withPrice.filter((p) => p !== main);
+      const extra = others[i % Math.max(1, others.length)] || null;
+      const items = [
+        { id: main, boxes: 2 + (i % 7) },
+        ...(extra && i % 3 === 0 ? [{ id: extra, kg: 5 + (i % 4) * 3 }] : []),
+      ];
+      const prices = { ...own };
+      for (const it of items) if (!prices[it.id]) prices[it.id] = 4500;
+      const locality = localities.find((l) => l.id === c.localityId) || {
+        id: c.localityId || "otra",
+        name: c.zone || "Sin localidad",
+        postalCode: "",
+        province: "Mendoza",
+        country: "Argentina",
+      };
+      const payment = c.credit === false ? "entrega" : "cuenta";
+      const pricedOrder = priceOrder(
+        {
+          plan: c.plan || "mayorista",
+          payment,
+          items,
+          address: c.address || "Sin dirección",
+          name: c.name,
+          phone: c.contactPhone || "",
+          localityId: locality.id,
+        },
+        { enforceMin: false, prices, staff: true, locality, lists },
+      );
+      store.orders.save({
+        ...pricedOrder,
+        locality,
+        id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
+        key: `${c.phone}:sim-${today}`,
+        customer: c.phone,
+        name: c.name,
+        phone: c.contactPhone || "",
+        address: c.address || "",
+        notes: "",
+        plan: c.plan || "mayorista",
+        payment,
+        paid: false,
+        status: "recibido",
+        driver: t.crew[0],
+        driver2: t.crew[1] || "",
+        vehicleId: t.vehicle.id,
+        deliveryDate: today,
+        shift: c.shift || (i % 2 ? "tarde" : "manana"),
+        zone: c.zone || "",
+        boxes: 0,
+        returned: 0,
+        created: now(),
+        createdBy: "admin",
+        history: [{ status: "recibido", at: now() }],
+        destination: null,
+      });
+      made++;
+      i++;
+    }
+    // Salida del día: la camioneta con su pareja de preventistas.
+    for (const old of store.trips
+      .forDate(today)
+      .filter((x) => x.vehicleId === t.vehicle.id))
+      store.trips.remove(old.id);
+    store.trips.save({
+      id: "sim-" + t.vehicle.id,
+      date: today,
+      vehicleId: t.vehicle.id,
+      drivers: t.crew,
+      departure: "",
+    });
+    log(
+      `${t.vehicle.name} ${t.vehicle.plate}: ${t.crew.join(" y ")} · ${t.orders.length} pedidos`,
+    );
+  }
+  log(`Listo: ${made} pedidos sin pesar para ${today} con clientes reales.`);
   return { orders: made, today };
 }
 
@@ -468,7 +635,10 @@ if (process.argv[1] && /prueba\.mjs$/.test(process.argv[1])) {
     process.env.DB_PATH ||
     `${(process.env.DATA_DIR || "data").replace(/\/$/, "")}/pollito.sqlite`;
   const store = await openStore(dbPath, { log: { info() {}, warn() {} } });
+  const arg = (k) => process.argv.find((a) => a.startsWith(k))?.slice(k.length);
   if (process.argv.includes("--limpiar")) seedLimpiar(store);
+  else if (process.argv.includes("--carga"))
+    seedCarga(store, { spec: arg("--parejas="), n: Number(arg("--n=")) || 50 });
   else if (process.argv.includes("--reales"))
     seedReales(store, {
       borrar: process.argv.includes("--borrar"),

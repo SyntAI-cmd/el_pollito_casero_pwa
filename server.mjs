@@ -114,13 +114,16 @@ if (dbPath !== ":memory:") {
 // (para probar la app publicada sin entrar por SSH). Sacar la variable después.
 if (process.env.PRUEBA_DATOS) {
   try {
-    const { seedPrueba, seedReales, seedLimpiar } =
+    const { seedPrueba, seedReales, seedLimpiar, seedCarga } =
       await import("./scripts/prueba.mjs");
     const dlog = (m) => log.info("Datos de prueba:", m);
     // Pasos separados por "+": limpiar · borrar · 1 · reales[:preventista[:n]] · reales-borrar
+    //   · carga:Maxi,Franco@A974NR;Nahuel,Brian@AC226GC:50 (parejas por camioneta, sin pesar)
     for (const step of process.env.PRUEBA_DATOS.split("+")) {
       const [name, forced = "", n = ""] = step.split(":");
       if (name === "limpiar") seedLimpiar(store, { log: dlog });
+      else if (name === "carga")
+        seedCarga(store, { spec: forced, n: Number(n) || 50, log: dlog });
       else if (name === "reales-borrar")
         seedReales(store, { borrar: true, log: dlog });
       else if (name === "reales") {
