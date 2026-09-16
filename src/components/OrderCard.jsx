@@ -307,7 +307,7 @@ export default function OrderCard({ order: o, role }) {
               Registrar cobro
             </button>
           )}
-          {o.status !== "cancelado" && (
+          {admin && o.status !== "cancelado" && (
             <RemitoActions orders={[o]} actions={["download", "share"]} />
           )}
           {admin && (

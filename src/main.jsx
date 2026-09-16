@@ -25,7 +25,19 @@ createRoot(document.getElementById("root")).render(
 );
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  navigator.serviceWorker
+    .register("/sw.js")
+    .then((reg) => {
+      // Una pestaña abierta todo el día no vuelve a chequear si hay versión nueva: se chequea al
+      // volver a la pestaña y cada 15 minutos; al instalarse, controllerchange recarga una vez.
+      const check = () => reg.update().catch(() => {});
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") check();
+      });
+      window.addEventListener("focus", check);
+      setInterval(check, 15 * 60000);
+    })
+    .catch(() => {});
   // Cuando se instala una versión nueva, se recarga una vez para no mezclar código viejo y nuevo.
   // Solo si ya había una versión controlando la página (en la primera instalación no hay que recargar).
   const hadController = !!navigator.serviceWorker.controller;

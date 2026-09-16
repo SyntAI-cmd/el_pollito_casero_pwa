@@ -1,37 +1,66 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Printer, FileText, Truck, ClipboardList, Ticket } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
+import { api, put } from "../lib/api.js";
 import { PageHead } from "../components/ui.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import HojaActions from "../components/HojaActions.jsx";
+import { vehicleLabel } from "../components/Vehicles.jsx";
 import { todayKey, dmy } from "../lib/day.js";
 
 /**
- * Imprimir: las cuatro cosas que se imprimen en el día, en un solo lugar.
- *  1. Hoja de pedidos (control general, una sola tabla).
- *  2. Hoja de ruta · rendición (PDF) de cada preventista, para llevar y rendir en papel.
- *  3. Tickets de preparación (comandera 80 mm).
- *  4. Remitos (original + duplicado).
- * El repartidor ve solo su hoja de ruta, sus tickets y sus remitos.
+ * Imprimir (solo administración): hoja de pedidos, hoja de ruta · rendición por preventista
+ * (exige vehículo asignado), tickets y remitos. El vehículo de cada preventista se elige acá y
+ * queda guardado como salida del día.
  */
 export default function PrintHub() {
-  const { orders, config, session } = useStore();
+  const { orders, config, session, notify, reload } = useStore();
+  useEffect(() => {
+    reload();
+  }, [reload]);
   const [date, setDate] = useState(todayKey());
-  const admin = session?.role === "admin";
-  const mineOnly = (o) =>
-    admin || o.driver === session?.driver || o.driver2 === session?.driver;
+  const [vehicles, setVehicles] = useState([]);
+  const [trips, setTrips] = useState([]);
   const day = orders.filter(
     (o) =>
       (o.deliveryDate || o.created.slice(0, 10)) === date &&
-      o.status !== "cancelado" &&
-      mineOnly(o),
+      o.status !== "cancelado",
   );
-  const drivers = admin
-    ? (config?.drivers || []).filter((d) =>
-        day.some((o) => o.driver === d || o.driver2 === d),
-      )
-    : [session?.driver].filter(Boolean);
+  const drivers = (config?.drivers || []).filter((d) =>
+    day.some((o) => o.driver === d || o.driver2 === d),
+  );
+  const loadTrips = useCallback(
+    () =>
+      api("/salidas?fecha=" + date)
+        .then(setTrips)
+        .catch(() => setTrips([])),
+    [date],
+  );
+  useEffect(() => {
+    api("/vehicles")
+      .then((v) => setVehicles(v.filter((x) => x.active)))
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    loadTrips();
+  }, [loadTrips]);
+  const tripOf = (d) => trips.find((t) => t.drivers.includes(d));
+  async function setVehicle(d, vehicleId) {
+    try {
+      const current = tripOf(d);
+      const t = await put("/salidas", {
+        date,
+        vehicleId,
+        drivers: current ? [...new Set([...current.drivers, d])] : [d],
+        departure: current?.departure || "",
+      });
+      setTrips((list) => [...list.filter((x) => x.id !== t.id), t]);
+    } catch (e) {
+      notify(e.message);
+    }
+  }
+  if (session?.role !== "admin") return null;
   return (
     <div className="floor print-hub">
       <PageHead
@@ -49,54 +78,68 @@ export default function PrintHub() {
         </div>
       </PageHead>
       <div className="print-hub-grid">
-        {admin && (
-          <section className="panel">
-            <h2>
-              <ClipboardList size={17} /> Hoja de pedidos
-            </h2>
-            <p className="muted">
-              Control general del día: todos los pedidos en una tabla, con kg,
-              precio, importe, observación en blanco y casillero de cargado.
-            </p>
-            <div className="actions-row">
-              <Link
-                to={`/imprimir?tipo=pedidos&fecha=${date}`}
-                className="primary"
-              >
-                <Printer size={15} /> Imprimir
-              </Link>
-              <a
-                className="secondary"
-                href={`/api/export/consolidado?fecha=${date}`}
-              >
-                Excel del día
-              </a>
-            </div>
-          </section>
-        )}
+        <section className="panel">
+          <h2>
+            <ClipboardList size={17} /> Hoja de pedidos
+          </h2>
+          <p className="muted">
+            Control general del día: todos los pedidos en una tabla, con kg,
+            precio, importe, observación en blanco y casillero de cargado.
+          </p>
+          <div className="actions-row">
+            <Link
+              to={`/imprimir?tipo=pedidos&fecha=${date}`}
+              className="primary"
+            >
+              <Printer size={15} /> Imprimir
+            </Link>
+            <a
+              className="secondary"
+              href={`/api/export/consolidado?fecha=${date}`}
+            >
+              Excel del día
+            </a>
+          </div>
+        </section>
         <section className="panel">
           <h2>
             <Truck size={17} /> Hoja de ruta · rendición
           </h2>
           <p className="muted">
-            La que se lleva cada preventista y rinde a lapicera: N° pedido /
-            remito, cliente, total, saldo de cajas, efectivo, transferencia,
-            cheque y saldo.
+            Una por preventista, con saldo actual y saldo de cajas de cada
+            cliente. Elegí el vehículo antes de generarla.
           </p>
-          <div className="actions-row">
-            {drivers.map((d) => (
-              <span key={d} className="hub-driver">
-                <b>{d}</b>{" "}
-                <HojaActions
-                  orders={day.filter((o) => o.driver === d || o.driver2 === d)}
-                  date={date}
-                  drivers={[d]}
-                  actions={["open", "share"]}
-                  small
-                  label="Abrir PDF"
-                />
-              </span>
-            ))}
+          <div className="hub-routes">
+            {drivers.map((d) => {
+              const trip = tripOf(d);
+              const vehicle = vehicles.find((v) => v.id === trip?.vehicleId);
+              return (
+                <div key={d} className="hub-route">
+                  <b>{d}</b>
+                  <select
+                    value={trip?.vehicleId || ""}
+                    onChange={(e) => e.target.value && setVehicle(d, e.target.value)}
+                    aria-label={"Vehículo de " + d}
+                  >
+                    <option value="">Vehículo…</option>
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {vehicleLabel(v)}
+                      </option>
+                    ))}
+                  </select>
+                  <HojaActions
+                    orders={day.filter((o) => o.driver === d || o.driver2 === d)}
+                    date={date}
+                    drivers={[d]}
+                    vehicle={vehicle ? vehicleLabel(vehicle) : ""}
+                    actions={["open", "share"]}
+                    small
+                    label="Abrir PDF"
+                  />
+                </div>
+              );
+            })}
             {!drivers.length && (
               <span className="muted">Sin pedidos asignados.</span>
             )}
@@ -112,21 +155,20 @@ export default function PrintHub() {
           </p>
           <div className="actions-row">
             <Link
-              to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${admin ? "todos" : encodeURIComponent(session?.driver || "")}`}
+              to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=todos`}
               className="primary"
             >
               <Printer size={15} /> Imprimir tickets
             </Link>
-            {admin &&
-              drivers.map((d) => (
-                <Link
-                  key={d}
-                  to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
-                  className="link-button"
-                >
-                  {d}
-                </Link>
-              ))}
+            {drivers.map((d) => (
+              <Link
+                key={d}
+                to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
+                className="link-button"
+              >
+                {d}
+              </Link>
+            ))}
           </div>
         </section>
         <section className="panel">

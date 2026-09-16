@@ -583,12 +583,7 @@ export function createFloor({
       staffOnly(session);
       const c = customerByKey(decodeURIComponent(ficha[1]));
       if (ficha[2] === "ficha" && method === "PATCH") {
-        // El preventista solo puede cambiar la lista de precios (modalidad); el resto es de administración.
-        if (session.role !== "admin") {
-          const keys = Object.keys(body).filter((k) => body[k] !== undefined);
-          if (keys.some((k) => k !== "plan"))
-            fail(403, "Solo administración edita la ficha.");
-        }
+        // Todo el equipo edita la ficha (el preventista carga y corrige clientes en la calle).
         const changes = {};
         for (const [k, parse] of Object.entries(FICHA))
           if (body[k] !== undefined) changes[k] = parse(body[k]);

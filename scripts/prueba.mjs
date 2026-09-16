@@ -137,7 +137,7 @@ export function seedReales(
       name: c.name,
       phone: c.contactPhone || "",
       address: c.address || "",
-      notes: i % 5 === 0 ? "Simulado: llamar antes de llegar" : "",
+      notes: "",
       plan: c.plan || "mayorista",
       payment,
       paid: false,

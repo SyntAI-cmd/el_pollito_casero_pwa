@@ -320,7 +320,7 @@ export default function TruckLoading() {
             onChange={(e) => setDate(e.target.value)}
             aria-label="Fecha"
           />
-          {orders.length > 0 && (
+          {isAdmin && orders.length > 0 && (
             <RemitoActions
               orders={orders}
               date={date}
@@ -329,7 +329,7 @@ export default function TruckLoading() {
               labels={{ open: "Remitos PDF" }}
             />
           )}
-          {orders.length > 0 && (
+          {isAdmin && orders.length > 0 && (
             <HojaActions
               orders={orders}
               date={date}
@@ -337,14 +337,6 @@ export default function TruckLoading() {
               vehicle={byVehicle ? vehicleLabel(vehicle) : ""}
               actions={["open", "share"]}
             />
-          )}
-          {orders.length > 0 && (
-            <Link
-              to={`/imprimir?tipo=viaje&fecha=${date}${byVehicle ? "&vehiculo=" + encodeURIComponent(vehicle.id) : ""}`}
-              className="secondary"
-            >
-              <Printer size={15} /> Hoja de viaje
-            </Link>
           )}
           {isAdmin && orders.length > 0 && (
             <Link

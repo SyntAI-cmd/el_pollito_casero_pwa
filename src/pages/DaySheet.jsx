@@ -107,13 +107,6 @@ export default function DaySheet() {
           >
             <Printer size={15} /> Nota
           </Link>
-          <Link
-            to={`/imprimir?tipo=viaje&fecha=${date}`}
-            className="secondary"
-            title="Una hoja por camioneta: nombre, saldo, pedido, precio, kilos y espacio para completar a mano"
-          >
-            <Printer size={15} /> Hojas de viaje
-          </Link>
           <RemitoActions
             orders={day.orders}
             date={date}
@@ -205,12 +198,6 @@ export default function DaySheet() {
                 to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
               >
                 Talonario 10×15
-              </Link>
-              {" · "}
-              <Link
-                to={`/imprimir?tipo=ruta&fecha=${date}&repartidor=${encodeURIComponent(driver)}`}
-              >
-                Hoja de ruta
               </Link>
             </span>
           </div>

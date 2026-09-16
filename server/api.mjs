@@ -1630,7 +1630,7 @@ export function createApi({
       if (!c || !driverServes(session)) fail(404, "Cliente no encontrado.");
       const sub = customerMatch[2];
       if (!sub && method === "PATCH") {
-        if (session.role !== "admin") fail(403, "Solo administración.");
+        // Modalidad, crédito y preventista habitual: los edita todo el equipo.
         if (body.plan !== undefined)
           c.plan = oneOf(body.plan, plans, "modalidad");
         if (body.credit !== undefined) c.credit = bool(body.credit, "crédito");

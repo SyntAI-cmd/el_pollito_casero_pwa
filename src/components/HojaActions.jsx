@@ -27,6 +27,12 @@ export default function HojaActions({
   const [busy, setBusy] = useState("");
   const list = (orders || []).filter((o) => o.status !== "cancelado");
   if (!list.length) return null;
+  // Validación: la hoja sale con preventista y vehículo asignados.
+  const missing = !drivers?.filter(Boolean).length
+    ? "Asigná un preventista."
+    : !vehicle
+      ? "Elegí el vehículo."
+      : "";
   const run = async (action) => {
     setBusy(action);
     try {
@@ -51,9 +57,9 @@ export default function HojaActions({
         <button
           type="button"
           className={cls}
-          disabled={!!busy}
+          disabled={!!busy || !!missing}
           onClick={() => run("open")}
-          title="Abrir para imprimir"
+          title={missing || "Abrir para imprimir"}
         >
           {busy === "open" ? (
             <Loader2 size={size} className="spin" />
@@ -67,9 +73,9 @@ export default function HojaActions({
         <button
           type="button"
           className={cls}
-          disabled={!!busy}
+          disabled={!!busy || !!missing}
           onClick={() => run("download")}
-          title="Descargar el PDF"
+          title={missing || "Descargar el PDF"}
         >
           {busy === "download" ? (
             <Loader2 size={size} className="spin" />
@@ -83,9 +89,9 @@ export default function HojaActions({
         <button
           type="button"
           className={cls}
-          disabled={!!busy}
+          disabled={!!busy || !!missing}
           onClick={() => run("share")}
-          title="Enviar por WhatsApp"
+          title={missing || "Enviar por WhatsApp"}
         >
           {busy === "share" ? (
             <Loader2 size={size} className="spin" />

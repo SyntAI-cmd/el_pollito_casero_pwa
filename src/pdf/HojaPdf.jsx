@@ -95,9 +95,10 @@ const s = StyleSheet.create({
   small: { fontSize: 6.5, color: MUTED },
   cNum: { width: 58 },
   cClient: { flex: 1 },
-  cTotal: { width: 76 },
-  cBoxes: { width: 70 },
-  cPay: { width: 78 },
+  cTotal: { width: 72 },
+  cBalance: { width: 72 },
+  cBoxes: { width: 56 },
+  cPay: { width: 72 },
   foot: { flexDirection: "row", gap: 10, marginTop: 8 },
   summary: {
     borderWidth: 2,
@@ -186,8 +187,16 @@ function Header({ date, drivers, zone, vehicle, logo }) {
   );
 }
 
+/** Saldo de cuenta corriente del cliente ANTES de este pedido (lo que ya debía). */
+const previousBalance = (o, c) => {
+  if (!c) return 0;
+  const onAccount = o.payment === "cuenta" && !o.paid ? o.total : 0;
+  return Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100;
+};
+
 function Row({ o, c }) {
   const owed = Math.max(0, c?.summary?.boxes || 0);
+  const prev = previousBalance(o, c);
   return (
     <View style={s.tr} wrap={false}>
       <View style={[s.td, s.cNum]}>
@@ -203,6 +212,9 @@ function Row({ o, c }) {
       </View>
       <View style={[s.td, s.cTotal, s.num]}>
         <Text style={s.bold}>{money(o.total)}</Text>
+      </View>
+      <View style={[s.td, s.cBalance, s.num]}>
+        <Text>{prev ? money(prev) : " "}</Text>
       </View>
       <View style={[s.td, s.cBoxes, s.num]}>
         <Text>{owed || " "}</Text>
@@ -246,6 +258,11 @@ export function HojaDocument({
       ),
     0,
   );
+  const balances = orders.reduce(
+    (a, o) =>
+      a + previousBalance(o, customers.find((x) => x.phone === o.customer)),
+    0,
+  );
   const zones =
     zone ||
     [...new Set(orders.map((o) => o.zone).filter(Boolean))]
@@ -273,7 +290,8 @@ export function HojaDocument({
                 <Text style={[s.th, s.cNum]}>N° Pedido / Remito</Text>
                 <Text style={[s.th, s.cClient]}>Cliente</Text>
                 <Text style={[s.th, s.cTotal]}>Total pedido</Text>
-                <Text style={[s.th, s.cBoxes]}>Saldo de cajas</Text>
+                <Text style={[s.th, s.cBalance]}>Saldo actual</Text>
+                <Text style={[s.th, s.cBoxes]}>Saldo cajas</Text>
                 <Text style={[s.th, s.cPay]}>Efectivo</Text>
                 <Text style={[s.th, s.cPay]}>Transferencia</Text>
                 <Text style={[s.th, s.cPay]}>Cheque</Text>
@@ -306,6 +324,9 @@ export function HojaDocument({
                   </View>
                   <View style={[s.td, s.cTotal, s.num]}>
                     <Text style={s.bold}>{money(total)}</Text>
+                  </View>
+                  <View style={[s.td, s.cBalance, s.num]}>
+                    <Text style={s.bold}>{balances ? money(balances) : " "}</Text>
                   </View>
                   <View style={[s.td, s.cBoxes, s.num]}>
                     <Text style={s.bold}>{boxes || " "}</Text>

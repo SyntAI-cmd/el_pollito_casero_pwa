@@ -113,6 +113,16 @@ export function StoreProvider({ children }) {
       setCustomers(await api("/customers").catch(() => []));
     else setCustomers([]);
   }, []);
+  /** Vuelve a traer pedidos y clientes del servidor (al entrar a una vista, para no mostrar datos viejos). */
+  const reload = useCallback(
+    () =>
+      Promise.all([
+        loadOrders({ silent: true }),
+        loadMe(),
+        loadCustomers(),
+      ]).catch(() => {}),
+    [loadOrders, loadMe, loadCustomers],
+  );
 
   // Carga inicial: configuración, sesión y pedidos.
   useEffect(() => {
@@ -880,6 +890,7 @@ export function StoreProvider({ children }) {
     createCustomer,
     savePrices,
     loadCustomers,
+    reload,
     saveDriver,
     refreshConfig,
     deleteOrder,
@@ -911,7 +922,6 @@ export function StoreProvider({ children }) {
     activeOrder,
     pushState,
     enableNotifications,
-    reload: () => Promise.all([loadOrders(), loadMe(), loadCustomers()]),
   };
   return (
     <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

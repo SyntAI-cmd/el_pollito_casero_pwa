@@ -103,13 +103,15 @@ export default function OrdersList({ orders, role = "admin" }) {
                   />
                 </td>
                 <td className="row-actions">
-                  <Link
-                    to={`/imprimir?tipo=tickets&pedido=${o.id}`}
-                    className="link-button small"
-                    title="Ticket de preparación (comandera)"
-                  >
-                    <Ticket size={13} /> Ticket
-                  </Link>
+                  {role === "admin" && (
+                    <Link
+                      to={`/imprimir?tipo=tickets&pedido=${o.id}`}
+                      className="link-button small"
+                      title="Ticket de preparación (comandera)"
+                    >
+                      <Ticket size={13} /> Ticket
+                    </Link>
+                  )}
                   <button
                     type="button"
                     className="link-button small"

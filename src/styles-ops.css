@@ -384,12 +384,14 @@ dialog form .delivery-point-status {
     margin: 12mm;
   }
   html:has(body.printing),
-  body.printing {
+  body.printing,
+  body.printing .staff-app {
     background: #fff;
+    min-height: 0;
   }
   body.printing .sidebar,
   body.printing .topbar,
-  body.printing footer,
+  body.printing footer:not(.hoja-foot),
   body.printing .mobile-nav,
   body.printing .mobile-cart-bar,
   body.printing .toast,
@@ -1222,6 +1224,8 @@ dialog form .delivery-point-status {
   vertical-align: top;
   font-size: 11px;
   line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .hoja-table th {
   background: #e3b935;
@@ -1270,6 +1274,7 @@ dialog form .delivery-point-status {
   display: block;
   color: #555;
   font-size: 9.5px;
+  overflow-wrap: anywhere;
 }
 .hoja-table tfoot td {
   background: #f4f2ec;
@@ -1360,5 +1365,80 @@ dialog form .delivery-point-status {
   .tickets-page {
     padding: 0;
     max-width: none;
+  }
+}
+
+/* Imprimir: filas de hoja de ruta con vehículo */
+.hub-routes {
+  display: grid;
+  gap: 8px;
+}
+.hub-route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f4f2ec;
+}
+.hub-route b {
+  min-width: 110px;
+}
+.hub-route select {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+/* Hoja de pedidos: en pantalla se lee como planilla; en papel entra justo en A4 apaisada */
+.print-page .hoja {
+  padding: 18px 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+/* En pantalla la planilla no se aplasta: se desplaza de costado en el celular */
+.print-page .hoja-table {
+  min-width: 860px;
+}
+@media (max-width: 700px) {
+  .hoja-head {
+    flex-wrap: wrap;
+  }
+  .hoja-facts {
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+}
+@media print {
+  .print-page .hoja {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .hoja-table,
+  .print-page .hoja-table {
+    min-width: 0;
+    width: 100%;
+    font-size: 10px;
+  }
+  .hoja-table th,
+  .hoja-table td {
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+  .hoja-table thead {
+    display: table-header-group;
+  }
+  .hoja-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .hoja-table th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .hoja-foot {
+    margin-top: 18px;
   }
 }

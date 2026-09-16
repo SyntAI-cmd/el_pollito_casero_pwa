@@ -24,17 +24,12 @@ import {
   normalize,
   orderNumber,
 } from "../lib/format.js";
-import { routeSheet, receivables, today } from "../lib/report.js";
+import { receivables } from "../lib/report.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrderCard from "../components/OrderCard.jsx";
 import OrdersList from "../components/OrdersList.jsx";
-import RouteSheet from "../components/RouteSheet.jsx";
-import CashClosure from "../components/CashClosure.jsx";
-import ReceiptsDay from "../components/ReceiptsDay.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import { mapsRouteLegs, copyText } from "../lib/maps.js";
-
-const SIMPLE_RENDICION = true;
 
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
@@ -54,11 +49,11 @@ export default function Operations() {
     config,
     live,
     setModal,
+    reload,
   } = useStore();
   const { path, query, navigate } = useRoute();
   const tab =
     {
-      "/operacion/reparto": "reparto",
       "/operacion/clientes": "clientes",
       "/operacion/equipo": "equipo",
     }[path] || "pedidos";
@@ -79,6 +74,10 @@ export default function Operations() {
     } catch {}
   };
   const [driverFilter, setDriverFilter] = useState(query.get("rep") || "");
+  // Datos frescos cada vez que se entra a Pedidos (además del canal en vivo).
+  useEffect(() => {
+    reload();
+  }, [tab, reload]);
   useEffect(() => {
     if (path !== "/operacion") return;
     const params = new URLSearchParams();
@@ -92,8 +91,6 @@ export default function Operations() {
         scroll: false,
       });
   }, [search, driverFilter, showAll, path]);
-  const [date, setDate] = useState(today());
-  const [driver, setDriver] = useState("");
   if (session?.role !== "admin")
     return (
       <>
@@ -110,7 +107,6 @@ export default function Operations() {
       </>
     );
   const drivers = config?.drivers || [];
-  const selectedDriver = driver || drivers[0] || "";
   const cancelled = orders.filter((o) => o.status === "cancelado");
   // Búsqueda operativa: número de pedido, cliente, teléfono, dirección o localidad; y por repartidor.
   const q = normalize(search.trim());
@@ -142,19 +138,12 @@ export default function Operations() {
       "Pedidos.",
       "Todos los pedidos con su estado; marcá Cargado cuando suben al camión.",
     ],
-    reparto: [
-      "Reparto y rendición.",
-      "Hoja de ruta por repartidor y efectivo a rendir.",
-    ],
     clientes: [
       "Clientes.",
       "Modalidad, cuenta corriente y repartidor habitual.",
     ],
     equipo: ["Equipo.", "Quién entra, con qué rol y con qué contraseña."],
   };
-  const sheet = routeSheet(orders, customers, { driver: selectedDriver, date });
-  const printUrl = (params) =>
-    "/imprimir?" + new URLSearchParams(params).toString();
   return (
     <>
       <PageHead
@@ -313,75 +302,6 @@ export default function Operations() {
             );
           })}
         </div>
-      )}
-
-      {/* MVP: la pestaña Rendición queda apagada; la rendición se hace con la hoja de ruta impresa.
-          Para reactivarla, quitar SIMPLE_RENDICION. */}
-      {tab === "reparto" && SIMPLE_RENDICION && (
-        <section className="panel">
-          <p>
-            La rendición se hace con la <b>hoja de ruta · rendición</b> que se
-            lleva cada preventista (Imprimir).{" "}
-            <Link to="/operacion/imprimir">Ir a Imprimir</Link>
-          </p>
-        </section>
-      )}
-      {tab === "reparto" && !SIMPLE_RENDICION && (
-        <section className="panel route-panel">
-          <div className="route-controls">
-            <label>
-              Repartidor
-              <select
-                value={selectedDriver}
-                onChange={(e) => setDriver(e.target.value)}
-                aria-label="Repartidor de la hoja de ruta"
-              >
-                {drivers.map((d) => (
-                  <option key={d}>{d}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Fecha
-              <input
-                type="date"
-                value={date}
-                max={today()}
-                onChange={(e) => setDate(e.target.value || today())}
-              />
-            </label>
-            <Link
-              to={printUrl({
-                tipo: "ruta",
-                repartidor: selectedDriver,
-                fecha: date,
-              })}
-              className="secondary"
-            >
-              <Printer size={15} /> Imprimir hoja de ruta
-            </Link>
-            <Link
-              to={printUrl({ tipo: "pedidos", fecha: date })}
-              className="secondary"
-            >
-              <Printer size={15} /> Imprimir pedidos del día
-            </Link>
-            <Link
-              to={printUrl({
-                tipo: "rendicion",
-                fecha: date,
-                repartidor: "todos",
-              })}
-              className="secondary"
-              title="Resumen compacto de la rendición de todos los preventistas (solo administración)"
-            >
-              <Printer size={15} /> Resumen de rendición
-            </Link>
-          </div>
-          <RouteSheet sheet={sheet} />
-          <CashClosure sheet={sheet} date={date} driver={selectedDriver} />
-          <ReceiptsDay date={date} driver={selectedDriver} />
-        </section>
       )}
 
       {tab === "clientes" && <Customers />}

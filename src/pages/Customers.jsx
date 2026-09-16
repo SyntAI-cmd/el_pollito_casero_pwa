@@ -120,9 +120,6 @@ export default function Customers() {
             </option>
           ))}
         </select>
-        <Link to="/operacion/precios" className="secondary">
-          <Tags size={15} /> Listas de precios
-        </Link>
         <button
           className="primary"
           onClick={() => setModal({ type: "new-customer" })}

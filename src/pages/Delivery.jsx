@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   Truck,
   LogOut,
@@ -18,8 +18,6 @@ import News from "../components/News.jsx";
 // MVP: Flota apagada → sin "Compartir ubicación del camión".
 // import TruckLocation from "../components/TruckLocation.jsx";
 import UnreadBanner from "../components/UnreadBanner.jsx";
-import HojaActions from "../components/HojaActions.jsx";
-import { todayKey } from "../lib/day.js";
 import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
 /** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
@@ -35,7 +33,12 @@ export default function Delivery() {
     setModal,
     busy,
     notify,
+    reload,
   } = useStore();
+  // Datos frescos al entrar a Mis entregas (además del canal en vivo).
+  useEffect(() => {
+    reload();
+  }, [reload]);
   const accounts = customers
     .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
     .sort(
@@ -119,13 +122,6 @@ export default function Delivery() {
                 : `Tramo ${leg.from}–${leg.to} en Google Maps`}
             </a>
           ))}
-          <HojaActions
-            orders={routeStops}
-            date={todayKey()}
-            drivers={[session.driver]}
-            actions={["open", "share"]}
-            label="Mi hoja de pedidos (PDF)"
-          />
           {legs.length > 0 && (
             <button
               type="button"

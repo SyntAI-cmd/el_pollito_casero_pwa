@@ -40,6 +40,8 @@ import Plans from "./pages/Plans.jsx";
 import Help from "./pages/Help.jsx";
 import Login from "./pages/Login.jsx";
 import Operations from "./pages/Operations.jsx";
+import Customers from "./pages/Customers.jsx";
+import { PageHead } from "./components/ui.jsx";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
@@ -67,7 +69,6 @@ const CLIENT_ROUTES = {
 const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
 const ADMIN_ROUTES = {
   "/operacion": Operations,
-  "/operacion/reparto": Operations,
   "/operacion/clientes": Operations,
   "/operacion/equipo": Operations,
   "/operacion/nuevo": QuickOrder,
@@ -80,13 +81,25 @@ const ADMIN_ROUTES = {
   "/imprimir": Print,
   "/ayuda": Help,
 };
+/** Clientes para el preventista: la misma ficha, saldos y precios que administración. */
+function DriverCustomers() {
+  return (
+    <>
+      <PageHead
+        eyebrow="CLIENTES"
+        title="Clientes."
+        description="Fichas, cuenta corriente, envases y precios propios."
+      />
+      <Customers />
+    </>
+  );
+}
 const DRIVER_ROUTES = {
   "/reparto": Delivery,
   "/reparto/nuevo": QuickOrder,
   "/reparto/pesada": Weighing,
   "/reparto/carga": TruckLoading,
-  "/reparto/imprimir": PrintHub,
-  "/imprimir": Print,
+  "/reparto/clientes": DriverCustomers,
   "/ayuda": Help,
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
@@ -410,7 +423,6 @@ function StaffShell({ Page, path }) {
           ["/operacion/flota", "Flota", MapPin],
           ["/operacion/imprimir", "Imprimir", Printer],
           ["/operacion", "Pedidos", ClipboardList],
-          ["/operacion/reparto", "Rendición", Truck],
           ["/operacion/clientes", "Clientes", Users],
           ["/operacion/equipo", "Equipo", ShieldCheck],
         ]
@@ -418,7 +430,7 @@ function StaffShell({ Page, path }) {
         ["/reparto", "Mis entregas", Truck],
         ["/reparto/nuevo", "Cargar pedido", Plus],
         ["/reparto/pesada", "Pesaje", Scale],
-        ["/reparto/imprimir", "Imprimir", Printer],
+        ["/reparto/clientes", "Clientes", Users],
       ];
   const received = orders.filter((o) => o.status === "recibido").length;
   return (
