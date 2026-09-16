@@ -1160,135 +1160,134 @@ dialog form .delivery-point-status {
   background: #f7f5ef;
   padding: 10px;
 }
-/* Hoja de pedidos (impresa): planilla amarilla */
+/* Hoja de pedidos (impresa): una sola tabla, control general del día */
 .hoja {
   background: #fff;
   color: #111;
   font-family: Arial, Helvetica, sans-serif;
-}
-.hoja-head {
-  display: grid;
-  grid-template-columns: 170px 1fr;
-  grid-template-rows: auto auto;
-  gap: 6px 14px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.hoja-brand img {
-  width: 160px;
-  height: auto;
-  grid-row: 1 / span 2;
-}
-.hoja-head h1 {
-  margin: 0;
-  font-size: 19px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  text-align: center;
-}
-.hoja-topline {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin: 0;
-  border: 1px solid #8c7628;
-  background: #f0cf63;
-}
-.hoja-topline div {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  padding: 6px 8px;
-  border-right: 1px solid #8c7628;
   font-size: 11px;
 }
-.hoja-topline div:last-child {
-  border-right: 0;
-}
-.hoja-topline dt {
-  font-weight: 800;
-  text-transform: uppercase;
-}
-.hoja-topline dd {
-  margin: 0;
-  font-weight: 700;
-}
-.hoja-group {
-  margin-bottom: 12px;
-  break-inside: avoid;
-}
-.hoja-group h2 {
+.hoja-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  font-size: 13px;
-  margin: 8px 0 4px;
+  gap: 18px;
+  border-bottom: 2px solid #c9262e;
+  padding-bottom: 8px;
+  margin-bottom: 10px;
 }
-.hoja-group h2 small {
-  font-weight: 400;
+.hoja-head img {
+  width: 150px;
+  height: auto;
+}
+.hoja-title h1 {
+  margin: 0;
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.hoja-title p {
+  margin: 2px 0 0;
+  font-size: 12px;
   color: #444;
+}
+.hoja-facts {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+}
+.hoja-facts div {
+  text-align: right;
+}
+.hoja-facts dt {
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #666;
+}
+.hoja-facts dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
 }
 .hoja-table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
-  font-size: 11px;
 }
 .hoja-table th,
 .hoja-table td {
-  border: 1px solid #777;
+  border: 1px solid #888;
   padding: 4px 6px;
   vertical-align: top;
+  font-size: 11px;
+  line-height: 1.25;
 }
 .hoja-table th {
   background: #e3b935;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
   text-align: left;
 }
-.hoja-table .c-client {
-  width: 22%;
-}
 .hoja-table .c-num {
-  width: 8%;
+  width: 6%;
   font-weight: 700;
 }
+.hoja-table .c-client {
+  width: 20%;
+}
+.hoja-table .c-driver {
+  width: 10%;
+}
 .hoja-table .c-products {
-  width: 26%;
+  width: 20%;
 }
 .hoja-table .c-kg,
-.hoja-table .c-price {
-  width: 9%;
+.hoja-table .c-price,
+.hoja-table .c-total {
+  width: 8%;
   text-align: right;
   white-space: nowrap;
 }
+.hoja-table th.c-kg,
+.hoja-table th.c-price,
+.hoja-table th.c-total {
+  text-align: right;
+}
 .hoja-table .c-obs {
-  width: 18%;
+  width: 14%;
   background: #fffdf3;
 }
 .hoja-table .c-check {
-  width: 8%;
+  width: 6%;
   text-align: center;
-  font-size: 16px;
 }
-.hoja-table td small,
-.hoja-table td em {
+.hoja-table td.c-check {
+  font-size: 15px;
+}
+.hoja-table td small {
   display: block;
   color: #555;
-  font-size: 10px;
-  font-style: normal;
+  font-size: 9.5px;
 }
-.hoja-table .line {
-  display: inline-block;
-  width: 40px;
-  border-bottom: 1px solid #999;
-  height: 11px;
+.hoja-table tfoot td {
+  background: #f4f2ec;
+  font-weight: 700;
 }
 .hoja-foot {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  margin-top: 10px;
+  gap: 40px;
+  margin-top: 26px;
   font-size: 10px;
   color: #444;
+}
+.hoja-foot span {
+  flex: 1;
+  border-top: 1px solid #111;
+  padding-top: 4px;
+  text-align: center;
 }
 /* Tickets térmicos 80 mm */
 .tickets {
@@ -1339,7 +1338,7 @@ dialog form .delivery-point-status {
   gap: 8px;
 }
 .ticket .t-product {
-  margin: 4px 0;
+  margin: 3px 0;
 }
 .ticket .t-boxes {
   display: flex;

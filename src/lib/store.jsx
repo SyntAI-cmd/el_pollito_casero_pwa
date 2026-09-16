@@ -502,7 +502,7 @@ export function StoreProvider({ children }) {
       loadChat().catch(() => {});
       syncPush().catch(() => {});
       setModal(null);
-      navigate(s.role === "admin" ? "/operacion/dia" : "/reparto");
+      navigate(s.role === "admin" ? "/operacion" : "/reparto");
       notify(
         s.role === "admin"
           ? "Panel de operación habilitado."

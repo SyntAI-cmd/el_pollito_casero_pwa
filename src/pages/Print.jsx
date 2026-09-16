@@ -106,10 +106,14 @@ export default function Print() {
         <style>{"@page { size: 80mm auto; margin: 0; }"}</style>
         <div className="print-toolbar no-print">
           <Link
-            to={session.role === "admin" ? "/operacion" : "/reparto"}
+            to={
+              session.role === "admin"
+                ? "/operacion/imprimir"
+                : "/reparto/imprimir"
+            }
             className="secondary"
           >
-            <ArrowLeft size={15} /> Volver
+            <ArrowLeft size={15} /> Volver a Imprimir
           </Link>
           <span className="muted">
             {list.length} {list.length === 1 ? "ticket" : "tickets"} · comandera
@@ -144,8 +148,8 @@ export default function Print() {
       <div className="print-page rendicion">
         <style>{"@page { size: A4 portrait; margin: 10mm; }"}</style>
         <div className="print-toolbar no-print">
-          <Link to="/operacion/reparto" className="secondary">
-            <ArrowLeft size={15} /> Volver a Rendición
+          <Link to="/operacion/imprimir" className="secondary">
+            <ArrowLeft size={15} /> Volver a Imprimir
           </Link>
           <span className="muted">
             Resumen de rendición del {fecha.split("-").reverse().join("/")} ·
@@ -209,7 +213,11 @@ export default function Print() {
         <style>{"@page { size: A4 landscape; margin: 10mm; }"}</style>
         <div className="print-toolbar no-print">
           <Link
-            to={session.role === "admin" ? "/operacion/dia" : "/reparto/carga"}
+            to={
+              session.role === "admin"
+                ? "/operacion/imprimir"
+                : "/reparto/imprimir"
+            }
             className="secondary"
           >
             <ArrowLeft size={15} /> Volver
@@ -246,8 +254,8 @@ export default function Print() {
       <div className="print-page remitos">
         <style>{"@page { size: 100mm 150mm; margin: 0; }"}</style>
         <div className="print-toolbar no-print">
-          <Link to="/operacion/dia" className="secondary">
-            <ArrowLeft size={15} /> Volver a la nota del día
+          <Link to="/operacion/imprimir" className="secondary">
+            <ArrowLeft size={15} /> Volver a Imprimir
           </Link>
           <span className="muted">
             {remitoOrders.length} remito{remitoOrders.length === 1 ? "" : "s"} ·
@@ -281,8 +289,15 @@ export default function Print() {
   return (
     <div className="print-page">
       <div className="print-toolbar no-print">
-        <Link to="/operacion" className="secondary">
-          <ArrowLeft size={15} /> Volver a Operación
+        <Link
+          to={
+            session.role === "admin"
+              ? "/operacion/imprimir"
+              : "/reparto/imprimir"
+          }
+          className="secondary"
+        >
+          <ArrowLeft size={15} /> Volver a Imprimir
         </Link>
         <button className="primary" onClick={() => window.print()}>
           <Printer size={16} /> Imprimir

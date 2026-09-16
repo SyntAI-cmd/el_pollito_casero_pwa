@@ -53,7 +53,7 @@ export default function Weighing() {
   useEffect(() => onOutbox((l) => setQueued(l.length)), []);
   const order = day.orders.find((o) => o.id === selected) || null;
   const tare = day.tare || 1.7;
-  const back = session?.role === "admin" ? "/operacion/dia" : "/reparto";
+  const back = session?.role === "admin" ? "/operacion" : "/reparto";
 
   // Pedidos de hoy ordenados: primero los que están a medio pesar, después los pendientes.
   const list = useMemo(

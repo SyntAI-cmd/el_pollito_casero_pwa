@@ -1,12 +1,5 @@
 import React, { useState } from "react";
-import {
-  Printer,
-  FileText,
-  Truck,
-  ClipboardList,
-  Wallet,
-  Ticket,
-} from "lucide-react";
+import { Printer, FileText, Truck, ClipboardList, Ticket } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
 import { PageHead } from "../components/ui.jsx";
@@ -14,25 +7,37 @@ import RemitoActions from "../components/RemitoActions.jsx";
 import HojaActions from "../components/HojaActions.jsx";
 import { todayKey, dmy } from "../lib/day.js";
 
-/** Pestaña Imprimir (administración): todo lo que se imprime de un día, en un solo lugar. */
+/**
+ * Imprimir: las cuatro cosas que se imprimen en el día, en un solo lugar.
+ *  1. Hoja de pedidos (control general, una sola tabla).
+ *  2. Hoja de ruta · rendición (PDF) de cada preventista, para llevar y rendir en papel.
+ *  3. Tickets de preparación (comandera 80 mm).
+ *  4. Remitos (original + duplicado).
+ * El repartidor ve solo su hoja de ruta, sus tickets y sus remitos.
+ */
 export default function PrintHub() {
   const { orders, config, session } = useStore();
   const [date, setDate] = useState(todayKey());
   const admin = session?.role === "admin";
+  const mineOnly = (o) =>
+    admin || o.driver === session?.driver || o.driver2 === session?.driver;
   const day = orders.filter(
     (o) =>
       (o.deliveryDate || o.created.slice(0, 10)) === date &&
-      o.status !== "cancelado",
+      o.status !== "cancelado" &&
+      mineOnly(o),
   );
   const drivers = admin
-    ? config?.drivers || []
+    ? (config?.drivers || []).filter((d) =>
+        day.some((o) => o.driver === d || o.driver2 === d),
+      )
     : [session?.driver].filter(Boolean);
   return (
     <div className="floor print-hub">
       <PageHead
-        eyebrow="OPERACIÓN · IMPRIMIR"
-        title={`Impresiones del ${dmy(date)}.`}
-        description={`${day.length} ${day.length === 1 ? "pedido" : "pedidos"} · hojas de pedidos, de viaje, remitos y rendición`}
+        eyebrow="IMPRIMIR"
+        title={`${dmy(date)}.`}
+        description={`${day.length} ${day.length === 1 ? "pedido" : "pedidos"} para esta fecha`}
       >
         <div className="head-actions">
           <input
@@ -44,53 +49,68 @@ export default function PrintHub() {
         </div>
       </PageHead>
       <div className="print-hub-grid">
+        {admin && (
+          <section className="panel">
+            <h2>
+              <ClipboardList size={17} /> Hoja de pedidos
+            </h2>
+            <p className="muted">
+              Control general del día: todos los pedidos en una tabla, con kg,
+              precio, importe, observación en blanco y casillero de cargado.
+            </p>
+            <Link
+              to={`/imprimir?tipo=pedidos&fecha=${date}`}
+              className="primary"
+            >
+              <Printer size={15} /> Imprimir
+            </Link>
+          </section>
+        )}
         <section className="panel">
           <h2>
-            <Truck size={17} /> Hoja de ruta · rendición (PDF)
+            <Truck size={17} /> Hoja de ruta · rendición
           </h2>
           <p className="muted">
-            La que se lleva cada preventista y rinde en papel: N° pedido/remito,
-            cliente, total, saldo de cajas, y efectivo / transferencia / cheque
-            / saldo en blanco. Más de 20 clientes por hoja.
+            La que se lleva cada preventista y rinde a lapicera: N° pedido /
+            remito, cliente, total, saldo de cajas, efectivo, transferencia,
+            cheque y saldo.
           </p>
           <div className="actions-row">
-            {drivers.map((d) => {
-              const list = day.filter((o) => o.driver === d || o.driver2 === d);
-              return list.length ? (
-                <span key={d} className="hub-driver">
-                  <b>{d}</b> ({list.length}){" "}
-                  <HojaActions
-                    orders={list}
-                    date={date}
-                    drivers={[d]}
-                    actions={["open", "download", "share"]}
-                    small
-                    label="Abrir"
-                  />
-                </span>
-              ) : null;
-            })}
-            {!day.length && <span className="muted">Sin pedidos.</span>}
+            {drivers.map((d) => (
+              <span key={d} className="hub-driver">
+                <b>{d}</b>{" "}
+                <HojaActions
+                  orders={day.filter((o) => o.driver === d || o.driver2 === d)}
+                  date={date}
+                  drivers={[d]}
+                  actions={["open", "share"]}
+                  small
+                  label="Abrir PDF"
+                />
+              </span>
+            ))}
+            {!drivers.length && (
+              <span className="muted">Sin pedidos asignados.</span>
+            )}
           </div>
         </section>
         <section className="panel">
           <h2>
-            <Ticket size={17} /> Tickets de preparación
+            <Ticket size={17} /> Tickets
           </h2>
           <p className="muted">
-            Un ticket por pedido para la comandera (80 mm, blanco y negro):
-            cliente, zona, cajas por producto para marcar y casillero de
-            cargado.
+            Uno por pedido para la comandera (80 mm): cliente, zona, productos
+            con cajas o kilos, totales y línea de cargado.
           </p>
           <div className="actions-row">
             <Link
-              to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=todos`}
+              to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${admin ? "todos" : encodeURIComponent(session?.driver || "")}`}
               className="primary"
             >
-              <Printer size={15} /> Tickets del día
+              <Printer size={15} /> Imprimir tickets
             </Link>
-            {drivers.map((d) =>
-              day.some((o) => o.driver === d) ? (
+            {admin &&
+              drivers.map((d) => (
                 <Link
                   key={d}
                   to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
@@ -98,72 +118,25 @@ export default function PrintHub() {
                 >
                   {d}
                 </Link>
-              ) : null,
-            )}
+              ))}
           </div>
-        </section>
-        <section className="panel">
-          <h2>
-            <ClipboardList size={17} /> Hoja de pedidos (todos)
-          </h2>
-          <p className="muted">
-            Todos los pedidos del día con importe, casillero <b>Cargado ☐</b> y
-            espacio para observaciones. Para pesar y cargar.
-          </p>
-          <Link to={`/imprimir?tipo=pedidos&fecha=${date}`} className="primary">
-            <Printer size={15} /> Imprimir hoja de pedidos
-          </Link>
-        </section>
-        <section className="panel">
-          <h2>
-            <Truck size={17} /> Hojas de viaje
-          </h2>
-          <p className="muted">
-            Una por camioneta: nombre, saldo, pedido, precio, kilos y columnas
-            en blanco para completar a mano.
-          </p>
-          <Link to={`/imprimir?tipo=viaje&fecha=${date}`} className="secondary">
-            <Printer size={15} /> Imprimir hojas de viaje
-          </Link>
         </section>
         <section className="panel">
           <h2>
             <FileText size={17} /> Remitos
           </h2>
           <p className="muted">
-            Original y duplicado de cada pedido del día, en un solo PDF.
+            Original y duplicado de cada pedido, en un solo PDF.
           </p>
           <div className="actions-row">
             <RemitoActions
               orders={day}
               date={date}
               actions={["open", "download"]}
-              labels={{ open: "Imprimir todos los remitos", download: "PDF" }}
+              labels={{ open: "Imprimir remitos", download: "PDF" }}
             />
           </div>
         </section>
-        {admin && (
-          <section className="panel">
-            <h2>
-              <Wallet size={17} /> Rendición
-            </h2>
-            <p className="muted">
-              Resumen compacto de cobros por preventista (solo administración) y
-              la hoja de ruta completa.
-            </p>
-            <div className="actions-row">
-              <Link
-                to={`/imprimir?tipo=rendicion&fecha=${date}&repartidor=todos`}
-                className="secondary"
-              >
-                <Printer size={15} /> Resumen de rendición
-              </Link>
-              <Link to={`/operacion/reparto`} className="link-button">
-                Hoja de ruta por preventista
-              </Link>
-            </div>
-          </section>
-        )}
       </div>
     </div>
   );

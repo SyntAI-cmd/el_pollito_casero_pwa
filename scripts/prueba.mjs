@@ -94,7 +94,7 @@ export function seedReales(
       },
       { enforceMin: false, prices, staff: true, locality, lists },
     );
-    store.orders.save({
+    const o = {
       ...pricedOrder,
       locality,
       id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
@@ -120,10 +120,53 @@ export function seedReales(
       createdBy: "admin",
       history: [{ status: "recibido", at: now() }],
       destination: null,
-    });
+    };
+    store.orders.save(o);
+    // Pesada completa: cada renglón por cajas se pesa como lote (≈ 21,4 kg netos por caja).
+    const tare = Number(store.settings.get("tare", 1.7)) || 1.7;
+    let changed = false;
+    for (const it of o.items) {
+      if (!it.boxes) continue;
+      const netTotal =
+        Math.round(it.boxes * (20.8 + (i % 4) * 0.4) * 100) / 100;
+      const each = Math.round((netTotal / it.boxes) * 100) / 100;
+      for (let k = 1; k <= it.boxes; k++) {
+        const net =
+          k === it.boxes
+            ? Math.round((netTotal - each * (it.boxes - 1)) * 100) / 100
+            : each;
+        store.crates.add({
+          id: `sim-${o.id}:${it.id}:${k}`,
+          orderId: o.id,
+          productId: it.id,
+          gross: Math.round((net + tare) * 100) / 100,
+          tare,
+          net,
+          by: driver,
+        });
+      }
+      it.ordered = it.kg;
+      it.kg = netTotal;
+      it.lineTotal = Math.round(Math.round(it.price * 100) * netTotal) / 100;
+      it.weighed = true;
+      changed = true;
+    }
+    if (changed) {
+      o.subtotal =
+        Math.round(
+          o.items.reduce((s2, it) => s2 + Math.round(it.lineTotal * 100), 0),
+        ) / 100;
+      o.total = Math.round((o.subtotal + (o.shipping || 0)) * 100) / 100;
+      o.weighed = true;
+      o.status = "preparando";
+      o.history = [...o.history, { status: "preparando", at: now() }];
+      store.orders.save(o);
+    }
     made++;
   });
-  log(`Listo: ${made} pedidos simulados para ${today} con clientes reales.`);
+  log(
+    `Listo: ${made} pedidos simulados (pesados) para ${today} con clientes reales.`,
+  );
   return { orders: made, today };
 }
 

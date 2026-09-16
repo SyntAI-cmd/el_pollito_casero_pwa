@@ -34,6 +34,8 @@ import ReceiptsDay from "../components/ReceiptsDay.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
 import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
+const SIMPLE_RENDICION = true;
+
 const columns = [
   ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
   ["preparando", "En preparación", "Pesá, armá y asigná repartidor."],
@@ -326,7 +328,18 @@ export default function Operations() {
         </div>
       )}
 
-      {tab === "reparto" && (
+      {/* MVP: la pestaña Rendición queda apagada; la rendición se hace con la hoja de ruta impresa.
+          Para reactivarla, quitar SIMPLE_RENDICION. */}
+      {tab === "reparto" && SIMPLE_RENDICION && (
+        <section className="panel">
+          <p>
+            La rendición se hace con la <b>hoja de ruta · rendición</b> que se
+            lleva cada preventista (Imprimir).{" "}
+            <Link to="/operacion/imprimir">Ir a Imprimir</Link>
+          </p>
+        </section>
+      )}
+      {tab === "reparto" && !SIMPLE_RENDICION && (
         <section className="panel route-panel">
           <div className="route-controls">
             <label>

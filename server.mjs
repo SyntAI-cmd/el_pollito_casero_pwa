@@ -117,12 +117,14 @@ if (process.env.PRUEBA_DATOS) {
     const { seedPrueba, seedReales } = await import("./scripts/prueba.mjs");
     const v = process.env.PRUEBA_DATOS;
     // "reales" / "reales-borrar": 15 pedidos simulados sobre clientes reales (sin crear fichas).
-    if (v.startsWith("reales"))
+    if (v.startsWith("reales")) {
+      // Los clientes "Prueba N" se van siempre que se simula con clientes reales.
+      seedPrueba(store, { borrar: true, log: (m) => log.info("Datos de prueba:", m) });
       seedReales(store, {
         borrar: v.endsWith("borrar"),
         log: (m) => log.info("Datos de prueba:", m),
       });
-    else
+    } else
       seedPrueba(store, {
         borrar: v === "borrar",
         log: (m) => log.info("Datos de prueba:", m),
