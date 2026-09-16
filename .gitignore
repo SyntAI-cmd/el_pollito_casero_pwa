@@ -15,3 +15,7 @@ SKILLS-INSTALADAS.md
 .claude/settings.local.json
 # Datos de clientes (CUIT, teléfonos): se importan, no se versionan
 import/
+
+# Datos de clientes para importar al arrancar (IMPORTAR_CLIENTES=1): no se versionan
+seed/*
+!seed/.gitkeep
