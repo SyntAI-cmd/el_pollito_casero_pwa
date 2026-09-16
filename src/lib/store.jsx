@@ -521,6 +521,9 @@ export function StoreProvider({ children }) {
     });
 
   const logout = async () => {
+    const wasStaff =
+      sessionRef.current?.role === "admin" ||
+      sessionRef.current?.role === "repartidor";
     stopSharing();
     await disablePush().catch(() => {});
     await del("/session").catch(() => {});
@@ -535,7 +538,8 @@ export function StoreProvider({ children }) {
     orderKey.current = crypto.randomUUID();
     lastStatuses.current = {};
     setModal(null);
-    navigate("/");
+    // El equipo vuelve al ingreso para entrar con otro usuario; el cliente, a la tienda.
+    navigate(wasStaff ? "/admin" : "/");
     notify("Sesión cerrada en este dispositivo.");
   };
 
