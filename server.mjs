@@ -31,10 +31,22 @@ if (process.env.IMPORTAR_CLIENTES && dbPath !== ":memory:") {
   const { spawnSync } = await import("node:child_process");
   const r = spawnSync(
     process.execPath,
-    ["scripts/importar-gc.mjs", "--clientes", "seed/clientes.xlsx", "--precios", "seed/precios.json", "--db", dbPath],
+    [
+      "scripts/importar-gc.mjs",
+      "--clientes",
+      "seed/clientes.xlsx",
+      "--precios",
+      "seed/precios.json",
+      "--db",
+      dbPath,
+    ],
     { encoding: "utf8" },
   );
-  log.info("Importar clientes:", (r.stdout || "").trim().slice(-400), (r.stderr || "").trim().slice(-400));
+  log.info(
+    "Importar clientes:",
+    (r.stdout || "").trim().slice(-400),
+    (r.stderr || "").trim().slice(-400),
+  );
 }
 const store = await openStore(dbPath, { log });
 const events = createEvents();
@@ -61,7 +73,9 @@ if (!store.drivers.all().length)
 await seedStaff(store, store.drivers.all(), log);
 // Flota: los vehículos de business.json se crean/actualizan por patente (después se editan desde Equipo).
 for (const [i, v] of (business.vehicles || []).entries()) {
-  const plate = String(v.plate || "").toUpperCase().replace(/\s+/g, "");
+  const plate = String(v.plate || "")
+    .toUpperCase()
+    .replace(/\s+/g, "");
   if (!plate) continue;
   const existing = store.vehicles
     .all()
@@ -100,11 +114,19 @@ if (dbPath !== ":memory:") {
 // (para probar la app publicada sin entrar por SSH). Sacar la variable después.
 if (process.env.PRUEBA_DATOS) {
   try {
-    const { seedPrueba } = await import("./scripts/prueba.mjs");
-    seedPrueba(store, {
-      borrar: process.env.PRUEBA_DATOS === "borrar",
-      log: (m) => log.info("Datos de prueba:", m),
-    });
+    const { seedPrueba, seedReales } = await import("./scripts/prueba.mjs");
+    const v = process.env.PRUEBA_DATOS;
+    // "reales" / "reales-borrar": 15 pedidos simulados sobre clientes reales (sin crear fichas).
+    if (v.startsWith("reales"))
+      seedReales(store, {
+        borrar: v.endsWith("borrar"),
+        log: (m) => log.info("Datos de prueba:", m),
+      });
+    else
+      seedPrueba(store, {
+        borrar: v === "borrar",
+        log: (m) => log.info("Datos de prueba:", m),
+      });
   } catch (e) {
     log.warn("Datos de prueba:", e.message);
   }

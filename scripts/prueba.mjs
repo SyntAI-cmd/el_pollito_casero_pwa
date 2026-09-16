@@ -17,6 +17,116 @@ const now = () => new Date().toISOString();
 const PRUEBA = /^Prueba \d+$/;
 
 /** Crea (o, con `borrar`, elimina) los datos de prueba sobre un store abierto. Devuelve un resumen. */
+/**
+ * Pedidos simulados sobre clientes REALES (importados): `n` pedidos para hoy, repartidos entre los
+ * preventistas (el del cliente si lo tiene), con cajas y/o kilos al precio propio de cada uno.
+ * Llevan clave "sim-…" para poder borrarlos sin tocar las fichas: seedReales(store, { borrar: true }).
+ */
+export function seedReales(
+  store,
+  { n = 15, borrar = false, log = console.log } = {},
+) {
+  const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+  const sims = store.orders
+    .all()
+    .filter((o) => String(o.key || "").includes(":sim-"));
+  for (const o of sims) store.orders.remove(o.id);
+  log(`Borrados ${sims.length} pedidos simulados.`);
+  if (borrar) return { borrado: true };
+  const drivers = store.drivers
+    .all()
+    .filter((d) => d.active)
+    .map((d) => d.name);
+  if (!drivers.length) throw Error("No hay preventistas cargados.");
+  const priced = store.prices.all();
+  const pool = store.customers
+    .all()
+    .filter((c) => !PRUEBA.test(c.name) && !c.archived)
+    .sort(
+      (a, b) =>
+        (priced[b.phone] ? 1 : 0) - (priced[a.phone] ? 1 : 0) ||
+        a.name.localeCompare(b.name),
+    )
+    .slice(0, n);
+  const lists = store.settings.get("priceLists", null);
+  const productsAll = [
+    "entero",
+    "cuarto-trasero",
+    "alas",
+    "pechuga",
+    "suprema",
+    "menudos",
+  ];
+  let made = 0;
+  pool.forEach((c, i) => {
+    const own = priced[c.phone] || {};
+    const withPrice = productsAll.filter((p) => own[p]);
+    const main = withPrice[0] || "entero";
+    const extra = withPrice[1 + (i % 2)] || null;
+    const items = [
+      i % 3 === 2
+        ? { id: main, kg: 20 + (i % 5) * 10 }
+        : { id: main, boxes: 2 + (i % 6) },
+      ...(extra ? [{ id: extra, kg: 5 + (i % 4) * 3 }] : []),
+    ];
+    const prices = { ...own };
+    for (const it of items) if (!prices[it.id]) prices[it.id] = 4500; // sin precio propio: precio de referencia
+    const locality = localities.find((l) => l.id === c.localityId) || {
+      id: c.localityId || "otra",
+      name: c.zone || "Sin localidad",
+      postalCode: "",
+      province: "Mendoza",
+      country: "Argentina",
+    };
+    const driver = drivers.includes(c.truck || c.driver)
+      ? c.truck || c.driver
+      : drivers[i % drivers.length];
+    const payment = c.credit === false ? "entrega" : "cuenta";
+    const pricedOrder = priceOrder(
+      {
+        plan: c.plan || "mayorista",
+        payment,
+        items,
+        address: c.address || "Sin dirección",
+        name: c.name,
+        phone: c.contactPhone || "",
+        localityId: locality.id,
+      },
+      { enforceMin: false, prices, staff: true, locality, lists },
+    );
+    store.orders.save({
+      ...pricedOrder,
+      locality,
+      id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
+      key: `${c.phone}:sim-${today}`,
+      customer: c.phone,
+      name: c.name,
+      phone: c.contactPhone || "",
+      address: c.address || "",
+      notes: i % 5 === 0 ? "Simulado: llamar antes de llegar" : "",
+      plan: c.plan || "mayorista",
+      payment,
+      paid: false,
+      status: "recibido",
+      driver,
+      deliveryDate: today,
+      shift: c.shift || (i % 2 ? "tarde" : "manana"),
+      driver2: "",
+      vehicleId: "",
+      zone: c.zone || "",
+      boxes: 0,
+      returned: 0,
+      created: now(),
+      createdBy: "admin",
+      history: [{ status: "recibido", at: now() }],
+      destination: null,
+    });
+    made++;
+  });
+  log(`Listo: ${made} pedidos simulados para ${today} con clientes reales.`);
+  return { orders: made, today };
+}
+
 export function seedPrueba(store, { borrar = false, log = console.log } = {}) {
   const today = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10); // Mendoza (UTC−3)
   const drivers = store.drivers.all().filter((d) => d.active);
@@ -281,5 +391,7 @@ if (process.argv[1] && /prueba\.mjs$/.test(process.argv[1])) {
     process.env.DB_PATH ||
     `${(process.env.DATA_DIR || "data").replace(/\/$/, "")}/pollito.sqlite`;
   const store = await openStore(dbPath, { log: { info() {}, warn() {} } });
-  seedPrueba(store, { borrar: process.argv.includes("--borrar") });
+  if (process.argv.includes("--reales"))
+    seedReales(store, { borrar: process.argv.includes("--borrar") });
+  else seedPrueba(store, { borrar: process.argv.includes("--borrar") });
 }
