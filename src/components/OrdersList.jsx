@@ -71,7 +71,11 @@ export default function OrdersList({ orders, role = "admin" }) {
                   {kg(o.items.reduce((s, p) => s + (p.kg || 0), 0))}
                 </td>
                 <td className="num">
-                  <strong>{money(o.total)}</strong>
+                  {o.total > 0 ? (
+                    <strong>{money(o.total)}</strong>
+                  ) : (
+                    <span className="muted">a pesar</span>
+                  )}
                 </td>
                 <td>
                   {o.driver || <span className="muted">—</span>}

@@ -139,8 +139,8 @@ export default function Operations() {
   };
   const heads = {
     pedidos: [
-      "Pedidos por preparar.",
-      "Recibidos, en preparación, en camino y entregados.",
+      "Pedidos.",
+      "Todos los pedidos con su estado; marcá Cargado cuando suben al camión.",
     ],
     reparto: [
       "Reparto y rendición.",
@@ -171,22 +171,9 @@ export default function Operations() {
               <Link to="/operacion/nuevo" className="primary">
                 <Plus size={15} /> Cargar pedido
               </Link>
-              <Link
-                to={printUrl({ tipo: "pedidos", fecha: today() })}
-                className="secondary"
-              >
-                <Printer size={15} /> Hoja de pedidos
+              <Link to="/operacion/imprimir" className="secondary">
+                <Printer size={15} /> Imprimir
               </Link>
-              <RemitoActions
-                orders={orders.filter(
-                  (o) =>
-                    o.status !== "cancelado" &&
-                    (o.deliveryDate || o.created.slice(0, 10)) === today(),
-                )}
-                date={today()}
-                actions={["open"]}
-                labels={{ open: "Imprimir todos los remitos (orig. + dupl.)" }}
-              />
             </>
           )}
         </div>
@@ -258,7 +245,7 @@ export default function Operations() {
                 checked={showAll}
                 onChange={(e) => setShowAll(e.target.checked)}
               />{" "}
-              Historial completo
+              Ver entregados y anteriores
             </label>
           </div>
         </div>

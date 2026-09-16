@@ -58,12 +58,20 @@ export default function PrintHub() {
               Control general del día: todos los pedidos en una tabla, con kg,
               precio, importe, observación en blanco y casillero de cargado.
             </p>
-            <Link
-              to={`/imprimir?tipo=pedidos&fecha=${date}`}
-              className="primary"
-            >
-              <Printer size={15} /> Imprimir
-            </Link>
+            <div className="actions-row">
+              <Link
+                to={`/imprimir?tipo=pedidos&fecha=${date}`}
+                className="primary"
+              >
+                <Printer size={15} /> Imprimir
+              </Link>
+              <a
+                className="secondary"
+                href={`/api/export/consolidado?fecha=${date}`}
+              >
+                Excel del día
+              </a>
+            </div>
           </section>
         )}
         <section className="panel">
