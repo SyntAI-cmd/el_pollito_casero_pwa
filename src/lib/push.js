@@ -35,12 +35,21 @@ export async function enablePush(publicKey) {
   return subscription;
 }
 
-/** Vuelve a registrar una suscripción existente (por ejemplo, tras cambiar de sesión). */
-export async function syncPush() {
+/**
+ * Con permiso ya concedido, deja la suscripción registrada para la sesión actual: la vuelve a
+ * crear si no existe (al salir se borra) y la asocia al usuario que acaba de entrar.
+ */
+export async function syncPush(publicKey) {
   if (!pushSupported() || Notification.permission !== "granted") return false;
   const registration = await navigator.serviceWorker.ready;
-  const subscription = await registration.pushManager.getSubscription();
-  if (!subscription) return false;
+  let subscription = await registration.pushManager.getSubscription();
+  if (!subscription) {
+    if (!publicKey) return false;
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: toKey(publicKey),
+    });
+  }
   await post("/push/subscribe", { subscription: subscription.toJSON() }).catch(
     () => {},
   );

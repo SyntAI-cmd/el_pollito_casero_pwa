@@ -136,6 +136,7 @@ export function StoreProvider({ children }) {
         if (s?.plan) setPlanState(s.plan);
         await Promise.all([loadOrders(), loadMe(), loadCustomers()]);
         loadChat().catch(() => {});
+        if (s) syncPush(rest.pushKey).catch(() => {});
       })
       .catch(() => {
         setServerDown(true);
@@ -361,7 +362,7 @@ export function StoreProvider({ children }) {
       setSession(s);
       sessionRef.current = s;
       await Promise.all([loadOrders(), loadMe()]);
-      syncPush().catch(() => {});
+      syncPush(config?.pushKey).catch(() => {});
       navigate("/seguimiento?pedido=" + order.id);
       notify(
         config?.demo
@@ -391,7 +392,7 @@ export function StoreProvider({ children }) {
       if (s.plan) setPlanState(s.plan);
       lastStatuses.current = {};
       await Promise.all([loadOrders(), loadMe()]);
-      syncPush().catch(() => {});
+      syncPush(config?.pushKey).catch(() => {});
       setModal(null);
       if (redirect) navigate(redirect);
       notify(message || `Hola, ${(s.name || "").split(" ")[0] || "de nuevo"}.`);
@@ -417,7 +418,7 @@ export function StoreProvider({ children }) {
     }));
     lastStatuses.current = {};
     await Promise.all([loadOrders(), loadMe()]);
-    syncPush().catch(() => {});
+    syncPush(config?.pushKey).catch(() => {});
     setModal(null);
     if (redirect) navigate(redirect);
     notify(message || `Hola, ${(s.name || "").split(" ")[0] || "de nuevo"}.`);
@@ -510,7 +511,7 @@ export function StoreProvider({ children }) {
       setProfile({});
       await Promise.all([loadOrders(), loadCustomers()]);
       loadChat().catch(() => {});
-      syncPush().catch(() => {});
+      syncPush(config?.pushKey).catch(() => {});
       setModal(null);
       navigate(s.role === "admin" ? "/operacion" : "/reparto");
       notify(
