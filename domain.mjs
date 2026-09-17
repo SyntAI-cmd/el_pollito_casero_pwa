@@ -115,6 +115,12 @@ export function normalizePhone(raw) {
 /**
  * Precia un pedido. `prices` (opcional) son los precios propios del cliente por producto: pisan la lista
  * de la modalidad. `staff` permite pedidos por cajas (kg pendientes de balanza) y sin teléfono de contacto.
+ *
+ * Para el equipo, NINGÚN renglón vale hasta que pasa por la balanza: lo pedido por kilos queda en
+ * `ordered` con `kg: 0` y `lineTotal: 0` (igual que las cajas), y el importe lo pone la pesada.
+ * `input.noPricing` (cliente exclusivo: familiares, facturación propia) deja precios e importes en 0:
+ * el remito sale solo con kilos y detalle y el pedido no toca la cuenta corriente.
+ * El producto "otro" es un renglón libre: `item.label` dice qué es.
  */
 export function priceOrder(
   input,
@@ -134,10 +140,18 @@ export function priceOrder(
   )
     throw Error("Agregá al menos un producto.");
   const ids = new Set();
+  const noPricing = staff && !!input.noPricing;
   const items = input.items.map((item) => {
     const p = products.find((p) => p.id === item.id);
     if (!p || ids.has(item.id))
       throw Error("Elegí productos válidos, sin repetir.");
+    let name = p.name;
+    if (p.id === "otro") {
+      const label = String(item.label || "").trim();
+      if (!staff || label.length < 2 || label.length > 60)
+        throw Error("Escribí qué es el otro producto (2 a 60 letras).");
+      name = label;
+    }
     // Pedido por cajas (equipo): los kilos los pone la balanza; hasta entonces la línea vale 0.
     const boxes = staff && item.boxes !== undefined ? Number(item.boxes) : null;
     if (
@@ -170,21 +184,24 @@ export function priceOrder(
       prices && Number.isFinite(Number(prices[p.id]))
         ? Number(prices[p.id])
         : null;
-    const price = own ?? productPrice(p, input.plan, lists);
-    if (!Number.isFinite(price) || price <= 0)
-      throw Error(`El precio de ${p.name} está pendiente para este cliente.`);
+    const price = noPricing ? 0 : (own ?? productPrice(p, input.plan, lists));
+    if (!noPricing && (!Number.isFinite(price) || price <= 0))
+      throw Error(`El precio de ${name} está pendiente para este cliente.`);
     ids.add(item.id);
+    // Equipo: los kilos pedidos quedan como referencia; el peso real y el importe los pone la balanza.
+    const pendingScale = staff && boxes === null;
     return {
       id: p.id,
-      name: p.name,
-      kg,
+      name,
+      kg: pendingScale ? 0 : kg,
+      ...(pendingScale ? { ordered: kg } : {}),
       ...(boxes !== null ? { boxes } : {}),
       price,
       ownPrice: own !== null,
-      lineTotal: lineAmount(price, kg),
+      lineTotal: pendingScale ? 0 : lineAmount(price, kg),
     };
   });
-  const kg = items.reduce((n, p) => n + p.kg, 0);
+  const kg = items.reduce((n, p) => n + (p.ordered ?? p.kg), 0);
   if (enforceMin && !staff && kg < (planMinKg[input.plan] || 0))
     throw Error(
       `La modalidad ${input.plan} es a partir de ${planMinKg[input.plan]} kg. Para menos, elegí minorista.`,
@@ -233,12 +250,20 @@ export function accountSummary(orders, customer = {}) {
   const credit = valid.filter((o) => o.payment === "cuenta" && !o.paid);
   const owed = credit.reduce((s, o) => s + Math.round(o.total * 100), 0);
   const favor = Math.round((customer.creditBalance || 0) * 100);
+  // Ajustes manuales (administración o preventista): saldo inicial, arreglos, cajas contadas a mano.
+  const adjusted = (customer.balanceAdjustments || []).reduce(
+    (s, a) => s + Math.round((a.amount || 0) * 100),
+    0,
+  );
   return {
-    balance: (owed - favor) / 100,
+    balance: (owed - favor + adjusted) / 100,
     owed: owed / 100,
     creditBalance: favor / 100,
+    adjustments: adjusted / 100,
     pendingOrders: credit.length,
-    boxes: valid.reduce((s, o) => s + (o.boxes || 0) - (o.returned || 0), 0),
+    boxes:
+      valid.reduce((s, o) => s + (o.boxes || 0) - (o.returned || 0), 0) +
+      (Number(customer.boxesAdjust) || 0),
   };
 }
 
@@ -259,7 +284,8 @@ export function applyPrices(order, prices) {
       ...item,
       price,
       ownPrice: true,
-      lineTotal: lineAmount(price, item.kg),
+      // Sin pesar todavía, el renglón no vale: el importe sale de la balanza.
+      lineTotal: item.weighed ? lineAmount(price, item.kg) : 0,
     };
   });
   const subtotal =

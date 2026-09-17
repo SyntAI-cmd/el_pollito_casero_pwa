@@ -56,22 +56,36 @@ export default function OrdersList({ orders, role = "admin" }) {
                     <div key={p.id}>
                       {p.boxes ? `${p.boxes} cj ` : ""}
                       {p.name.toLowerCase()}
-                      {p.kg > 0
+                      {p.weighed && p.kg > 0
                         ? ` · ${kg(p.kg)} kg`
                         : p.boxes
                           ? ""
-                          : ` · ${kg(p.ordered ?? p.kg)} kg`}
+                          : ` · pidió ${kg(p.ordered ?? p.kg)} kg`}
                     </div>
                   ))}
+                  {o.noPricing ? (
+                    <small className="muted">sin precio ni saldo</small>
+                  ) : null}
                   {o.notes ? (
                     <small className="muted">“{o.notes}”</small>
                   ) : null}
                 </td>
                 <td className="num">
-                  {kg(o.items.reduce((s, p) => s + (p.kg || 0), 0))}
+                  {o.weighed ? (
+                    kg(
+                      o.items.reduce(
+                        (s, p) => s + (p.weighed ? p.kg || 0 : 0),
+                        0,
+                      ),
+                    )
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
                 </td>
                 <td className="num">
-                  {o.total > 0 ? (
+                  {o.noPricing ? (
+                    <span className="muted">s/precio</span>
+                  ) : o.total > 0 ? (
                     <strong>{money(o.total)}</strong>
                   ) : (
                     <span className="muted">a pesar</span>
@@ -129,7 +143,11 @@ export default function OrdersList({ orders, role = "admin" }) {
               {open === o.id && (
                 <tr className="orders-list-detail">
                   <td colSpan="10">
-                    <OrderCard order={o} role={role} />
+                    <OrderCard
+                      order={o}
+                      role={role}
+                      onClose={() => setOpen(null)}
+                    />
                   </td>
                 </tr>
               )}

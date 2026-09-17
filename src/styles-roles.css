@@ -2304,3 +2304,152 @@ dialog label.check input {
   color: var(--red, #c9262e);
   font-weight: 600;
 }
+
+/* ===== Tarjeta del pedido dentro de la lista: bloques ordenados y responsive ===== */
+.orders-list-detail > td {
+  padding: 0 0 14px !important;
+  border-bottom: 0 !important;
+  white-space: normal;
+}
+/* La tabla se desplaza de costado en el celular; la tarjeta queda fija al ancho de la pantalla. */
+.orders-list-detail .operation-order {
+  position: sticky;
+  left: 0;
+  width: 100%;
+  max-width: min(100%, calc(100vw - 40px));
+  box-sizing: border-box;
+  border-color: #e3dccd;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+.operation-order .op-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 12px 20px;
+  margin-top: 12px;
+}
+.operation-order .op-grid .op-customer {
+  margin-top: 0;
+}
+.operation-order .op-side {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #faf9f6;
+  border: 1px solid #efece4;
+}
+.operation-order .op-side .op-payment,
+.operation-order .op-side .op-balance,
+.operation-order .op-side .op-eta {
+  margin: 0;
+  font-size: 12px;
+}
+.operation-order .op-balance {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+.operation-order .op-items li strong {
+  text-align: right;
+}
+.operation-order .op-items li strong small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+}
+.operation-order .operation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #efece4;
+}
+.operation-order .operation-actions > .primary {
+  order: -2;
+}
+.operation-order .operation-actions > label {
+  order: -1;
+}
+.operation-order .operation-actions .link-button.danger {
+  order: 10;
+  margin-left: auto;
+}
+@media (max-width: 760px) {
+  /* En el celular el panel de la lista va de borde a borde y la tarjeta ocupa exactamente el ancho visible. */
+  .panel:has(> .table-scroll > .orders-list) {
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .orders-list-detail .operation-order {
+    width: calc(100vw - 28px);
+    max-width: none;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    box-shadow: none;
+  }
+  .operation-order .op-grid {
+    grid-template-columns: 1fr;
+  }
+  .operation-order > header {
+    flex-wrap: wrap;
+  }
+  .operation-order .operation-actions .link-button.danger {
+    margin-left: 0;
+    flex: 1 1 100%;
+    text-align: left;
+  }
+}
+/* Editar pedido y renglón libre */
+.edit-table th,
+.edit-table td {
+  padding: 6px 6px;
+  white-space: normal;
+}
+.edit-table td:first-child small {
+  display: block;
+  font-weight: 400;
+}
+.edit-table input {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+.edit-table td.num input {
+  width: 84px;
+  text-align: right;
+}
+.edit-table td:first-child input {
+  min-width: 120px;
+}
+.edit-table td:first-child small.price-mobile {
+  display: none;
+}
+@media (max-width: 520px) {
+  /* En el celular el precio se ve bajo el producto; se edita desde Precios del cliente. */
+  .edit-table .col-price {
+    display: none;
+  }
+  .edit-table td:first-child small.price-mobile {
+    display: block;
+  }
+  .edit-table td.num input {
+    width: 68px;
+    padding: 4px 6px;
+  }
+  .edit-table td:first-child {
+    font-size: 13px;
+  }
+  .edit-table td:first-child input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+.qo-other {
+  min-height: 36px;
+  padding: 4px 8px;
+  width: 100%;
+  max-width: 260px;
+}

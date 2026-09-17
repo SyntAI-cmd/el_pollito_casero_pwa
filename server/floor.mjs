@@ -89,6 +89,8 @@ const FICHA = {
     v ? oneOf(v, ["ok", "incompleto", "revisar", "inactivo"], "estado") : "ok",
   plan: (v) => (v ? oneOf(v, plans, "modalidad") : "mayorista"),
   credit: (v) => bool(v, "crédito"),
+  // Cliente exclusivo (familiares, facturación propia): sus pedidos van sin precio ni saldo.
+  noPricing: (v) => bool(v, "sin precio"),
   driver: (v) =>
     str(v, { max: 60, name: "el repartidor habitual", optional: true }),
 };
@@ -172,6 +174,9 @@ export function createFloor({
         : "entrega";
     if (payment === "cuenta" && !customer.credit)
       fail(400, "Este cliente no tiene cuenta corriente habilitada.");
+    // Sin precio ni saldo: por ficha (cliente exclusivo) o marcado en este pedido.
+    const noPricing =
+      b.noPricing === undefined ? !!customer.noPricing : bool(b.noPricing);
     const locality = localities.find((l) => l.id === customer.localityId) || {
       id: customer.localityId || "otra",
       name: customer.zone || "Sin localidad",
@@ -183,6 +188,7 @@ export function createFloor({
       {
         plan,
         payment,
+        noPricing,
         items: b.items,
         address: customer.address || "Sin dirección cargada",
         name: customer.name,
@@ -200,6 +206,7 @@ export function createFloor({
     return store.transaction(() => {
       const o = {
         ...priced,
+        noPricing,
         locality,
         id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
         key,
@@ -316,6 +323,220 @@ export function createFloor({
       const { order, created } = createTeamOrder(body, session);
       if (created) events.orderChanged(order);
       return json(created ? 201 : 200, withCrates(order, session));
+    }
+
+    // ---- Edición del pedido (equipo): renglones, precios, observaciones y datos del reparto ----
+    // Conserva la pesada de los renglones que siguen; los que se sacan pierden sus cajones.
+    const orderEdit = path.match(/^\/api\/orders\/([^/]+)\/editar$/);
+    if (orderEdit && method === "PUT") {
+      staffOnly(session);
+      const id = decodeURIComponent(orderEdit[1]);
+      return withOrderLock(id, async () => {
+        const o = store.orders.get(id);
+        if (!o) fail(404, "Pedido no encontrado.");
+        if (["entregado", "cancelado"].includes(o.status))
+          fail(400, "Un pedido entregado o cancelado ya no se edita.");
+        if (
+          session.role === "repartidor" &&
+          o.driver &&
+          o.driver !== session.driver &&
+          o.driver2 !== session.driver
+        )
+          fail(403, "Ese pedido es de otro preventista.");
+        const customer = store.customers.get(o.customer);
+        const b = body || {};
+        const prices = Object.fromEntries(
+          store.prices
+            .forCustomer(o.customer)
+            .map((p) => [p.productId, p.price]),
+        );
+        if (b.prices && typeof b.prices === "object")
+          for (const [pid, price] of Object.entries(b.prices)) {
+            if (!products.some((p) => p.id === pid))
+              fail(400, "Producto inválido: " + pid);
+            const value = num(price, {
+              min: 0,
+              max: 1000000,
+              name: "el precio",
+            });
+            prices[pid] = value;
+            store.prices.set(o.customer, pid, value, actorOf(session));
+          }
+        const noPricing =
+          b.noPricing === undefined ? !!o.noPricing : bool(b.noPricing);
+        const items = Array.isArray(b.items) ? b.items : o.items;
+        const payment = b.payment
+          ? oneOf(b.payment, ["cuenta", "entrega", "transferencia"], "medio")
+          : o.payment;
+        const priced = priceOrder(
+          {
+            plan: o.plan,
+            payment,
+            noPricing,
+            items,
+            address: o.address || "Sin dirección cargada",
+            name: o.name,
+            phone: o.phone || "",
+            localityId: o.locality?.id,
+          },
+          {
+            enforceMin: false,
+            prices,
+            staff: true,
+            locality: o.locality,
+            lists: store.settings.get("priceLists", null),
+          },
+        );
+        if (payment === "cuenta" && customer && !customer.credit)
+          fail(400, "Este cliente no tiene cuenta corriente habilitada.");
+        // Renglones que siguen: conservan kilos pesados y marca de pesada.
+        const merged = priced.items.map((n) => {
+          const old = o.items.find((i) => i.id === n.id);
+          if (!old || !old.weighed) return n;
+          return {
+            ...n,
+            kg: old.kg,
+            weighed: true,
+            lineTotal: lineAmount(n.price, old.kg),
+          };
+        });
+        const removed = o.items.filter(
+          (i) => !merged.some((n) => n.id === i.id),
+        );
+        store.transaction(() => {
+          for (const i of removed)
+            for (const c of store.crates.forOrder(o.id))
+              if (c.productId === i.id && !c.voided)
+                store.crates.void(c.id, "renglón quitado del pedido");
+          o.items = merged;
+          o.subtotal =
+            merged.reduce((n, p) => n + Math.round(p.lineTotal * 100), 0) / 100;
+          o.total =
+            (Math.round(o.subtotal * 100) +
+              Math.round((o.shipping || 0) * 100)) /
+            100;
+          o.noPricing = noPricing;
+          if (b.payment) o.payment = payment;
+          if (b.notes !== undefined)
+            o.notes = str(b.notes, {
+              max: 500,
+              name: "las notas",
+              optional: true,
+            });
+          if (b.deliveryDate !== undefined) {
+            const d = str(b.deliveryDate, {
+              min: 10,
+              max: 10,
+              name: "la fecha",
+            });
+            if (!dateRe.test(d)) fail(400, "Fecha de reparto inválida.");
+            o.deliveryDate = d;
+          }
+          if (b.shift !== undefined)
+            o.shift = b.shift ? oneOf(b.shift, shifts, "turno") : "";
+          if (b.driver !== undefined)
+            o.driver = b.driver
+              ? oneOf(b.driver, driverNames(), "repartidor")
+              : "";
+          if (b.driver2 !== undefined)
+            o.driver2 =
+              b.driver2 && b.driver2 !== o.driver
+                ? oneOf(b.driver2, driverNames(), "segundo preventista")
+                : "";
+          if (b.vehicleId !== undefined) {
+            if (b.vehicleId && !store.vehicles.get(b.vehicleId))
+              fail(400, "Ese vehículo no existe.");
+            o.vehicleId = b.vehicleId || "";
+          }
+          if (b.zone !== undefined)
+            o.zone = str(b.zone, { max: 60, name: "la zona", optional: true });
+          o.weighed = merged.some((i) => i.weighed);
+          o.updated = now();
+          o.edits = [
+            ...(o.edits || []).slice(-19),
+            {
+              at: now(),
+              by: actorOf(session),
+              removed: removed.map((i) => i.id),
+            },
+          ];
+          store.orders.save(o);
+        });
+        store.audit.log(session, "order.edit", "order", o.id, {
+          items: merged.map(
+            (i) => `${i.id}:${i.boxes ?? ""}:${i.ordered ?? i.kg}`,
+          ),
+          removed: removed.map((i) => i.id),
+          total: o.total,
+        });
+        events.orderChanged(o);
+        if (customer) events.customerChanged(customer);
+        return json(200, withCrates(store.orders.get(o.id), session));
+      });
+    }
+
+    // ---- Saldos a mano: cuenta corriente y cajas (equipo) ----
+    // Se indica el saldo REAL y la app guarda la diferencia como ajuste, con quién y cuándo.
+    const saldos = path.match(/^\/api\/customers\/([^/]+)\/saldos$/);
+    if (saldos && method === "PATCH") {
+      staffOnly(session);
+      const c = customerByKey(decodeURIComponent(saldos[1]));
+      const current = accountSummary(store.orders.forCustomer(c.phone), c);
+      const changes = {};
+      if (
+        body.balance !== undefined &&
+        body.balance !== null &&
+        body.balance !== ""
+      ) {
+        const target = num(body.balance, {
+          min: -100000000,
+          max: 100000000,
+          name: "el saldo",
+        });
+        const diff = Math.round((target - current.balance) * 100) / 100;
+        if (diff !== 0) {
+          c.balanceAdjustments = [
+            ...(c.balanceAdjustments || []),
+            {
+              id: randomUUID().slice(0, 8),
+              at: now(),
+              by: actorOf(session),
+              amount: diff,
+              note: str(body.note, {
+                max: 200,
+                name: "el motivo",
+                optional: true,
+              }),
+            },
+          ];
+          changes.balance = diff;
+        }
+      }
+      if (
+        body.boxes !== undefined &&
+        body.boxes !== null &&
+        body.boxes !== ""
+      ) {
+        const target = num(body.boxes, {
+          min: -10000,
+          max: 10000,
+          integer: true,
+          name: "las cajas",
+        });
+        const diff = target - current.boxes;
+        if (diff !== 0) {
+          c.boxesAdjust = (Number(c.boxesAdjust) || 0) + diff;
+          changes.boxes = diff;
+        }
+      }
+      if (!Object.keys(changes).length) fail(400, "No hay nada que ajustar.");
+      store.customers.save(c);
+      store.audit.log(session, "customer.saldos", "customer", c.phone, changes);
+      events.customerChanged(c);
+      return json(200, {
+        ...c,
+        summary: accountSummary(store.orders.forCustomer(c.phone), c),
+      });
     }
 
     // ---- Fichas de clientes ----

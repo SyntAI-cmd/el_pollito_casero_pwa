@@ -245,6 +245,15 @@ export default function Customers() {
                       >
                         Extracto
                       </button>
+                      <button
+                        className="link-button small"
+                        title="Corregir a mano el saldo de cuenta y el de cajas"
+                        onClick={() =>
+                          setModal({ type: "saldos", customer: c })
+                        }
+                      >
+                        Saldos
+                      </button>
                       {c.summary.balance > 0 && (
                         <button
                           className="secondary small"
@@ -280,6 +289,7 @@ export function FichaForm({ customer, onSubmit, submitting }) {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         f.credit = f.credit === "on";
+        f.noPricing = f.noPricing === "on";
         onSubmit(f);
       }}
     >
@@ -427,6 +437,15 @@ export function FichaForm({ customer, onSubmit, submitting }) {
             defaultChecked={c.credit !== false}
           />{" "}
           Cuenta corriente habilitada
+        </label>
+        <label className="toggle wide">
+          <input
+            type="checkbox"
+            name="noPricing"
+            defaultChecked={!!c.noPricing}
+          />{" "}
+          Cliente exclusivo: sin precio ni saldo (el remito sale solo con kilos
+          y detalle)
         </label>
         <label className="wide">
           Notas

@@ -27,7 +27,7 @@ import {
 import { StatusBadge } from "./ui.jsx";
 import RemitoActions from "./RemitoActions.jsx";
 import { methodNames } from "../lib/photo.js";
-import { Tags, Trash2 } from "lucide-react";
+import { Tags, Trash2, Pencil } from "lucide-react";
 
 const mapsLink = (o) =>
   o.destination
@@ -35,7 +35,7 @@ const mapsLink = (o) =>
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${o.address}, ${o.locality?.name || ""}, Mendoza, Argentina`)}&travelmode=driving`;
 
 /** Tarjeta operativa de un pedido, con acciones según el rol (admin o repartidor). */
-export default function OrderCard({ order: o, role }) {
+export default function OrderCard({ order: o, role, onClose }) {
   const {
     config,
     busy,
@@ -78,35 +78,94 @@ export default function OrderCard({ order: o, role }) {
             {o.createdBy === "admin" ? " · cargado por administración" : ""}
           </small>
         </div>
-        <strong className="amount">{money(o.total)}</strong>
+        <strong className="amount">
+          {o.noPricing ? "Sin precio" : o.weighed ? money(o.total) : "A pesar"}
+        </strong>
       </header>
-      <div className="op-customer">
-        <p>
-          <Store size={15} /> <strong>{o.name}</strong>
-          {o.phone && /^\d{8,}$/.test(o.phone) && (
-            <a
-              className="wa-inline"
-              href={waLink(
-                o.phone,
-                `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido N° ${orderNumber(o)}.`,
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`WhatsApp de ${o.name}: ${o.phone}`}
+      <div className="op-grid">
+        <div className="op-customer">
+          <p>
+            <Store size={15} /> <strong>{o.name}</strong>
+            {o.phone && /^\d{8,}$/.test(o.phone) && (
+              <a
+                className="wa-inline"
+                href={waLink(
+                  o.phone,
+                  `Hola ${o.name.split(" ")[0]}, te escribo de Pollito Casero por tu pedido N° ${orderNumber(o)}.`,
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`WhatsApp de ${o.name}: ${o.phone}`}
+              >
+                <MessageCircle size={14} /> {o.phone}
+              </a>
+            )}
+          </p>
+          <p>
+            <MapPin size={15} /> {o.address}, {localityText(o)}
+            {o.destination === undefined && o.status !== "cancelado" ? (
+              <em> · ubicando…</em>
+            ) : o.destination === null ? (
+              <em> · sin ubicar en el mapa</em>
+            ) : null}
+          </p>
+          {o.notes && <p className="notes">“{o.notes}”</p>}
+        </div>
+        <div className="op-side">
+          <p className="op-payment">
+            <Wallet size={15} /> {paymentLabel(o)} ·{" "}
+            <b
+              className={o.paid ? "green" : o.payment === "cuenta" ? "" : "red"}
             >
-              <MessageCircle size={14} /> {o.phone}
-            </a>
+              {o.paid
+                ? `Cobrado${o.paidMethod && o.paidMethod !== o.payment ? " (" + (methodNames[o.paidMethod] || o.paidMethod) + ")" : ""}${
+                    Array.isArray(o.paidSplit) && o.paidSplit.length > 1
+                      ? ": " +
+                        o.paidSplit
+                          .map(
+                            (p) =>
+                              `${methodNames[p.method] || p.method} ${money(p.amount)}`,
+                          )
+                          .join(" + ")
+                      : ""
+                  }`
+                : o.payment === "cuenta"
+                  ? "A cuenta"
+                  : o.payment === "transferencia" && o.transfer
+                    ? `Transferencia informada ${timeText(o.transfer.reportedAt)}${o.transfer.reference ? " · ref. " + o.transfer.reference : ""} · verificar`
+                    : "Pendiente de cobro"}
+            </b>
+            {o.plan === "mayorista" && o.status === "entregado" && (
+              <>
+                {" "}
+                · <Package size={15} />{" "}
+                {o.boxes
+                  ? `${o.boxes - o.returned} de ${o.boxes} envases pendientes`
+                  : "Sin envases"}
+              </>
+            )}
+          </p>
+          {o.payment === "cuenta" && customer && accountBalance !== 0 && (
+            <p
+              className={"op-balance " + (accountBalance > 0 ? "red" : "green")}
+            >
+              <Wallet size={14} />{" "}
+              {accountBalance > 0
+                ? `Saldo anterior de ${o.name.split(" ")[0]}: ${money(accountBalance)}`
+                : `Saldo a favor: ${money(-accountBalance)}`}
+            </p>
           )}
-        </p>
-        <p>
-          <MapPin size={15} /> {o.address}, {localityText(o)}
-          {o.destination === undefined && o.status !== "cancelado" ? (
-            <em> · ubicando…</em>
-          ) : o.destination === null ? (
-            <em> · sin ubicar en el mapa</em>
-          ) : null}
-        </p>
-        {o.notes && <p className="notes">“{o.notes}”</p>}
+          {(o.departedAt || o.deliveredAt) && (
+            <p className="op-eta">
+              <Clock size={15} />
+              {o.departedAt ? `Salió ${timeText(o.departedAt)}` : ""}
+              {o.status === "en_camino" && o.eta
+                ? ` · llega aprox. ${new Date(o.eta.arrival).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} (${o.eta.km} km)`
+                : ""}
+              {o.deliveredAt ? ` · entregado ${timeText(o.deliveredAt)}` : ""}
+            </p>
+          )}
+        </div>
       </div>
       <ul className="op-items">
         {o.items.map((p) => (
@@ -120,12 +179,17 @@ export default function OrderCard({ order: o, role }) {
                     {p.kg > 0 ? ` · pesaron ${kgText(p.kg)}` : " · sin pesar"}
                   </small>
                 </>
-              ) : (
+              ) : p.weighed ? (
                 <>
                   {kgText(p.kg)}
-                  {p.weighed && p.ordered !== p.kg && (
+                  {p.ordered !== p.kg && (
                     <small> · pedido {kgText(p.ordered)}</small>
                   )}
+                </>
+              ) : (
+                <>
+                  Pidió {kgText(p.ordered ?? p.kg)}
+                  <small> · sin pesar</small>
                 </>
               )}
             </strong>
@@ -140,59 +204,10 @@ export default function OrderCard({ order: o, role }) {
                 : ""}{" "}
               · {timeText(o.weighedAt)}
             </span>
-            <strong>{money(o.total)}</strong>
+            <strong>{o.noPricing ? "sin precio" : money(o.total)}</strong>
           </li>
         )}
       </ul>
-      {o.payment === "cuenta" && customer && accountBalance !== 0 && (
-        <p className={"op-balance " + (accountBalance > 0 ? "red" : "green")}>
-          <Wallet size={14} />{" "}
-          {accountBalance > 0
-            ? `Saldo anterior de ${o.name.split(" ")[0]}: ${money(accountBalance)}`
-            : `Saldo a favor: ${money(-accountBalance)}`}
-        </p>
-      )}
-      {(o.departedAt || o.deliveredAt) && (
-        <p className="op-eta">
-          <Clock size={15} />
-          {o.departedAt ? `Salió ${timeText(o.departedAt)}` : ""}
-          {o.status === "en_camino" && o.eta
-            ? ` · llega aprox. ${new Date(o.eta.arrival).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} (${o.eta.km} km)`
-            : ""}
-          {o.deliveredAt ? ` · entregado ${timeText(o.deliveredAt)}` : ""}
-        </p>
-      )}
-      <p className="op-payment">
-        <Wallet size={15} /> {paymentLabel(o)} ·{" "}
-        <b className={o.paid ? "green" : o.payment === "cuenta" ? "" : "red"}>
-          {o.paid
-            ? `Cobrado${o.paidMethod && o.paidMethod !== o.payment ? " (" + (methodNames[o.paidMethod] || o.paidMethod) + ")" : ""}${
-                Array.isArray(o.paidSplit) && o.paidSplit.length > 1
-                  ? ": " +
-                    o.paidSplit
-                      .map(
-                        (p) =>
-                          `${methodNames[p.method] || p.method} ${money(p.amount)}`,
-                      )
-                      .join(" + ")
-                  : ""
-              }`
-            : o.payment === "cuenta"
-              ? "A cuenta"
-              : o.payment === "transferencia" && o.transfer
-                ? `Transferencia informada ${timeText(o.transfer.reportedAt)}${o.transfer.reference ? " · ref. " + o.transfer.reference : ""} · verificar`
-                : "Pendiente de cobro"}
-        </b>
-        {o.plan === "mayorista" && o.status === "entregado" && (
-          <>
-            {" "}
-            · <Package size={15} />{" "}
-            {o.boxes
-              ? `${o.boxes - o.returned} de ${o.boxes} envases pendientes`
-              : "Sin envases"}
-          </>
-        )}
-      </p>
       {o.status !== "cancelado" && (
         <div className="operation-actions">
           {admin && o.status !== "entregado" && (
@@ -202,7 +217,9 @@ export default function OrderCard({ order: o, role }) {
                 aria-label={"Repartidor " + o.id}
                 value={o.driver}
                 disabled={busy}
-                onChange={(e) => update(o, { driver: e.target.value })}
+                onChange={async (e) => {
+                  if (await update(o, { driver: e.target.value })) onClose?.();
+                }}
               >
                 <option value="" disabled>
                   Asignar…
@@ -269,6 +286,15 @@ export default function OrderCard({ order: o, role }) {
               </button>
             </>
           )}
+          {!["entregado", "cancelado"].includes(o.status) && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => setModal({ type: "edit-order", order: o })}
+            >
+              <Pencil size={15} /> Editar pedido
+            </button>
+          )}
           {canWeigh && (
             <button
               className="secondary"
@@ -278,7 +304,8 @@ export default function OrderCard({ order: o, role }) {
               <Scale size={15} /> {o.weighed ? "Corregir peso" : "Pesar"}
             </button>
           )}
-          {(admin || o.status !== "entregado") &&
+          {!o.noPricing &&
+            (admin || o.status !== "entregado") &&
             o.status !== "cancelado" &&
             !(o.paid && o.payment !== "cuenta") && (
               <button

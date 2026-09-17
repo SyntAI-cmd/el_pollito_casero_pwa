@@ -211,10 +211,10 @@ function Row({ o, c }) {
         </Text>
       </View>
       <View style={[s.td, s.cTotal, s.num]}>
-        <Text style={s.bold}>{money(o.total)}</Text>
+        <Text style={s.bold}>{o.noPricing ? "s/precio" : money(o.total)}</Text>
       </View>
       <View style={[s.td, s.cBalance, s.num]}>
-        <Text>{prev ? money(prev) : " "}</Text>
+        <Text>{!o.noPricing && prev ? money(prev) : " "}</Text>
       </View>
       <View style={[s.td, s.cBoxes, s.num]}>
         <Text>{owed || " "}</Text>

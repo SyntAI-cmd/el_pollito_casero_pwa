@@ -159,9 +159,80 @@ test("resumen de cuenta: saldo a cuenta, envases y cancelados excluidos", () => 
     balance: 1000,
     owed: 1000,
     creditBalance: 0,
+    adjustments: 0,
     pendingOrders: 1,
     boxes: 2,
   });
+});
+
+test("ajustes manuales de saldo y de cajas entran en el resumen", () => {
+  const s = accountSummary(
+    [
+      {
+        payment: "cuenta",
+        paid: false,
+        total: 1000,
+        boxes: 5,
+        returned: 1,
+        status: "entregado",
+      },
+    ],
+    {
+      creditBalance: 0,
+      boxesAdjust: -2,
+      balanceAdjustments: [{ amount: 250 }, { amount: -50 }],
+    },
+  );
+  assert.equal(s.balance, 1200);
+  assert.equal(s.adjustments, 200);
+  assert.equal(s.boxes, 2);
+});
+
+test("equipo: los kilos pedidos esperan la balanza y no valen hasta pesar", () => {
+  const r = priceOrder(
+    { ...base, items: [{ id: "entero", kg: 200 }, { id: "alas", boxes: 3 }] },
+    { staff: true, enforceMin: false, prices: { entero: 4000, alas: 3000 } },
+  );
+  assert.equal(r.items[0].kg, 0);
+  assert.equal(r.items[0].ordered, 200);
+  assert.equal(r.items[0].lineTotal, 0);
+  assert.equal(r.items[1].kg, 0);
+  assert.equal(r.total, 0);
+  const w = applyWeights(r, { entero: 198.5 });
+  assert.equal(w.items[0].lineTotal, 794000);
+  assert.equal(w.total, 794000);
+});
+
+test("cliente exclusivo: pedido sin precio ni importe", () => {
+  const r = priceOrder(
+    { ...base, noPricing: true, items: [{ id: "entero", kg: 20 }] },
+    { staff: true, enforceMin: false },
+  );
+  assert.equal(r.items[0].price, 0);
+  assert.equal(r.total, 0);
+  const w = applyWeights(r, { entero: 21 });
+  assert.equal(w.total, 0);
+  // Sin `staff`, el cliente web no puede pedir sin precio.
+  assert.throws(() => priceOrder({ ...base, noPricing: true, plan: "x" }));
+});
+
+test("renglón libre 'otro' lleva su etiqueta y exige texto", () => {
+  const r = priceOrder(
+    {
+      ...base,
+      items: [{ id: "otro", label: "Huevos x 30", kg: 5 }],
+    },
+    { staff: true, enforceMin: false, prices: { otro: 1000 } },
+  );
+  assert.equal(r.items[0].name, "Huevos x 30");
+  assert.throws(
+    () =>
+      priceOrder(
+        { ...base, items: [{ id: "otro", kg: 5 }] },
+        { staff: true, enforceMin: false, prices: { otro: 1000 } },
+      ),
+    /otro producto/,
+  );
 });
 
 test("pesaje en balanza recalcula líneas y total, conservando lo pedido", () => {
@@ -269,8 +340,16 @@ test("cambio de precio en el pedido recalcula renglones y total", () => {
         kg: 20,
         price: 5500,
         lineTotal: 110000,
+        weighed: true,
       },
-      { id: "alas", name: "Alas", kg: 1, price: 4150, lineTotal: 4150 },
+      {
+        id: "alas",
+        name: "Alas",
+        kg: 1,
+        price: 4150,
+        lineTotal: 4150,
+        weighed: true,
+      },
     ],
   };
   const r = applyPrices(order, { entero: 5200 });

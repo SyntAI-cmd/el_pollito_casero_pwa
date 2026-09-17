@@ -191,6 +191,22 @@
       "category": "trozado",
       "description": "Patas de pollo frescas y limpias. Para caldos y gelatinas.",
       "image": null
+    },
+    {
+      "id": "suprema-muslo",
+      "code": 11,
+      "name": "Suprema de muslo",
+      "category": "trozado",
+      "description": "Muslo deshuesado, sin piel. Tierno para la plancha o milanesas.",
+      "image": null
+    },
+    {
+      "id": "otro",
+      "code": 99,
+      "name": "Otro producto",
+      "category": "otro",
+      "description": "Renglón libre: el equipo escribe qué es (huevos, chorizos, un corte especial…).",
+      "image": null
     }
   ],
   "localities": [

@@ -11,6 +11,7 @@ import {
   api,
   post,
   patch,
+  put,
   del,
   subscribe,
   stored,
@@ -24,6 +25,7 @@ import {
   lineAmount,
   waLink,
   isActive,
+  orderNumber,
 } from "./format.js";
 import { useRoute } from "./router.jsx";
 import { enablePush, disablePush, syncPush, pushPermission } from "./push.js";
@@ -652,6 +654,31 @@ export function StoreProvider({ children }) {
       },
       { onError: (e) => notify(e.message) },
     );
+  /** Edición del pedido cargado: renglones, precios, observaciones y datos del reparto. */
+  const editOrder = (o, data) =>
+    run(
+      async () => {
+        await put("/orders/" + o.id + "/editar", data);
+        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        notify(`Pedido N° ${orderNumber(o)} actualizado.`);
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
+  /** Saldo real de cuenta corriente y de cajas de un cliente (la diferencia queda como ajuste). */
+  const saveBalances = (c, data) =>
+    run(
+      async () => {
+        await patch(
+          "/customers/" + encodeURIComponent(c.phone) + "/saldos",
+          data,
+        );
+        await loadCustomers();
+        notify(`Saldos de ${c.name} actualizados.`);
+        return true;
+      },
+      { onError: (e) => notify(e.message) },
+    );
 
   const updateCustomer = (c, data) =>
     run(
@@ -891,6 +918,8 @@ export function StoreProvider({ children }) {
     verifyPhone,
     setPassword,
     createStaffOrder,
+    editOrder,
+    saveBalances,
     saveFicha,
     createCustomer,
     savePrices,

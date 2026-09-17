@@ -13,9 +13,15 @@ import { lineAmount } from "./format.js";
  *   reintegro  · pedido NO a cuenta que ya estaba pagado y se canceló: queda como saldo a favor
  */
 const cents = (n) => Math.round((n || 0) * 100);
+// Importe "pedido": kilos solicitados × precio. Un renglón que todavía espera la balanza (kg 0,
+// sin pesar) no vale nada: el importe lo pone la pesada.
 const originalTotal = (o) =>
   o.items.reduce(
-    (s, i) => s + cents(lineAmount(i.price, i.ordered ?? i.kg)),
+    (s, i) =>
+      s +
+      (i.weighed || i.kg > 0
+        ? cents(lineAmount(i.price, i.ordered ?? i.kg))
+        : 0),
     0,
   ) + cents(o.shipping);
 const cancelledAt = (o) =>
@@ -23,12 +29,21 @@ const cancelledAt = (o) =>
   o.updated ||
   o.created;
 
-export function ledger(orders, payments = []) {
+export function ledger(orders, payments = [], adjustments = []) {
   const rows = [];
+  for (const a of adjustments)
+    rows.push({
+      at: a.at,
+      kind: "ajuste",
+      label: `Ajuste a mano${a.by ? " · " + a.by : ""}${a.note ? " · " + a.note : ""}`,
+      amount: cents(a.amount),
+      ref: a.id || a.at,
+    });
   for (const o of orders) {
     if (o.payment === "cuenta") {
       const original = originalTotal(o);
       const current = cents(o.total);
+      if (original === 0 && current === 0 && o.status !== "cancelado") continue;
       rows.push({
         at: o.created,
         kind: "cargo",

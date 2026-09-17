@@ -22,7 +22,6 @@ import {
   kgText,
   planNames,
   productPrice,
-  lineAmount,
   normalize,
   paymentNames,
 } from "../lib/format.js";
@@ -77,6 +76,9 @@ export default function QuickOrder() {
   );
   const [payment, setPayment] = useState("");
   const [notes, setNotes] = useState("");
+  // Cliente exclusivo: sin precio ni saldo (viene de la ficha; se puede marcar por pedido).
+  const [noPricing, setNoPricing] = useState(false);
+  const [otherLabel, setOtherLabel] = useState("");
   const [created, setCreated] = useState(null);
   const searchRef = useRef();
   const products = config?.products || [];
@@ -109,12 +111,15 @@ export default function QuickOrder() {
     setDriver2("");
     setZone(c.zone || "");
     setPayment(c.credit ? "cuenta" : "entrega");
+    setNoPricing(!!c.noPricing);
     setTimeout(() => document.querySelector(".qo-box input")?.focus(), 0);
   }
   function reset() {
     setPicked(null);
     setLines({});
     setNotes("");
+    setNoPricing(false);
+    setOtherLabel("");
     setCreated(null);
     setQuery("");
     setTimeout(() => searchRef.current?.focus(), 0);
@@ -172,33 +177,41 @@ export default function QuickOrder() {
   const invalid = rows.filter((r) => r.bad);
   const totalBoxes = items.reduce((s, r) => s + (r.boxes || 0), 0);
   const totalKg = items.reduce((s, r) => s + (r.kg || 0), 0);
-  const estimate =
-    items.reduce(
-      (s, r) => s + Math.round(lineAmount(r.price, r.kg || 0) * 100),
-      0,
-    ) / 100;
-  const noPrice = items.filter(
-    (r) => !Number.isFinite(r.price) || r.price <= 0,
+  // Sin importe estimado: nada vale hasta pasar por la balanza.
+  const noPrice = noPricing
+    ? []
+    : items.filter((r) => !Number.isFinite(r.price) || r.price <= 0);
+  const otroSinNombre = items.some(
+    (r) => r.p.id === "otro" && otherLabel.trim().length < 2,
   );
   const canSubmit =
-    picked && items.length > 0 && !invalid.length && !noPrice.length && !busy;
+    picked &&
+    items.length > 0 &&
+    !invalid.length &&
+    !noPrice.length &&
+    !otroSinNombre &&
+    !busy;
 
   async function submit(e) {
     e?.preventDefault();
     if (!canSubmit) return;
     // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
-    const editedPrices = Object.fromEntries(
-      items
-        .map((r) => [r.p.id, r.price])
-        .filter(([, v]) => Number.isFinite(v) && v > 0),
-    );
+    const editedPrices = noPricing
+      ? {}
+      : Object.fromEntries(
+          items
+            .map((r) => [r.p.id, r.price])
+            .filter(([, v]) => Number.isFinite(v) && v > 0),
+        );
     const order = await createStaffOrder({
       customer: picked.phone,
       prices: editedPrices,
+      noPricing,
       items: items.map((r) => ({
         id: r.p.id,
         ...(r.boxes !== null ? { boxes: r.boxes } : {}),
         ...(r.kg !== null ? { kg: r.kg } : {}),
+        ...(r.p.id === "otro" ? { label: otherLabel.trim() } : {}),
       })),
       deliveryDate,
       shift: shift || undefined,
@@ -215,6 +228,7 @@ export default function QuickOrder() {
       setLines({});
       setPriceEdits({});
       setNotes("");
+      setOtherLabel("");
     }
   }
 
@@ -498,6 +512,15 @@ export default function QuickOrder() {
                 )}
               </select>
             </label>
+            <label className="toggle wide">
+              <input
+                type="checkbox"
+                checked={noPricing}
+                onChange={(e) => setNoPricing(e.target.checked)}
+              />{" "}
+              Sin precio ni saldo (cliente exclusivo): el remito sale solo con
+              kilos y detalle
+            </label>
             <label className="wide">
               Observaciones <small>(salen en el remito)</small>
               <input
@@ -532,12 +555,27 @@ export default function QuickOrder() {
                     className={(active ? "on" : "") + (bad ? " bad" : "")}
                   >
                     <td>
-                      {p.name}
-                      <small className="qo-price-mobile">
-                        {Number.isFinite(price) && price > 0
-                          ? money(price) + " / kg"
-                          : "sin precio"}
-                      </small>
+                      {p.id === "otro" ? (
+                        <input
+                          type="text"
+                          className="qo-other"
+                          value={otherLabel}
+                          disabled={!picked}
+                          maxLength="60"
+                          placeholder="Otro producto: escribí qué es"
+                          aria-label="Nombre del otro producto"
+                          onChange={(e) => setOtherLabel(e.target.value)}
+                        />
+                      ) : (
+                        p.name
+                      )}
+                      {!noPricing && (
+                        <small className="qo-price-mobile">
+                          {Number.isFinite(price) && price > 0
+                            ? money(price) + " / kg"
+                            : "sin precio"}
+                        </small>
+                      )}
                     </td>
                     <td
                       className={
@@ -549,7 +587,9 @@ export default function QuickOrder() {
                             : "")
                       }
                     >
-                      {picked && editingPrice === p.id ? (
+                      {noPricing ? (
+                        <span className="muted">—</span>
+                      ) : picked && editingPrice === p.id ? (
                         <input
                           type="text"
                           inputMode="decimal"
@@ -663,8 +703,14 @@ export default function QuickOrder() {
           {noPrice.length > 0 && (
             <p className="form-error" role="alert">
               {picked?.name} no tiene precio para{" "}
-              {noPrice.map((r) => r.p.name.toLowerCase()).join(", ")}: cargalo
-              en Clientes → Precios.
+              {noPrice.map((r) => r.p.name.toLowerCase()).join(", ")}: tocá el
+              precio en la fila para cargarlo, o marcá "sin precio" si es un
+              cliente exclusivo.
+            </p>
+          )}
+          {otroSinNombre && (
+            <p className="form-error" role="alert">
+              Escribí qué es el otro producto.
             </p>
           )}
         </section>
@@ -681,8 +727,8 @@ export default function QuickOrder() {
               <dd>{totalKg ? kgText(totalKg) : "—"}</dd>
             </div>
             <div className="total">
-              <dt>Estimado</dt>
-              <dd>{estimate ? money(estimate) : "según balanza"}</dd>
+              <dt>Importe</dt>
+              <dd>{noPricing ? "sin precio" : "según balanza"}</dd>
             </div>
           </dl>
           {picked && items.length > 0 && (
@@ -714,7 +760,6 @@ export default function QuickOrder() {
               {totalBoxes ? `${totalBoxes} cj` : ""}
               {totalBoxes && totalKg ? " · " : ""}
               {totalKg ? kgText(totalKg) : ""}
-              {estimate ? <strong> · {money(estimate)}</strong> : ""}
             </span>
             <button
               type="submit"

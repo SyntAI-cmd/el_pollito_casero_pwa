@@ -5,6 +5,8 @@ import Receipts from "./Receipts.jsx";
 import DeliveryPoint from "./DeliveryPoint.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
 import { FichaForm } from "../pages/Customers.jsx";
+import OrderEdit from "./OrderEdit.jsx";
+import Saldos from "./Saldos.jsx";
 import { passkeyAvailable } from "../lib/auth.js";
 import {
   X,
@@ -527,6 +529,15 @@ function Ficha({ customer }) {
           customer ? saveFicha(customer, f) : createCustomer(f)
         }
       />
+      {customer && (
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setModal({ type: "saldos", customer })}
+        >
+          Ajustar saldo de cuenta y de cajas
+        </button>
+      )}
       {session?.role === "admin" && (
         <button type="button" className="link-button danger" onClick={remove}>
           <Trash2 size={14} /> Eliminar cliente
@@ -630,6 +641,7 @@ function Statement({ customer }) {
   const rows = ledger(
     orders.filter((o) => o.customer === customer.phone),
     customer.payments || [],
+    customer.balanceAdjustments || [],
   ).reverse();
   const balance = rows[0]?.balance || 0;
   return (
@@ -1414,7 +1426,7 @@ export default function Modals() {
       className={
         type === "cart"
           ? "sheet"
-          : ["ficha", "new-customer", "statement"].includes(type)
+          : ["ficha", "new-customer", "statement", "edit-order"].includes(type)
             ? "wide-dialog"
             : ""
       }
@@ -1465,6 +1477,10 @@ export default function Modals() {
         <Weights order={modal.order} />
       ) : type === "order-prices" ? (
         <OrderPrices order={modal.order} />
+      ) : type === "edit-order" ? (
+        <OrderEdit order={modal.order} />
+      ) : type === "saldos" ? (
+        <Saldos customer={modal.customer} />
       ) : type === "boxes-return" ? (
         <BoxesReturn customer={modal.customer} />
       ) : type === "account-payment" ? (

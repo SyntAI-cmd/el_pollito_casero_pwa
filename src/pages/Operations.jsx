@@ -259,7 +259,6 @@ export default function Operations() {
               .sort(
                 (a, b) =>
                   (a.deliveryDate || "").localeCompare(b.deliveryDate || "") ||
-                  (a.driver || "").localeCompare(b.driver || "") ||
                   (a.number || 0) - (b.number || 0),
               )}
             role="admin"

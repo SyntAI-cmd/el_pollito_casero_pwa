@@ -306,7 +306,7 @@ function Remito({ data: d, fiscal, logo, slot }) {
             <Text style={s.footBox}>{d.saldo || " "}</Text>
           </View>
         </View>
-        <Text style={s.totalLine}>TOTAL: {d.total}</Text>
+        <Text style={s.totalLine}>TOTAL: {d.total || " "}</Text>
       </View>
       <View style={s.sign}>
         <Text style={s.signText}>Firma Conforme</Text>

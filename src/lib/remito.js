@@ -29,14 +29,28 @@ const dmy = (o) => {
  * blanco cuando son cero: el remito no lleva guiones ni "0".
  */
 export function remitoData(o, c) {
+  // Cliente exclusivo (sin precio ni saldo): el remito lleva solo kilos y detalle.
+  const plain = !!o.noPricing;
   const lines = o.items
-    .filter((i) => i.kg > 0 || i.boxes)
+    .filter((i) => i.kg > 0 || i.boxes || i.ordered)
     .map((l) => ({
-      kg: fmtKg(l.kg),
-      detail: `${l.name}${l.boxes ? ` · ${l.boxes} ${l.boxes === 1 ? "caja" : "cajas"}` : ""}`,
-      unit: money(l.price),
-      total: money(l.lineTotal),
+      kg: l.kg > 0 ? fmtKg(l.kg) : "",
+      detail: `${l.name}${l.boxes ? ` · ${l.boxes} ${l.boxes === 1 ? "caja" : "cajas"}` : !l.kg && l.ordered ? ` · pedido ${fmtKg(l.ordered)} kg` : ""}`,
+      // Renglón sin pesar (kg 0): sin precio ni importe hasta la balanza.
+      unit: plain || !(l.weighed || l.kg > 0) ? "" : money(l.price),
+      total: plain || !(l.weighed || l.kg > 0) ? "" : money(l.lineTotal),
     }));
+  if (plain)
+    return {
+      ...remitoHeader(o, c),
+      lines,
+      owedBoxes: 0,
+      owedBoxesText: "",
+      total: "",
+      saldo: "",
+      previous: "",
+      balance: "",
+    };
   const owedBoxes = Math.max(0, c?.summary?.boxes || 0);
   const onAccount = o.payment === "cuenta" && !o.paid ? o.total : 0;
   const previous = c
@@ -44,18 +58,7 @@ export function remitoData(o, c) {
     : 0;
   const after = Math.round((previous + onAccount) * 100) / 100;
   return {
-    number: remitoNumber(o),
-    date: dmy(o),
-    name:
-      (c?.alias || o.name) +
-      (c?.legalName && c.legalName !== (c.alias || o.name)
-        ? ` (${c.legalName})`
-        : ""),
-    address: o.address || c?.address || "",
-    locality: o.locality?.name || c?.zone || "",
-    phone: (o.phone || c?.contactPhone || "").replace(/^549/, ""),
-    driver: o.driver || "",
-    notes: o.notes || "",
+    ...remitoHeader(o, c),
     lines,
     owedBoxes,
     owedBoxesText: owedBoxes
@@ -69,6 +72,24 @@ export function remitoData(o, c) {
       previous !== 0
         ? `Saldo anterior: ${money(previous)} · Saldo con este remito: ${money(after)}`
         : "",
+  };
+}
+
+/** Cabecera común del remito: número, fecha, cliente, dirección, teléfono, preventista y notas. */
+function remitoHeader(o, c) {
+  return {
+    number: remitoNumber(o),
+    date: dmy(o),
+    name:
+      (c?.alias || o.name) +
+      (c?.legalName && c.legalName !== (c.alias || o.name)
+        ? ` (${c.legalName})`
+        : ""),
+    address: o.address || c?.address || "",
+    locality: o.locality?.name || c?.zone || "",
+    phone: (o.phone || c?.contactPhone || "").replace(/^549/, ""),
+    driver: o.driver || "",
+    notes: o.notes || "",
   };
 }
 
