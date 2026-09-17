@@ -16,27 +16,11 @@ import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
 import Customers from "./Customers.jsx";
 import News from "../components/News.jsx";
-import {
-  money,
-  planNames,
-  dateText,
-  waLink,
-  normalize,
-  orderNumber,
-} from "../lib/format.js";
+import { money, normalize, orderNumber } from "../lib/format.js";
 import { receivables } from "../lib/report.js";
+import { todayKey } from "../lib/day.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
-import OrderCard from "../components/OrderCard.jsx";
 import OrdersList from "../components/OrdersList.jsx";
-import RemitoActions from "../components/RemitoActions.jsx";
-import { mapsRouteLegs, copyText } from "../lib/maps.js";
-
-const columns = [
-  ["recibido", "Recibidos", "Nuevos pedidos para preparar."],
-  ["preparando", "En preparación", "Pesá, armá y asigná repartidor."],
-  ["en_camino", "En camino", "Cobros y entregas en curso."],
-  ["entregado", "Entregados", "Envases y pagos pendientes."],
-];
 
 export default function Operations() {
   const {
@@ -60,20 +44,16 @@ export default function Operations() {
   // Filtros del tablero en la URL: se comparten y sobreviven al botón atrás.
   const [showAll, setShowAll] = useState(query.get("todo") === "1");
   const [search, setSearch] = useState(query.get("q") || "");
-  const [view, setView] = useState(() => {
-    try {
-      return localStorage.getItem("pedidos-vista") || "lista";
-    } catch {
-      return "lista";
-    }
-  });
-  const chooseView = (v) => {
-    setView(v);
-    try {
-      localStorage.setItem("pedidos-vista", v);
-    } catch {}
-  };
   const [driverFilter, setDriverFilter] = useState(query.get("rep") || "");
+  // Fecha de reparto (hoy por defecto; vacío = todas) y turno.
+  const [dateFilter, setDateFilter] = useState(
+    query.has("fecha")
+      ? query.get("fecha") === "todas"
+        ? ""
+        : query.get("fecha")
+      : todayKey(),
+  );
+  const [shiftFilter, setShiftFilter] = useState(query.get("turno") || "");
   // Datos frescos cada vez que se entra a Pedidos (además del canal en vivo).
   useEffect(() => {
     reload();
@@ -83,6 +63,8 @@ export default function Operations() {
     const params = new URLSearchParams();
     if (search.trim()) params.set("q", search.trim());
     if (driverFilter) params.set("rep", driverFilter);
+    if (dateFilter !== todayKey()) params.set("fecha", dateFilter || "todas");
+    if (shiftFilter) params.set("turno", shiftFilter);
     if (showAll) params.set("todo", "1");
     const next = params.toString();
     if (next !== location.search.replace(/^\?/, ""))
@@ -90,7 +72,7 @@ export default function Operations() {
         replace: true,
         scroll: false,
       });
-  }, [search, driverFilter, showAll, path]);
+  }, [search, driverFilter, dateFilter, shiftFilter, showAll, path]);
   if (session?.role !== "admin")
     return (
       <>
@@ -107,11 +89,15 @@ export default function Operations() {
       </>
     );
   const drivers = config?.drivers || [];
-  const cancelled = orders.filter((o) => o.status === "cancelado");
   // Búsqueda operativa: número de pedido, cliente, teléfono, dirección o localidad; y por repartidor.
   const q = normalize(search.trim());
+  const dayOf = (o) => o.deliveryDate || (o.created || "").slice(0, 10);
   const matches = (o) =>
-    (!driverFilter || o.driver === driverFilter) &&
+    (!driverFilter ||
+      o.driver === driverFilter ||
+      o.driver2 === driverFilter) &&
+    (!dateFilter || dayOf(o) === dateFilter) &&
+    (!shiftFilter || (o.shift || "") === shiftFilter) &&
     (!q ||
       normalize(
         `${o.id} ${orderNumber(o)} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,
@@ -194,22 +180,6 @@ export default function Operations() {
       {tab === "pedidos" && <News compact />}
       {tab === "pedidos" && (
         <div className="board-toolbar">
-          <div className="view-toggle" role="group" aria-label="Vista">
-            <button
-              type="button"
-              className={view === "lista" ? "active" : ""}
-              onClick={() => chooseView("lista")}
-            >
-              Lista
-            </button>
-            <button
-              type="button"
-              className={view === "tarjetas" ? "active" : ""}
-              onClick={() => chooseView("tarjetas")}
-            >
-              Tarjetas
-            </button>
-          </div>
           <div className="board-filters">
             <input
               type="search"
@@ -218,6 +188,40 @@ export default function Operations() {
               placeholder="Buscar pedido, cliente, teléfono o dirección…"
               aria-label="Buscar pedidos"
             />
+            <span className="date-filter">
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                aria-label="Fecha de reparto"
+              />
+              {dateFilter && dateFilter !== todayKey() && (
+                <button
+                  type="button"
+                  className="link-button small"
+                  onClick={() => setDateFilter(todayKey())}
+                >
+                  Hoy
+                </button>
+              )}
+              <button
+                type="button"
+                className={"link-button small" + (dateFilter ? "" : " active")}
+                onClick={() => setDateFilter(dateFilter ? "" : todayKey())}
+                title="Ver todas las fechas"
+              >
+                {dateFilter ? "Todas las fechas" : "Solo hoy"}
+              </button>
+            </span>
+            <select
+              value={shiftFilter}
+              onChange={(e) => setShiftFilter(e.target.value)}
+              aria-label="Filtrar por turno"
+            >
+              <option value="">Mañana y tarde</option>
+              <option value="manana">Turno mañana</option>
+              <option value="tarde">Turno tarde</option>
+            </select>
             <select
               value={driverFilter}
               onChange={(e) => setDriverFilter(e.target.value)}
@@ -239,7 +243,7 @@ export default function Operations() {
           </div>
         </div>
       )}
-      {tab === "pedidos" && view === "lista" && (
+      {tab === "pedidos" && (
         <section className="panel">
           <OrdersList
             orders={[...orders]
@@ -262,48 +266,6 @@ export default function Operations() {
           />
         </section>
       )}
-      {tab === "pedidos" && view === "tarjetas" && (
-        <div className="board">
-          {columns.map(([status, title, hint]) => {
-            const list = recent(
-              orders.filter((o) => o.status === status && matches(o)),
-              status,
-            );
-            return (
-              <section
-                className={"board-column status-" + status}
-                key={status}
-                aria-labelledby={"col-" + status}
-              >
-                <header>
-                  <h2 id={"col-" + status}>
-                    {title} <span className="count">{list.length}</span>
-                  </h2>
-                  <p>{hint}</p>
-                </header>
-                {list.length === 0 ? (
-                  <p className="board-empty">Nada por acá.</p>
-                ) : (
-                  list.map((o) => (
-                    <OrderCard key={o.id} order={o} role="admin" />
-                  ))
-                )}
-                {status === "entregado" && cancelled.length > 0 && (
-                  <details className="cancelled-list">
-                    <summary>{cancelled.length} cancelados</summary>
-                    {cancelled.map((o) => (
-                      <p key={o.id}>
-                        N° {orderNumber(o)} · {o.name} · {dateText(o.created)}
-                      </p>
-                    ))}
-                  </details>
-                )}
-              </section>
-            );
-          })}
-        </div>
-      )}
-
       {tab === "clientes" && <Customers />}
       {tab === "equipo" && <Team />}
     </>

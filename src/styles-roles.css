@@ -1559,12 +1559,22 @@
   align-items: center;
   gap: 10px;
 }
+.board-filters {
+  width: 100%;
+}
 .board-filters input[type="search"] {
-  min-width: 260px;
+  flex: 1 1 260px;
+  min-width: 200px;
   min-height: 38px;
 }
-.board-filters select {
+.board-filters select,
+.board-filters input[type="date"] {
+  flex: 0 1 auto;
+  width: auto;
   min-height: 38px;
+}
+.board-filters .toggle {
+  white-space: nowrap;
 }
 .statement .num {
   text-align: right;
@@ -2281,4 +2291,16 @@ dialog label.check input {
   font-variant-numeric: tabular-nums;
   color: var(--red, #c9262e);
   margin-right: 2px;
+}
+
+/* Pedidos: filtro de fecha con acceso rápido a hoy / todas */
+.date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.date-filter .link-button.active {
+  color: var(--red, #c9262e);
+  font-weight: 600;
 }
