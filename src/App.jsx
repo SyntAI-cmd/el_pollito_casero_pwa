@@ -432,7 +432,10 @@ function StaffShell({ Page, path }) {
         ["/reparto/pesada", "Pesaje", Scale],
         ["/reparto/clientes", "Clientes", Users],
       ];
-  const received = orders.filter((o) => o.status === "recibido").length;
+  // Pedidos abiertos (recibidos, en preparación y en camino): el mismo número que la tarjeta de Pedidos.
+  const received = orders.filter((o) =>
+    ["recibido", "preparando", "en_camino"].includes(o.status),
+  ).length;
   return (
     <div className="staff-app">
       <a className="skip-link" href="#contenido">
@@ -463,7 +466,9 @@ function StaffShell({ Page, path }) {
             >
               <Icon size={16} /> <span>{name}</span>
               {url === "/operacion" && received > 0 && (
-                <b className="nav-count">{received}</b>
+                <b className="nav-count" title="Pedidos abiertos">
+                  {received}
+                </b>
               )}
             </Link>
           ))}
