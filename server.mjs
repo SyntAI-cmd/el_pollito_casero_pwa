@@ -313,11 +313,12 @@ const csp = [
   "connect-src 'self' data: blob: https://tiles.openfreemap.org https://tile.openstreetmap.org https://router.project-osrm.org https://accounts.google.com",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
-  "frame-src https://accounts.google.com",
+  "frame-src 'self' blob: https://accounts.google.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "object-src 'none'",
+  // blob: la vista previa de PDF (hoja de pedidos, remitos) se incrusta con <object data="blob:…">.
+  "object-src 'self' blob:",
   "manifest-src 'self'",
 ].join("; ");
 const sessionCookie = (id) =>
