@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Printer, FileText, Truck, ClipboardList, Ticket } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { orderShift } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
 import { api, put } from "../lib/api.js";
 import { PageHead } from "../components/ui.jsx";
@@ -17,7 +18,7 @@ const shiftName = { manana: "Mañana", tarde: "Tarde" };
  * queda guardado como salida del día.
  */
 export default function PrintHub() {
-  const { orders, config, session, notify, reload } = useStore();
+  const { orders, customers, config, session, notify, reload } = useStore();
   useEffect(() => {
     reload();
   }, [reload]);
@@ -32,7 +33,9 @@ export default function PrintHub() {
   const drivers = (config?.drivers || []).filter((d) =>
     day.some((o) => o.driver === d || o.driver2 === d),
   );
-  const shifts = [...new Set(day.map((o) => o.shift).filter(Boolean))];
+  const shifts = [
+    ...new Set(day.map((o) => orderShift(o, customers)).filter(Boolean)),
+  ];
   const loadTrips = useCallback(
     () =>
       api("/salidas?fecha=" + date)

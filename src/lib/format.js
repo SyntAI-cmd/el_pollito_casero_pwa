@@ -68,5 +68,9 @@ export const normalize = (s) =>
 export const waLink = (phone, text) =>
   `https://wa.me/${String(phone).replace(/\D/g, "")}?text=${encodeURIComponent(text)}`;
 
+/** Turno efectivo de un pedido: el propio o, si no tiene, el habitual de la ficha del cliente. */
+export const orderShift = (o, customers = []) =>
+  o.shift || customers.find((c) => c.phone === o.customer)?.shift || "";
+
 export const isActive = (o) =>
   o.status !== "entregado" && o.status !== "cancelado";

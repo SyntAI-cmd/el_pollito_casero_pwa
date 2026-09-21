@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { Printer, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { orderShift } from "../lib/format.js";
 import { useRoute, Link } from "../lib/router.jsx";
 import { today } from "../lib/report.js";
 import { EmptyState, PageHead } from "../components/ui.jsx";
@@ -20,7 +21,11 @@ import { remitoFileName } from "../lib/remito.js";
  */
 export default function Print() {
   const { query } = useRoute();
-  const { session, orders, customers, config, loaded } = useStore();
+  const { session, orders: rawOrders, customers, config, loaded } = useStore();
+  // Turno efectivo (el del pedido o el de la ficha) para filtrar e imprimir.
+  const orders = rawOrders.map((o) =>
+    o.shift ? o : { ...o, shift: orderShift(o, customers) },
+  );
   const tipo = query.get("tipo") || "pedidos";
   const fecha = query.get("fecha") || today();
   const repartidor = query.get("repartidor") || "";

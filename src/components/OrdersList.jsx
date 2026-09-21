@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { ChevronDown, ChevronUp, Ticket } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link } from "../lib/router.jsx";
-import { money, orderNumber, labels } from "../lib/format.js";
+import { money, orderNumber, labels, orderShift } from "../lib/format.js";
 import { methodNames } from "../lib/photo.js";
 import OrderCard from "./OrderCard.jsx";
 
@@ -42,10 +42,7 @@ export default function OrdersList({ orders, role = "admin" }) {
                 <td>
                   <strong>{orderNumber(o)}</strong>
                   {(() => {
-                    const shift =
-                      o.shift ||
-                      customers.find((c) => c.phone === o.customer)?.shift ||
-                      "";
+                    const shift = orderShift(o, customers);
                     return shift ? (
                       <>
                         <br />

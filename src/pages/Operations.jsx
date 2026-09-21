@@ -93,8 +93,7 @@ export default function Operations() {
   const q = normalize(search.trim());
   const dayOf = (o) => o.deliveryDate || (o.created || "").slice(0, 10);
   // Turno del pedido; si no tiene, el habitual de la ficha del cliente.
-  const shiftOf = (o) =>
-    o.shift || customers.find((c) => c.phone === o.customer)?.shift || "";
+  const shiftOf = (o) => orderShift(o, customers);
   const matches = (o) =>
     (!driverFilter ||
       o.driver === driverFilter ||
