@@ -811,8 +811,20 @@ export function createFloor({
         if (changes.truck !== undefined) changes.driver = changes.truck;
         if (changes.cuit && !changes.status && c.status === "incompleto")
           changes.status = "ok";
+        const previousShift = c.shift || "";
         Object.assign(c, changes);
         store.customers.save(c);
+        // Cambió el turno de la ficha: los pedidos abiertos del cliente que seguían el turno
+        // anterior (o no tenían) pasan al nuevo, así el filtro por turno los encuentra.
+        const touched = [];
+        if (changes.shift !== undefined && changes.shift !== previousShift)
+          for (const o of store.orders.forCustomer(c.phone)) {
+            if (!["recibido", "preparando"].includes(o.status)) continue;
+            if (o.shift && o.shift !== previousShift) continue;
+            o.shift = changes.shift;
+            store.orders.save(o);
+            touched.push(o);
+          }
         store.audit.log(
           session,
           "customer.ficha",
@@ -821,6 +833,7 @@ export function createFloor({
           Object.keys(changes),
         );
         events.customerChanged(c);
+        for (const o of touched) events.orderChanged(o);
         return json(200, summarize(c));
       }
       if (ficha[2] === "prices" && method === "GET")

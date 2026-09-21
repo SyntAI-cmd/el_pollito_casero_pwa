@@ -41,6 +41,14 @@ export default function OrdersList({ orders, role = "admin" }) {
               <tr className={"st-" + o.status + (o.loaded ? " loaded" : "")}>
                 <td>
                   <strong>{orderNumber(o)}</strong>
+                  {o.shift ? (
+                    <>
+                      <br />
+                      <small className="muted">
+                        {o.shift === "manana" ? "Mañana" : "Tarde"}
+                      </small>
+                    </>
+                  ) : null}
                 </td>
                 <td>
                   <strong>{o.name}</strong>
