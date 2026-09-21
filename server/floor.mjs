@@ -483,6 +483,19 @@ export function createFloor({
       const c = customerByKey(decodeURIComponent(saldos[1]));
       const current = accountSummary(store.orders.forCustomer(c.phone), c);
       const changes = {};
+      // `delta` suma al saldo actual (deuda +, a favor −); `balance` fija el saldo real.
+      if (body.delta !== undefined && body.delta !== null && body.delta !== "")
+        body.balance =
+          current.balance +
+          num(body.delta, { min: -100000000, max: 100000000, name: "el importe" });
+      if (
+        body.boxesDelta !== undefined &&
+        body.boxesDelta !== null &&
+        body.boxesDelta !== ""
+      )
+        body.boxes =
+          current.boxes +
+          num(body.boxesDelta, { min: -10000, max: 10000, integer: true, name: "las cajas" });
       if (
         body.balance !== undefined &&
         body.balance !== null &&

@@ -28,6 +28,9 @@ const dmy = (o) => {
  * saldo (de cuenta corriente, con este remito incluido) y total. Las cajas y el saldo van en
  * blanco cuando son cero: el remito no lleva guiones ni "0".
  */
+/** Id del renglón virtual "Saldo anterior" (no es un producto: no toca stock ni pesada). */
+export const SALDO_ANTERIOR = "ITEM_SALDO_ANTERIOR";
+
 export function remitoData(o, c) {
   // Cliente exclusivo (sin precio ni saldo): el remito lleva solo kilos y detalle.
   const plain = !!o.noPricing;
@@ -57,6 +60,19 @@ export function remitoData(o, c) {
     ? Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100
     : 0;
   const after = Math.round((previous + onAccount) * 100) / 100;
+  // El saldo anterior entra al cuerpo del remito como un renglón virtual (sin kilos ni precio
+  // unitario) y el TOTAL impreso es productos + saldo anterior: lo que el cliente debe con este
+  // remito. Con saldo a favor el renglón resta.
+  if (previous !== 0)
+    lines.push({
+      id: SALDO_ANTERIOR,
+      virtual: true,
+      kg: "",
+      detail: previous > 0 ? "Saldo anterior" : "Saldo a favor (anterior)",
+      unit: "",
+      total: money(previous),
+    });
+  const printedTotal = Math.round((o.total + previous) * 100) / 100;
   return {
     ...remitoHeader(o, c),
     lines,
@@ -64,9 +80,12 @@ export function remitoData(o, c) {
     owedBoxesText: owedBoxes
       ? `${owedBoxes} ${owedBoxes === 1 ? "caja" : "cajas"}`
       : "",
-    total: money(o.total),
-    /** Saldo de cuenta corriente con este remito incluido; vacío si no debe nada. */
-    saldo: after !== 0 ? money(after) : "",
+    /** Total impreso: productos + saldo anterior. */
+    total: money(printedTotal),
+    productsTotal: money(o.total),
+    /** Pie "SALDO": el saldo anterior (el mismo renglón virtual); el TOTAL ya lo incluye. */
+    saldo: previous !== 0 ? money(previous) : "",
+    after: after !== 0 ? money(after) : "",
     previous: previous !== 0 ? money(previous) : "",
     balance:
       previous !== 0

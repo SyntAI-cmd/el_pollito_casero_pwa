@@ -673,7 +673,7 @@ export function StoreProvider({ children }) {
           "/customers/" + encodeURIComponent(c.phone) + "/saldos",
           data,
         );
-        await loadCustomers();
+        await Promise.all([loadCustomers(), loadOrders({ silent: true })]);
         notify(`Saldos de ${c.name} actualizados.`);
         return true;
       },

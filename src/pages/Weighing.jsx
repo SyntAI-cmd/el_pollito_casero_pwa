@@ -11,7 +11,13 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute } from "../lib/router.jsx";
-import { kgText, money, normalize, orderNumber } from "../lib/format.js";
+import {
+  kgText,
+  money,
+  normalize,
+  orderNumber,
+  orderShift,
+} from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import {
   useDay,
@@ -42,9 +48,22 @@ const fmt = (n) =>
  */
 const batchOf = (crate) => String(crate.id).split(":")[0];
 export default function Weighing() {
-  const { session, notify } = useStore();
+  const { session, notify, customers } = useStore();
   const { query, navigate } = useRoute();
   const [date, setDate] = useState(query.get("fecha") || todayKey());
+  // Turno (todos / mañana / tarde): pastillas de un toque. Fecha y turno viven en la URL, así
+  // una recarga por error no pierde el filtro.
+  const [shift, setShift] = useState(query.get("turno") || "");
+  const [grossFocus, setGrossFocus] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    params.set("fecha", date);
+    if (shift) params.set("turno", shift);
+    else params.delete("turno");
+    const next = "?" + params.toString();
+    if (next !== location.search)
+      navigate(location.pathname + next, { replace: true, scroll: false });
+  }, [date, shift]);
   const { day, loading, error, reload, setDay } = useDay(date);
   const [selected, setSelected] = useState(query.get("pedido") || null);
   const [product, setProduct] = useState(null);
@@ -63,6 +82,7 @@ export default function Weighing() {
     () =>
       day.orders
         .filter((o) => !["en_camino", "entregado"].includes(o.status))
+        .filter((o) => !shift || orderShift(o, customers) === shift)
         .filter(
           (o) =>
             !q ||
@@ -76,7 +96,7 @@ export default function Weighing() {
             (a.o.number || 0) - (b.o.number || 0) ||
             a.o.created.localeCompare(b.o.created),
         ),
-    [day.orders, q],
+    [day.orders, q, shift, customers],
   );
 
   useEffect(() => {
@@ -237,6 +257,28 @@ export default function Weighing() {
       </PageHead>
       {error && <p className="notice error">{error}</p>}
 
+      {!order && (
+        <div className="weigh-filters" role="group" aria-label="Turno">
+          {[
+            ["", "Todos"],
+            ["manana", "Mañana"],
+            ["tarde", "Tarde"],
+          ].map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              className={"pill" + (shift === v ? " active" : "")}
+              aria-pressed={shift === v}
+              onClick={() => setShift(v)}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="weigh-filters-count muted">
+            {list.length} {list.length === 1 ? "pedido" : "pedidos"}
+          </span>
+        </div>
+      )}
       {!order && (
         <div className="search-field weigh-search">
           <Search size={16} />
@@ -403,9 +445,12 @@ export default function Weighing() {
                   {`Peso bruto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`}
                   <input
                     inputMode="decimal"
+                    enterKeyHint="done"
                     autoComplete="off"
                     value={gross}
                     onChange={(e) => setGross(e.target.value.replace(".", ","))}
+                    onFocus={() => setGrossFocus(true)}
+                    onBlur={() => setTimeout(() => setGrossFocus(false), 150)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
@@ -471,6 +516,19 @@ export default function Weighing() {
                   <Scale size={20} />{" "}
                   {nBoxes > 1 ? `Confirmar ${nBoxes} cajas` : "Confirmar cajón"}
                 </button>
+                {/* Botón flotante sobre el teclado del celular: confirma sin cerrar el teclado ni hacer scroll. */}
+                {grossFocus && net > 0 && (
+                  <button
+                    type="button"
+                    className="weigh-fab"
+                    aria-label="Confirmar pesada"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onTouchStart={(e) => e.preventDefault()}
+                    onClick={confirm}
+                  >
+                    <Check size={22} /> {fmt(net)} kg
+                  </button>
+                )}
               </div>
               <ul className="weigh-log" aria-label="Cajones pesados">
                 {[...groups].reverse().map((gr) => {

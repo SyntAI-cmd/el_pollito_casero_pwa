@@ -1428,7 +1428,9 @@ export default function Modals() {
           ? "sheet"
           : ["ficha", "new-customer", "statement", "edit-order"].includes(type)
             ? "wide-dialog"
-            : ""
+            : type === "saldos"
+              ? "wallet-dialog"
+              : ""
       }
       aria-label="Ventana de Pollito Casero"
       ref={dialog}

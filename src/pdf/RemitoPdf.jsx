@@ -128,6 +128,8 @@ const s = StyleSheet.create({
   td: { paddingVertical: 3.6, paddingHorizontal: 5, fontSize: 7.4 },
   tdTight: { paddingVertical: 1.6, fontSize: 6 },
   kilos: { width: 40, textAlign: "right" },
+  // Renglón virtual (saldo anterior): se distingue de los productos físicos.
+  virtual: { color: "#666", fontFamily: "Helvetica-Oblique" },
   detail: { flex: 1, borderLeftWidth: 0.6, borderLeftColor: LINE },
   unit: {
     width: 60,
@@ -287,9 +289,13 @@ function Remito({ data: d, fiscal, logo, slot }) {
           return (
             <View key={i} style={[s.tr, i === rows - 1 ? s.trLast : null]}>
               <Text style={[...td, s.kilos]}>{l ? l.kg : " "}</Text>
-              <Text style={[...td, s.detail]}>{l ? l.detail : " "}</Text>
+              <Text style={[...td, s.detail, l?.virtual ? s.virtual : null]}>
+                {l ? l.detail : " "}
+              </Text>
               <Text style={[...td, s.unit]}>{l ? l.unit : " "}</Text>
-              <Text style={[...td, s.total]}>{l ? l.total : " "}</Text>
+              <Text style={[...td, s.total, l?.virtual ? s.virtual : null]}>
+                {l ? l.total : " "}
+              </Text>
             </View>
           );
         })}
