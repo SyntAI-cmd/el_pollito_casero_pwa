@@ -2453,3 +2453,18 @@ dialog label.check input {
   width: 100%;
   max-width: 260px;
 }
+
+/* Pedidos: aviso de pedidos abiertos en otras fechas */
+.notice.other-dates {
+  margin: 0 0 12px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.notice.other-dates .link-button {
+  font-weight: 600;
+  padding: 0 2px;
+  min-height: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}

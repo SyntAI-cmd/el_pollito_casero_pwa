@@ -18,7 +18,7 @@ import Customers from "./Customers.jsx";
 import News from "../components/News.jsx";
 import { money, normalize, orderNumber } from "../lib/format.js";
 import { receivables } from "../lib/report.js";
-import { todayKey } from "../lib/day.js";
+import { todayKey, dmy } from "../lib/day.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
 import OrdersList from "../components/OrdersList.jsx";
 
@@ -94,6 +94,20 @@ export default function Operations() {
   const dayOf = (o) => o.deliveryDate || (o.created || "").slice(0, 10);
   // Turno del pedido; si no tiene, el habitual de la ficha del cliente.
   const shiftOf = (o) => orderShift(o, customers);
+  // Pedidos abiertos que quedan fuera de la fecha elegida (p. ej. cargados para mañana).
+  const otherDates = dateFilter
+    ? Object.entries(
+        orders
+          .filter(
+            (o) =>
+              ["recibido", "preparando", "en_camino"].includes(o.status) &&
+              dayOf(o) !== dateFilter,
+          )
+          .reduce((m, o) => ((m[dayOf(o)] = (m[dayOf(o)] || 0) + 1), m), {}),
+      )
+        .map(([date, n]) => ({ date, n }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    : [];
   const matches = (o) =>
     (!driverFilter ||
       o.driver === driverFilter ||
@@ -244,6 +258,32 @@ export default function Operations() {
             </label>
           </div>
         </div>
+      )}
+      {tab === "pedidos" && dateFilter && otherDates.length > 0 && (
+        <p className="notice other-dates">
+          Con esta fecha no se ven {otherDates.reduce((n, d) => n + d.n, 0)}{" "}
+          pedidos abiertos de otros días:{" "}
+          {otherDates.map((d, i) => (
+            <React.Fragment key={d.date}>
+              {i > 0 ? " · " : ""}
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => setDateFilter(d.date)}
+              >
+                {dmy(d.date)} ({d.n})
+              </button>
+            </React.Fragment>
+          ))}
+          {" · "}
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setDateFilter("")}
+          >
+            ver todas las fechas
+          </button>
+        </p>
       )}
       {tab === "pedidos" && (
         <section className="panel">
