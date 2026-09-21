@@ -814,13 +814,13 @@ export function createFloor({
         const previousShift = c.shift || "";
         Object.assign(c, changes);
         store.customers.save(c);
-        // Cambió el turno de la ficha: los pedidos abiertos del cliente que seguían el turno
-        // anterior (o no tenían) pasan al nuevo, así el filtro por turno los encuentra.
+        // Cambió el turno de la ficha: todos los pedidos abiertos del cliente pasan al nuevo
+        // turno (un pedido puntual se cambia después desde Editar pedido).
         const touched = [];
         if (changes.shift !== undefined && changes.shift !== previousShift)
           for (const o of store.orders.forCustomer(c.phone)) {
             if (!["recibido", "preparando"].includes(o.status)) continue;
-            if (o.shift && o.shift !== previousShift) continue;
+            if (o.shift === changes.shift) continue;
             o.shift = changes.shift;
             store.orders.save(o);
             touched.push(o);

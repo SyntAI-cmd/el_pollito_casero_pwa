@@ -92,12 +92,15 @@ export default function Operations() {
   // Búsqueda operativa: número de pedido, cliente, teléfono, dirección o localidad; y por repartidor.
   const q = normalize(search.trim());
   const dayOf = (o) => o.deliveryDate || (o.created || "").slice(0, 10);
+  // Turno del pedido; si no tiene, el habitual de la ficha del cliente.
+  const shiftOf = (o) =>
+    o.shift || customers.find((c) => c.phone === o.customer)?.shift || "";
   const matches = (o) =>
     (!driverFilter ||
       o.driver === driverFilter ||
       o.driver2 === driverFilter) &&
     (!dateFilter || dayOf(o) === dateFilter) &&
-    (!shiftFilter || (o.shift || "") === shiftFilter) &&
+    (!shiftFilter || shiftOf(o) === shiftFilter) &&
     (!q ||
       normalize(
         `${o.id} ${orderNumber(o)} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,

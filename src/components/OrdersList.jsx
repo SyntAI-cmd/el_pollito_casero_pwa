@@ -15,7 +15,7 @@ const kg = (n) =>
  * Es la vista por defecto de Pedidos (muchos clientes por preventista); las tarjetas quedan como alternativa.
  */
 export default function OrdersList({ orders, role = "admin" }) {
-  const { update, busy } = useStore();
+  const { update, busy, customers } = useStore();
   const [open, setOpen] = useState(null);
   if (!orders.length) return <p className="board-empty">Nada por acá.</p>;
   return (
@@ -41,14 +41,25 @@ export default function OrdersList({ orders, role = "admin" }) {
               <tr className={"st-" + o.status + (o.loaded ? " loaded" : "")}>
                 <td>
                   <strong>{orderNumber(o)}</strong>
-                  {o.shift ? (
-                    <>
-                      <br />
-                      <small className="muted">
-                        {o.shift === "manana" ? "Mañana" : "Tarde"}
-                      </small>
-                    </>
-                  ) : null}
+                  {(() => {
+                    const shift =
+                      o.shift ||
+                      customers.find((c) => c.phone === o.customer)?.shift ||
+                      "";
+                    return shift ? (
+                      <>
+                        <br />
+                        <small
+                          className="muted"
+                          title={
+                            o.shift ? "Turno del pedido" : "Turno de la ficha"
+                          }
+                        >
+                          {shift === "manana" ? "Mañana" : "Tarde"}
+                        </small>
+                      </>
+                    ) : null;
+                  })()}
                 </td>
                 <td>
                   <strong>{o.name}</strong>
