@@ -487,7 +487,11 @@ export function createFloor({
       if (body.delta !== undefined && body.delta !== null && body.delta !== "")
         body.balance =
           current.balance +
-          num(body.delta, { min: -100000000, max: 100000000, name: "el importe" });
+          num(body.delta, {
+            min: -100000000,
+            max: 100000000,
+            name: "el importe",
+          });
       if (
         body.boxesDelta !== undefined &&
         body.boxesDelta !== null &&
@@ -495,7 +499,12 @@ export function createFloor({
       )
         body.boxes =
           current.boxes +
-          num(body.boxesDelta, { min: -10000, max: 10000, integer: true, name: "las cajas" });
+          num(body.boxesDelta, {
+            min: -10000,
+            max: 10000,
+            integer: true,
+            name: "las cajas",
+          });
       if (
         body.balance !== undefined &&
         body.balance !== null &&

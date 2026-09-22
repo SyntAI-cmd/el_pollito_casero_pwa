@@ -56,6 +56,11 @@ export default function Weighing() {
   const [shift, setShift] = useState(query.get("turno") || "");
   const [grossFocus, setGrossFocus] = useState(false);
   const saving = useRef(false);
+  // Mientras se escribe el peso, la barra inferior se va: el campo y el botón flotante quedan libres.
+  useEffect(() => {
+    document.body.classList.toggle("escribiendo-peso", grossFocus);
+    return () => document.body.classList.remove("escribiendo-peso");
+  }, [grossFocus]);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     params.set("fecha", date);
@@ -476,7 +481,17 @@ export default function Weighing() {
                     autoComplete="off"
                     value={gross}
                     onChange={(e) => setGross(e.target.value.replace(".", ","))}
-                    onFocus={() => setGrossFocus(true)}
+                    onFocus={(e) => {
+                      setGrossFocus(true);
+                      setTimeout(
+                        () =>
+                          e.target.scrollIntoView({
+                            block: "center",
+                            behavior: "smooth",
+                          }),
+                        250,
+                      );
+                    }}
                     onBlur={() => setTimeout(() => setGrossFocus(false), 150)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {

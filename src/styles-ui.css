@@ -999,3 +999,49 @@
     min-height: 48px;
   }
 }
+
+/* Escribiendo el peso: la barra inferior no tapa el campo ni el botón de confirmar */
+body.escribiendo-peso .tabbar {
+  display: none;
+}
+body.escribiendo-peso .chat-fab {
+  display: none;
+}
+@media (max-width: 900px) {
+  .weigh-main {
+    scroll-margin-bottom: 140px;
+  }
+  .weigh-gross input {
+    min-height: 60px;
+    font-size: 30px;
+    font-weight: 700;
+    text-align: right;
+  }
+}
+
+/* ===== Cabecera del equipo: chrome oscuro con vidrio ===== */
+.staff-bar {
+  background: #1a1513f2 !important;
+  border-bottom: 1px solid var(--oscuro-borde);
+}
+@supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
+  .staff-bar {
+    background: #1a1513d9 !important;
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+}
+.staff-app {
+  background: var(--fondo);
+}
+/* El naranja marca lo que está activo; el rojo, la acción principal */
+.staff-bar nav a.active {
+  color: #fff;
+  background: #ffffff1a;
+}
+.staff-bar nav a.active::after {
+  background: var(--naranja);
+}
+.live-indicator.on i {
+  background: #3ecf7a;
+}
