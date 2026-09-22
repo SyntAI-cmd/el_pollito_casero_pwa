@@ -72,16 +72,22 @@ const s = StyleSheet.create({
     borderBottomColor: LINE,
     minHeight: 24,
   },
+  // La fila de títulos no lleva la altura de anotación: va justa, con los textos centrados.
+  trHead: { minHeight: 0, alignItems: "center" },
   th: {
     backgroundColor: "#eee",
+    alignSelf: "stretch",
+    paddingVertical: 4,
+    paddingHorizontal: 3,
+    justifyContent: "center",
+    borderRightWidth: 1,
+    borderRightColor: LINE,
+  },
+  thText: {
     fontFamily: "Helvetica-Bold",
     fontSize: 6.8,
     textTransform: "uppercase",
     textAlign: "center",
-    paddingVertical: 3,
-    paddingHorizontal: 3,
-    borderRightWidth: 1,
-    borderRightColor: LINE,
   },
   td: {
     paddingVertical: 2.5,
@@ -293,18 +299,22 @@ export function HojaDocument({
               logo={logo}
             />
             <View style={s.table}>
-              <View style={s.tr}>
-                <Text style={[s.th, s.cNum]}>N° Pedido / Remito</Text>
-                <Text style={[s.th, s.cClient]}>Cliente</Text>
-                <Text style={[s.th, s.cTotal]}>Total pedido</Text>
-                <Text style={[s.th, s.cBalance]}>Saldo actual</Text>
-                <Text style={[s.th, s.cBoxes]}>Saldo cajas</Text>
-                <Text style={[s.th, s.cPay]}>Efectivo</Text>
-                <Text style={[s.th, s.cPay]}>Transferencia</Text>
-                <Text style={[s.th, s.cPay]}>Cheque</Text>
-                <Text style={[s.th, s.cPay, { borderRightWidth: 0 }]}>
-                  Saldo
-                </Text>
+              <View style={[s.tr, s.trHead]}>
+                {[
+                  ["N° Pedido / Remito", s.cNum],
+                  ["Cliente", s.cClient],
+                  ["Total pedido", s.cTotal],
+                  ["Saldo actual", s.cBalance],
+                  ["Saldo cajas", s.cBoxes],
+                  ["Efectivo", s.cPay],
+                  ["Transferencia", s.cPay],
+                  ["Cheque", s.cPay],
+                  ["Saldo", s.cPay, { borderRightWidth: 0 }],
+                ].map(([label, col, extra], i) => (
+                  <View key={i} style={[s.th, col, extra || null]}>
+                    <Text style={s.thText}>{label}</Text>
+                  </View>
+                ))}
               </View>
               {chunk.map((o) => (
                 <Row
