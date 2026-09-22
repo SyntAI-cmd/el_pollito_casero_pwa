@@ -1,10 +1,9 @@
-import React, { lazy, Suspense, useState } from "react";
+import React, { useState } from "react";
 import {
   MapPin,
   Wallet,
   MessageCircle,
   ArrowUpRight,
-  Navigation,
   Package,
   Clock,
   X,
@@ -32,8 +31,6 @@ import {
 } from "../components/ui.jsx";
 import PushToggle from "../components/PushToggle.jsx";
 import PaymentPanel from "../components/PaymentPanel.jsx";
-
-const LiveMap = lazy(() => import("../Map.jsx"));
 
 export default function Tracking() {
   const { query } = useRoute();
@@ -172,48 +169,6 @@ export default function Tracking() {
       )}
       {session.role === "cliente" && isActive(active) && <PushToggle />}
       <div className="tracking-grid">
-        <section className="map-card">
-          <Suspense
-            fallback={<div className="map-loading">Cargando mapa…</div>}
-          >
-            <LiveMap order={active} origin={config?.origin} onRoute={setEta} />
-          </Suspense>
-          <div className="map-caption">
-            {showEta ? (
-              <>
-                <Clock size={16} />
-                <span>
-                  Llega aprox. a las{" "}
-                  <strong>{arrivalText(showEta.arrival)}</strong> ·{" "}
-                  {showEta.minutes < 1
-                    ? "menos de 1 min"
-                    : `${showEta.minutes} min`}{" "}
-                  · {Number(showEta.km).toFixed(1)} km
-                  {active.location
-                    ? ` · GPS de ${timeText(active.location.at)}`
-                    : " · estimado desde el local"}
-                </span>
-              </>
-            ) : (
-              <>
-                <Navigation size={16} />
-                <span>
-                  {active.status === "entregado"
-                    ? "Pedido entregado."
-                    : active.location
-                      ? `Ubicación de ${active.driver} actualizada a las ${timeText(active.location.at)}`
-                      : active.status === "en_camino"
-                        ? "Tu repartidor todavía no compartió su ubicación."
-                        : active.destination
-                          ? "Vas a ver al repartidor en el mapa cuando salga."
-                          : active.destination === null
-                            ? "Tu domicilio no se pudo ubicar en el mapa; el repartidor va con la dirección escrita."
-                            : "Ubicando tu domicilio en el mapa…"}
-                </span>
-              </>
-            )}
-          </div>
-        </section>
         <section className="panel">
           <h2>Así viene tu pedido</h2>
           <Timeline order={active} />

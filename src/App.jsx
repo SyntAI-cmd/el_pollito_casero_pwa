@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   House,
   ShoppingBag,
@@ -49,7 +49,6 @@ import Print from "./pages/Print.jsx";
 import QuickOrder from "./pages/QuickOrder.jsx";
 import Weighing from "./pages/Weighing.jsx";
 import TruckLoading from "./pages/TruckLoading.jsx";
-import Fleet from "./pages/Fleet.jsx";
 import PrintHub from "./pages/PrintHub.jsx";
 import DaySheet from "./pages/DaySheet.jsx";
 import PriceLists from "./pages/PriceLists.jsx";
@@ -77,7 +76,6 @@ const ADMIN_ROUTES = {
   "/operacion/precios": PriceLists,
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
-  "/operacion/flota": Fleet,
   "/operacion/imprimir": PrintHub,
   "/imprimir": Print,
   "/ayuda": Help,
@@ -400,9 +398,40 @@ function ClientShell({ Page, path }) {
   );
 }
 
+/** Barra inferior del celular: los cuatro accesos más usados y el resto en "Más". */
+function TabBar({ nav, path, badge, onMore }) {
+  const main = nav.slice(0, 4);
+  const rest = nav.slice(4);
+  return (
+    <nav className="tabbar glass-dark" aria-label="Secciones">
+      {main.map(([url, name, Icon]) => (
+        <Link
+          key={url}
+          to={url}
+          className={path === url ? "active" : ""}
+          aria-current={path === url ? "page" : undefined}
+        >
+          <Icon size={20} />
+          <span>{name}</span>
+          {url === "/operacion" && badge > 0 && (
+            <b className="tab-count">{badge}</b>
+          )}
+        </Link>
+      ))}
+      {rest.length > 0 && (
+        <button type="button" onClick={onMore} aria-haspopup="dialog">
+          <MenuIcon size={20} />
+          <span>Más</span>
+        </button>
+      )}
+    </nav>
+  );
+}
+
 /** Interfaz del equipo: barra oscura compacta, sin nada del lado del cliente. */
 function StaffShell({ Page, path }) {
   const { session, orders, logout, config, live } = useStore();
+  const [more, setMore] = useState(false);
   const admin = session.role === "admin";
   // MVP simple: cinco secciones. Las demás pantallas siguen existiendo por URL (Nota del día,
   // Carga, Flota, Rendición, Listas de precios) pero no van en la barra; SIMPLE_NAV = false las vuelve a mostrar.
@@ -421,7 +450,6 @@ function StaffShell({ Page, path }) {
           ["/operacion/nuevo", "Cargar pedido", Plus],
           ["/operacion/pesada", "Pesada", Scale],
           ["/operacion/carga", "Carga", Package],
-          ["/operacion/flota", "Flota", MapPin],
           ["/operacion/imprimir", "Imprimir", Printer],
           ["/operacion", "Pedidos", ClipboardList],
           ["/operacion/clientes", "Clientes", Users],
@@ -499,6 +527,43 @@ function StaffShell({ Page, path }) {
         <Notices />
         {Page ? <Page /> : <NotFound />}
       </main>
+      <TabBar
+        nav={nav}
+        path={path}
+        badge={received}
+        onMore={() => setMore(true)}
+      />
+      {more && (
+        <div
+          className="more-sheet"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Más secciones"
+          onClick={(e) => e.target === e.currentTarget && setMore(false)}
+        >
+          <div className="more-sheet-box">
+            <h2>Más</h2>
+            {nav.slice(4).map(([url, name, Icon]) => (
+              <Link key={url} to={url} onClick={() => setMore(false)}>
+                <Icon size={18} /> {name}
+              </Link>
+            ))}
+            <Link to="/ayuda" onClick={() => setMore(false)}>
+              <ShieldCheck size={18} /> Ayuda
+            </Link>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                setMore(false);
+                logout();
+              }}
+            >
+              <LogOut size={18} /> Salir
+            </button>
+          </div>
+        </div>
+      )}
       <Chat />
     </div>
   );

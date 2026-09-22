@@ -62,9 +62,7 @@ export function StoreProvider({ children }) {
   const [plan, setPlanState] = useState(() => stored("pc-plan", "minorista"));
   const [cart, setCart] = useState(() => stored("pc-cart", {}));
   const [profile, setProfile] = useState(() => stored("pc-profile", {}));
-  const [sharing, setSharing] = useState(null);
   const [pushState, setPushState] = useState(() => pushPermission());
-  const gps = useRef(null);
   const orderKey = useRef(crypto.randomUUID());
   const lastStatuses = useRef({});
   const sessionRef = useRef(null);
@@ -157,7 +155,6 @@ export function StoreProvider({ children }) {
       window.removeEventListener("online", status);
       window.removeEventListener("offline", status);
       window.removeEventListener("beforeinstallprompt", prompt);
-      if (gps.current !== null) navigator.geolocation.clearWatch(gps.current);
     };
   }, [loadOrders, loadMe, loadCustomers]);
 
@@ -527,7 +524,6 @@ export function StoreProvider({ children }) {
     const wasStaff =
       sessionRef.current?.role === "admin" ||
       sessionRef.current?.role === "repartidor";
-    stopSharing();
     await disablePush().catch(() => {});
     await del("/session").catch(() => {});
     setSession(null);
@@ -830,41 +826,6 @@ export function StoreProvider({ children }) {
     window.open(waLink(phone, text), "_blank", "noopener,noreferrer");
   }
 
-  function stopSharing() {
-    if (gps.current !== null) navigator.geolocation.clearWatch(gps.current);
-    gps.current = null;
-    setSharing(null);
-  }
-  function share(o) {
-    if (sharing) return stopSharing();
-    if (!navigator.geolocation)
-      return notify("Tu dispositivo no admite ubicación.");
-    gps.current = navigator.geolocation.watchPosition(
-      (pos) =>
-        patch("/orders/" + o.id, {
-          location: { lat: pos.coords.latitude, lng: pos.coords.longitude },
-        })
-          .then(() => loadOrders({ silent: true }))
-          .catch((e) => {
-            notify(e.message);
-            stopSharing();
-          }),
-      () => {
-        notify(
-          "No pudimos acceder a tu ubicación. Revisá los permisos del navegador.",
-        );
-        stopSharing();
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
-    );
-    setSharing(o.id);
-    notify("Compartiendo tu ubicación con el cliente.");
-  }
-  useEffect(() => {
-    if (sharing && orders.find((o) => o.id === sharing)?.status !== "en_camino")
-      stopSharing();
-  }, [orders, sharing]);
-
   async function enableNotifications() {
     try {
       await enablePush(config?.pushKey);
@@ -907,7 +868,6 @@ export function StoreProvider({ children }) {
     price,
     profile,
     setProfile,
-    sharing,
     notify,
     add,
     setQuantity,
@@ -952,7 +912,6 @@ export function StoreProvider({ children }) {
     loadChat,
     sendMessage,
     contact,
-    share,
     activeOrder,
     pushState,
     enableNotifications,

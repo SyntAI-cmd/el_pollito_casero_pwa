@@ -1,0 +1,600 @@
+@charset "UTF-8";
+/**
+ * Sistema visual de El Pollito Casero (2026): pensado para el celular, en la calle y con apuro.
+ * Acá viven los valores (colores, tamaños, radios, sombras) y las piezas nuevas: barra inferior,
+ * tarjetas de pedido, filtros en pastillas, hoja a pantalla completa y superficies con vidrio.
+ * Todo lo demás (pantallas viejas) sigue usando styles.css; esta capa manda porque carga última.
+ */
+:root {
+  /* Marca */
+  --rojo: #c9262e;
+  --rojo-fuerte: #a81f26;
+  --naranja: #f24405;
+  --naranja-suave: #ff7a3d;
+  --verde: #1c6b34;
+  --verde-claro: #e7f5ec;
+
+  /* Superficies claras (trabajo al sol) */
+  --fondo: #f6f3ef;
+  --tarjeta: #ffffff;
+  --tarjeta-2: #faf8f5;
+  --borde: #e7e2da;
+  --tinta: #1b1a18;
+  --tinta-2: #605c55;
+
+  /* Chrome oscuro (navegación y cabeceras) */
+  --oscuro: #1a1513;
+  --oscuro-2: #2a2320;
+  --oscuro-borde: #ffffff1f;
+  --oscuro-texto: #f3efe9;
+  --oscuro-apagado: #a9a29a;
+
+  /* Formas y profundidad */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-pill: 999px;
+  --sombra-1: 0 1px 2px #1a13060d, 0 4px 14px -4px #1a130614;
+  --sombra-2: 0 2px 6px #1a13060f, 0 14px 30px -10px #1a13061f;
+  --sombra-3: 0 12px 32px #1a130638;
+  --glow: 0 8px 20px #f2440540;
+
+  /* Espaciado en base 8 */
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 20px;
+  --e6: 24px;
+  --e8: 32px;
+
+  /* Áreas seguras del teléfono */
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  /* Alto de la barra inferior: lo usan las pantallas para no quedar tapadas */
+  --barra: 0px;
+}
+
+/* ===== Vidrio: transparencia + desenfoque, con alternativa sólida ===== */
+.glass {
+  background: #ffffffd9;
+  border: 1px solid #ffffff8c;
+}
+@supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
+  .glass {
+    background: #fffffff0;
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+  .glass-dark {
+    background: #1a1513e0;
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+}
+.glass-dark {
+  background: #1a1513;
+  border: 1px solid var(--oscuro-borde);
+}
+
+/* ===== Barra inferior (celular): 4 accesos + Más ===== */
+.tabbar {
+  display: none;
+}
+@media (max-width: 900px) {
+  :root {
+    --barra: calc(66px + var(--safe-b));
+  }
+  .tabbar {
+    position: fixed;
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: calc(10px + var(--safe-b));
+    z-index: 70;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px 6px;
+    border-radius: var(--r-pill);
+    box-shadow: var(--sombra-3);
+    color: var(--oscuro-texto);
+  }
+  .tabbar a,
+  .tabbar button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 52px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--oscuro-apagado);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.1;
+    text-decoration: none;
+    position: relative;
+  }
+  .tabbar a span,
+  .tabbar button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tabbar a.active {
+    color: #fff;
+    background: var(--naranja);
+    box-shadow: var(--glow);
+  }
+  .tabbar .tab-count {
+    position: absolute;
+    top: 2px;
+    right: 50%;
+    transform: translateX(22px);
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: var(--r-pill);
+    background: var(--rojo);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+  /* La barra superior deja de mostrar la navegación: queda marca + usuario */
+  .staff-bar nav {
+    display: none !important;
+  }
+  .staff-main {
+    padding-bottom: calc(var(--barra) + 24px) !important;
+  }
+}
+
+/* Hoja de "Más": accesos que no entran en la barra */
+.more-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  background: #1a1513a8;
+}
+.more-sheet-box {
+  width: 100%;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--tarjeta);
+  padding: var(--e5) var(--e4) calc(var(--e5) + var(--safe-b));
+  display: grid;
+  gap: var(--e2);
+  box-shadow: var(--sombra-3);
+}
+.more-sheet-box h2 {
+  margin: 0 0 var(--e2);
+  font-size: 17px;
+}
+.more-sheet-box a,
+.more-sheet-box button {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  min-height: 52px;
+  padding: 0 var(--e4);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+  color: var(--tinta);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  width: 100%;
+}
+.more-sheet-box .danger {
+  color: var(--rojo);
+}
+
+/* ===== Tarjeta oscura de resumen ===== */
+.hero-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e4);
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 var(--e4);
+  padding: var(--e5);
+  border-radius: var(--r-lg);
+  background: linear-gradient(135deg, var(--oscuro) 0%, #3a221c 100%);
+  color: var(--oscuro-texto);
+  box-shadow: var(--sombra-2);
+}
+.hero-metric small,
+.hero-side small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--oscuro-apagado);
+}
+.hero-metric strong {
+  font-size: 40px;
+  line-height: 1.05;
+  font-weight: 800;
+}
+.hero-metric span {
+  font-size: 13px;
+  color: var(--oscuro-apagado);
+}
+.hero-side {
+  display: flex;
+  gap: var(--e3);
+}
+.hero-side > div {
+  padding: var(--e3) var(--e4);
+  border-radius: var(--r-md);
+  background: #ffffff14;
+  border: 1px solid var(--oscuro-borde);
+  min-width: 118px;
+}
+.hero-side b {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ===== Filtros en pastillas ===== */
+.pill-filters {
+  display: flex;
+  gap: var(--e2);
+  margin-bottom: var(--e4);
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.pill-filters::-webkit-scrollbar {
+  display: none;
+}
+.pill-filters .pill,
+.pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 var(--e4);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-pill);
+  background: var(--tarjeta);
+  color: var(--tinta);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pill span {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--fondo);
+  font-size: 12px;
+  font-weight: 700;
+}
+.pill.active {
+  background: var(--oscuro);
+  border-color: var(--oscuro);
+  color: #fff;
+}
+.pill.active span {
+  background: #ffffff26;
+  color: #fff;
+}
+
+/* ===== Mis entregas: tarjetas ===== */
+.delivery-list {
+  list-style: none;
+  margin: 0 0 var(--e6);
+  padding: 0;
+  display: grid;
+  gap: var(--e3);
+}
+@media (min-width: 760px) {
+  .delivery-list {
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  }
+}
+.delivery-card {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--borde);
+  border-radius: var(--r-lg);
+  padding: var(--e4);
+  box-shadow: var(--sombra-1);
+  display: grid;
+  gap: var(--e2);
+}
+.delivery-card.st-en_camino {
+  border-left-color: var(--naranja);
+}
+.delivery-card.st-preparando {
+  border-left-color: #d8a41a;
+}
+.delivery-card.st-entregado {
+  border-left-color: var(--verde);
+}
+.dc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+}
+.dc-num {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tinta-2);
+}
+.delivery-card h3 {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.dc-where {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--tinta-2);
+  overflow-wrap: anywhere;
+}
+.dc-where svg {
+  flex: none;
+  margin-top: 2px;
+}
+.dc-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  padding: var(--e2) 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dc-facts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.dc-facts .green {
+  color: var(--verde);
+}
+.dc-open {
+  min-height: 50px;
+  justify-content: center;
+  gap: 8px;
+  font-size: 16px;
+  border-radius: var(--r-md);
+}
+
+/* ===== Detalle del pedido ===== */
+.od {
+  display: grid;
+  gap: var(--e4);
+}
+.od-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+.od-head h2 {
+  margin: 2px 0 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+.od-block {
+  display: grid;
+  gap: 6px;
+  padding: var(--e3) var(--e4);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+  border: 1px solid var(--borde);
+}
+.od-block h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.od-block p {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.od-block p svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--tinta-2);
+}
+.od-notes {
+  font-style: italic;
+  color: var(--tinta-2);
+}
+.od-items {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.od-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  background: var(--tarjeta);
+}
+.od-item + .od-item {
+  border-top: 1px solid var(--borde);
+}
+.od-item-name strong {
+  display: block;
+  font-size: 15px;
+}
+.od-item-name small {
+  color: var(--tinta-2);
+  font-size: 12.5px;
+}
+.od-item-num {
+  text-align: right;
+  white-space: nowrap;
+}
+.od-item-num strong {
+  font-size: 17px;
+}
+.od-item-num small {
+  display: block;
+  color: var(--tinta-2);
+}
+.od-pending {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 700;
+  color: #b06a00;
+}
+.od-totals {
+  display: grid;
+  gap: 2px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--borde);
+}
+.od-totals > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: var(--e3) var(--e4);
+  background: var(--tarjeta);
+}
+.od-totals dt {
+  font-size: 14px;
+  color: var(--tinta-2);
+}
+.od-totals dd {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+}
+.od-total-owed {
+  background: var(--oscuro) !important;
+  color: #fff;
+}
+.od-total-owed dt {
+  color: #ffffffb3;
+  font-weight: 600;
+}
+.od-total-owed dd {
+  font-size: 22px;
+}
+.od-total-owed .red {
+  color: #ff9d92;
+}
+.od-total-owed .green {
+  color: #8fe0ac;
+}
+.od-actions {
+  display: grid;
+  gap: var(--e2);
+}
+.od-actions > button,
+.od-actions > .secondary,
+.od-actions .remito-actions button {
+  width: 100%;
+  min-height: 50px;
+  justify-content: center;
+  border-radius: var(--r-md);
+  font-size: 15px;
+}
+.od-actions .primary {
+  order: -1;
+}
+.od-actions .od-delete {
+  min-height: 44px;
+  color: var(--rojo);
+}
+@media (min-width: 620px) {
+  .od-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  .od-actions .primary,
+  .od-actions .od-delete {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ===== Diálogo a pantalla completa en el celular ===== */
+@media (max-width: 760px) {
+  dialog.sheet-dialog,
+  dialog.wide-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    padding: calc(var(--e5) + var(--safe-t)) var(--e4)
+      calc(var(--e6) + var(--safe-b));
+  }
+}
+
+/* ===== Piezas comunes más cómodas al tacto ===== */
+@media (max-width: 900px) {
+  button,
+  .primary,
+  .secondary,
+  .link-button,
+  select,
+  input[type="date"],
+  input[type="search"],
+  input[type="text"],
+  input[type="number"],
+  input[type="tel"] {
+    font-size: 16px;
+  }
+  .primary,
+  .secondary {
+    min-height: 48px;
+  }
+}
+
+/* Arreglos finos del rediseño */
+.hero-metric {
+  display: grid;
+  gap: 2px;
+}
+.hero-metric strong {
+  display: block;
+}
+.hero-metric span {
+  display: block;
+}
+/* La X de los diálogos nunca encima del contenido */
+.od-head {
+  padding-right: 44px;
+}
+.wallet h2,
+.order-edit h2 {
+  padding-right: 36px;
+}

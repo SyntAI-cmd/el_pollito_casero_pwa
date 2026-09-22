@@ -1,12 +1,10 @@
 import React from "react";
 import {
   ArrowRight,
-  Navigation,
   MessageCircle,
   MapPin,
   Package,
   Wallet,
-  Map as MapIcon,
   Clock,
   Store,
   Scale,
@@ -29,23 +27,9 @@ import RemitoActions from "./RemitoActions.jsx";
 import { methodNames } from "../lib/photo.js";
 import { Tags, Trash2, Pencil } from "lucide-react";
 
-const mapsLink = (o) =>
-  o.destination
-    ? `https://www.google.com/maps/dir/?api=1&destination=${o.destination.lat},${o.destination.lng}&travelmode=driving`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${o.address}, ${o.locality?.name || ""}, Mendoza, Argentina`)}&travelmode=driving`;
-
 /** Tarjeta operativa de un pedido, con acciones según el rol (admin o repartidor). */
 export default function OrderCard({ order: o, role, onClose }) {
-  const {
-    config,
-    busy,
-    update,
-    setModal,
-    share,
-    sharing,
-    customers,
-    deleteOrder,
-  } = useStore();
+  const { config, busy, update, setModal, customers, deleteOrder } = useStore();
   const customer = customers.find((x) => x.phone === o.customer);
   const admin = role === "admin";
   const canWeigh =
@@ -103,11 +87,6 @@ export default function OrderCard({ order: o, role, onClose }) {
           </p>
           <p>
             <MapPin size={15} /> {o.address}, {localityText(o)}
-            {o.destination === undefined && o.status !== "cancelado" ? (
-              <em> · ubicando…</em>
-            ) : o.destination === null ? (
-              <em> · sin ubicar en el mapa</em>
-            ) : null}
           </p>
           {o.notes && <p className="notes">“{o.notes}”</p>}
         </div>
@@ -159,9 +138,6 @@ export default function OrderCard({ order: o, role, onClose }) {
             <p className="op-eta">
               <Clock size={15} />
               {o.departedAt ? `Salió ${timeText(o.departedAt)}` : ""}
-              {o.status === "en_camino" && o.eta
-                ? ` · llega aprox. ${new Date(o.eta.arrival).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} (${o.eta.km} km)`
-                : ""}
               {o.deliveredAt ? ` · entregado ${timeText(o.deliveredAt)}` : ""}
             </p>
           )}
@@ -257,26 +233,6 @@ export default function OrderCard({ order: o, role, onClose }) {
           )}
           {o.status === "en_camino" && (
             <>
-              {!admin && (
-                <button
-                  className={"secondary " + (sharing === o.id ? "sharing" : "")}
-                  onClick={() => share(o)}
-                  disabled={!!sharing && sharing !== o.id}
-                >
-                  <Navigation size={16} />
-                  {sharing === o.id
-                    ? "Compartiendo GPS · detener"
-                    : "Compartir mi GPS"}
-                </button>
-              )}
-              <a
-                className="secondary"
-                href={mapsLink(o)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <MapIcon size={16} /> Navegar
-              </a>
               <button
                 className="primary"
                 disabled={busy}

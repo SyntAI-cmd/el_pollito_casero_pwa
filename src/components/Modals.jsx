@@ -2,10 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { uploadReceipt, receiptsOf } from "../lib/photo.js";
 import { del } from "../lib/api.js";
 import Receipts from "./Receipts.jsx";
-import DeliveryPoint from "./DeliveryPoint.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
 import { FichaForm } from "../pages/Customers.jsx";
 import OrderEdit from "./OrderEdit.jsx";
+import OrderDetail from "./OrderDetail.jsx";
 import Saldos from "./Saldos.jsx";
 import { passkeyAvailable } from "../lib/auth.js";
 import {
@@ -131,7 +131,6 @@ function Checkout() {
           Con código de área, sin 0 ni 15. Con este número seguís tu pedido.
         </small>
       </label>
-      <DeliveryPoint known={known} />
       {(() => {
         const options = [
           canCredit && ["cuenta", "Cuenta corriente · cliente habitual"],
@@ -1410,7 +1409,7 @@ function Cancel({ order }) {
 }
 
 export default function Modals() {
-  const { modal, setModal, formError } = useStore();
+  const { modal, setModal, formError, session } = useStore();
   const dialog = useRef();
   useEffect(() => {
     if (modal) {
@@ -1430,7 +1429,9 @@ export default function Modals() {
             ? "wide-dialog"
             : type === "saldos"
               ? "wallet-dialog"
-              : ""
+              : type === "order-detail"
+                ? "sheet-dialog"
+                : ""
       }
       aria-label="Ventana de Pollito Casero"
       ref={dialog}
@@ -1479,6 +1480,8 @@ export default function Modals() {
         <Weights order={modal.order} />
       ) : type === "order-prices" ? (
         <OrderPrices order={modal.order} />
+      ) : type === "order-detail" ? (
+        <OrderDetail order={modal.order} role={session?.role} />
       ) : type === "edit-order" ? (
         <OrderEdit order={modal.order} />
       ) : type === "saldos" ? (

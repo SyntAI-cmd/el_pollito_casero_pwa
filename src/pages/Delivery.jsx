@@ -1,241 +1,245 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Truck,
-  LogOut,
   ShieldCheck,
-  Navigation,
-  Map,
-  Wallet,
   Package,
-  Tag,
-  Copy,
+  Wallet,
+  Scale,
+  ArrowRight,
+  MapPin,
+  FileText,
 } from "lucide-react";
-import { kgText, totalKg, money } from "../lib/format.js";
+import { kgText, totalKg, money, orderNumber, labels } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
-import { PageHead, EmptyState } from "../components/ui.jsx";
-import OrderCard from "../components/OrderCard.jsx";
+import { PageHead, EmptyState, StatusBadge } from "../components/ui.jsx";
 import News from "../components/News.jsx";
-// MVP: Flota apagada → sin "Compartir ubicación del camión".
-// import TruckLocation from "../components/TruckLocation.jsx";
 import UnreadBanner from "../components/UnreadBanner.jsx";
-import { mapsRouteLegs, copyText } from "../lib/maps.js";
 
-/** Vista del repartidor: solo sus entregas, con GPS, navegación, cobro y envases. */
+/** Cajas pedidas y kilos pesados de un pedido, para el resumen de la tarjeta. */
+const boxesOf = (o) => o.items.reduce((s, i) => s + (i.boxes || 0), 0);
+
+/**
+ * Mis entregas: la lista del día del preventista, pensada para el celular.
+ * La acción principal de cada tarjeta es "Ver pedido": abre la ficha completa sin tocar nada.
+ */
 export default function Delivery() {
-  const {
-    session,
-    orders,
-    logout,
-    sharing,
-    live,
-    config,
-    customers,
-    setModal,
-    busy,
-    notify,
-    reload,
-  } = useStore();
-  // Datos frescos al entrar a Mis entregas (además del canal en vivo).
+  const { session, orders, live, customers, setModal, busy, reload } =
+    useStore();
+  const [filter, setFilter] = useState("pendientes");
   useEffect(() => {
     reload();
   }, [reload]);
-  const accounts = customers
-    .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
-    .sort(
-      (a, b) =>
-        (b.mine === true) - (a.mine === true) ||
-        (b.summary?.balance || 0) - (a.summary?.balance || 0),
-    );
+
   if (session?.role !== "repartidor" && session?.role !== "admin")
     return (
       <>
         <PageHead
           title="Mis entregas."
-          description="Acceso para repartidores de Pollito Casero."
+          description="Acceso para preventistas de Pollito Casero."
         />
         <EmptyState
           icon={ShieldCheck}
           title="Ingresá con tu usuario y contraseña"
-          to="/acceso"
+          to="/admin"
           action="Ir al acceso del equipo"
         />
       </>
     );
-  const mine = orders;
+
   const byZone = (a, b) =>
     (a.locality?.name || "").localeCompare(b.locality?.name || "") ||
-    a.created.localeCompare(b.created);
+    (a.number || 0) - (b.number || 0);
+  const mine = orders.filter((o) => o.status !== "cancelado");
   const ready = mine.filter((o) => o.status === "preparando").sort(byZone);
   const onRoute = mine.filter((o) => o.status === "en_camino").sort(byZone);
-  const routeStops = [...onRoute, ...ready];
-  const legs = mapsRouteLegs(routeStops, config?.origin);
-  const zones = [
-    ...new Set(routeStops.map((o) => o.locality?.name).filter(Boolean)),
-  ];
-  const done = mine.filter(
-    (o) =>
-      o.status === "entregado" &&
-      (Date.now() - new Date(o.created) < 2 * 86400000 || o.boxes > o.returned),
-  );
+  const pending = mine
+    .filter((o) => ["recibido", "preparando", "en_camino"].includes(o.status))
+    .sort(byZone);
+  const done = mine
+    .filter(
+      (o) =>
+        o.status === "entregado" &&
+        (Date.now() - new Date(o.created) < 2 * 86400000 ||
+          o.boxes > o.returned),
+    )
+    .sort(byZone);
+  const groups = {
+    pendientes: pending,
+    camino: onRoute,
+    entregadas: done,
+  };
+  const list = groups[filter] || pending;
+  const kgToday = pending.reduce((s, o) => s + totalKg(o), 0);
+  const cobrado = done
+    .filter((o) => o.paid)
+    .reduce((s, o) => s + (o.total || 0), 0);
+  const accounts = customers
+    .filter((c) => (c.summary?.balance || 0) > 0 || (c.summary?.boxes || 0) > 0)
+    .sort((a, b) => (b.summary?.balance || 0) - (a.summary?.balance || 0))
+    .slice(0, 6);
+
   return (
     <>
       <PageHead
         eyebrow="REPARTO"
-        title={`Hoy sale ${session.name}.`}
-        description="Tus entregas, en orden. Compartí tu GPS cuando salgas para que el cliente te vea llegar."
+        title={`Hola, ${session.name.split(" ")[0]}.`}
+        description="Tus entregas de hoy, en orden."
       >
         <div className="head-actions">
-          {/* <TruckLocation /> */}
           <span className={"live-indicator " + (live ? "on" : "")}>
             <i /> {live ? "En vivo" : "Reconectando…"}
           </span>
         </div>
       </PageHead>
       <UnreadBanner />
-      {sharing && (
-        <div className="notice sharing-notice">
-          <Navigation size={18} /> Estás compartiendo tu ubicación para el
-          pedido {sharing}. Se detiene al completar la entrega o al cerrar la
-          app.
-        </div>
-      )}
-      <News compact />
-      {routeStops.length > 0 && (
-        <div className="notice route-summary">
-          <Map size={18} />
+
+      <section className="hero-card" aria-label="Resumen del día">
+        <div className="hero-metric">
+          <small>Entregas pendientes</small>
+          <strong>{pending.length}</strong>
           <span>
-            {routeStops.length} {routeStops.length === 1 ? "parada" : "paradas"}
-            {zones.length ? ` · ${zones.join(" · ")}` : ""} ·{" "}
-            {kgText(routeStops.reduce((s, o) => s + totalKg(o), 0))}
+            {done.length} {done.length === 1 ? "entregada" : "entregadas"}
           </span>
-          {legs.map((leg) => (
-            <a
-              key={leg.from}
-              className="secondary route-link"
-              href={leg.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Navigation size={15} />{" "}
-              {legs.length === 1
-                ? "Ruta completa en Google Maps"
-                : `Tramo ${leg.from}–${leg.to} en Google Maps`}
-            </a>
-          ))}
-          {legs.length > 0 && (
-            <button
-              type="button"
-              className="link-button"
-              onClick={async () =>
-                notify(
-                  (await copyText(legs.map((l) => l.url).join(" ")))
-                    ? "Enlace de la ruta copiado: pegalo en WhatsApp o en Maps."
-                    : "No se pudo copiar: abrí la ruta y compartila desde Maps.",
-                )
-              }
-            >
-              <Copy size={14} /> Copiar enlace de la ruta
-            </button>
-          )}
         </div>
-      )}
-      {ready.length + onRoute.length + done.length === 0 ? (
+        <div className="hero-side">
+          <div>
+            <small>Kilos a repartir</small>
+            <b>{kgToday ? kgText(kgToday) : "A pesar"}</b>
+          </div>
+          <div>
+            <small>Cobrado hoy</small>
+            <b>{money(cobrado)}</b>
+          </div>
+        </div>
+      </section>
+
+      <div className="pill-filters" role="group" aria-label="Filtrar entregas">
+        {[
+          ["pendientes", "Para entregar", pending.length],
+          ["camino", "En camino", onRoute.length],
+          ["entregadas", "Entregadas", done.length],
+        ].map(([id, label, n]) => (
+          <button
+            key={id}
+            type="button"
+            className={"pill" + (filter === id ? " active" : "")}
+            aria-pressed={filter === id}
+            onClick={() => setFilter(id)}
+          >
+            {label} <span>{n}</span>
+          </button>
+        ))}
+      </div>
+
+      <News compact />
+
+      {list.length === 0 ? (
         <EmptyState
           icon={Truck}
-          title="Sin entregas asignadas"
-          text="Cuando administración te asigne un pedido va a aparecer acá al instante."
+          title={
+            filter === "entregadas"
+              ? "Todavía no entregaste pedidos"
+              : "Sin entregas por ahora"
+          }
+          text="Cuando administración te asigne un pedido aparece acá al instante."
         />
       ) : (
-        <div className="delivery-sections">
-          {onRoute.length > 0 && (
-            <section aria-labelledby="en-camino">
-              <h2 id="en-camino">En camino</h2>
-              {onRoute.map((o) => (
-                <OrderCard key={o.id} order={o} role={session.role} />
-              ))}
-            </section>
-          )}
-          {ready.length > 0 && (
-            <section aria-labelledby="para-salir">
-              <h2 id="para-salir">Listos para salir</h2>
-              {ready.map((o) => (
-                <OrderCard key={o.id} order={o} role={session.role} />
-              ))}
-            </section>
-          )}
-          {done.length > 0 && (
-            <section aria-labelledby="entregados">
-              <h2 id="entregados">Entregados</h2>
-              {done.map((o) => (
-                <OrderCard key={o.id} order={o} role={session.role} />
-              ))}
-            </section>
-          )}
-        </div>
+        <ul className="delivery-list">
+          {list.map((o) => {
+            const cajas = boxesOf(o);
+            return (
+              <li key={o.id} className={"delivery-card st-" + o.status}>
+                <div className="dc-top">
+                  <span className="dc-num">N° {orderNumber(o)}</span>
+                  <StatusBadge status={o.status} />
+                </div>
+                <h3>{o.name}</h3>
+                <p className="dc-where">
+                  <MapPin size={14} />
+                  {[o.zone || o.locality?.name, o.address]
+                    .filter(Boolean)
+                    .join(" · ") || "Sin dirección"}
+                </p>
+                <div className="dc-facts">
+                  <span>
+                    <Package size={14} />
+                    {cajas
+                      ? `${cajas} ${cajas === 1 ? "caja" : "cajas"}`
+                      : "Por kilo"}
+                  </span>
+                  <span>
+                    <Scale size={14} />
+                    {o.weighed ? kgText(totalKg(o)) : "A pesar"}
+                  </span>
+                  <span className={o.paid ? "green" : ""}>
+                    <Wallet size={14} />
+                    {o.noPricing
+                      ? "Sin precio"
+                      : o.weighed
+                        ? `${money(o.total)}${o.paid ? " · cobrado" : o.payment === "cuenta" ? " · a cuenta" : ""}`
+                        : "A pesar"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="primary full dc-open"
+                  disabled={busy}
+                  onClick={() => setModal({ type: "order-detail", order: o })}
+                >
+                  <FileText size={17} /> Ver pedido <ArrowRight size={16} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
-      <section
-        className="panel accounts-panel"
-        aria-labelledby="clientes-reparto"
-      >
-        <div className="section-line">
-          <h2 id="clientes-reparto">Clientes con saldo o envases</h2>
-          <span className="muted">Primero los de mi reparto</span>
-        </div>
-        {accounts.length === 0 ? (
-          <p className="muted">
-            Ningún cliente tuyo tiene saldo ni envases pendientes.
-          </p>
-        ) : (
+
+      {accounts.length > 0 && (
+        <section className="panel accounts-panel">
+          <div className="section-line">
+            <h2>Clientes con saldo o envases</h2>
+          </div>
           <ul className="accounts-list">
             {accounts.map((c) => (
               <li key={c.phone}>
                 <div>
                   <strong>{c.name}</strong>
                   <small>
-                    {c.address ? c.address + " · " : ""}
                     {c.summary.balance > 0
                       ? `Debe ${money(c.summary.balance)}`
-                      : "Sin saldo"}{" "}
-                    · {c.summary.boxes}{" "}
-                    {c.summary.boxes === 1 ? "envase" : "envases"}
+                      : "Sin saldo"}
+                    {c.summary.boxes
+                      ? ` · ${c.summary.boxes} ${c.summary.boxes === 1 ? "envase" : "envases"}`
+                      : ""}
                   </small>
                 </div>
                 <div className="accounts-actions">
                   <button
+                    type="button"
                     className="secondary small"
                     disabled={busy}
-                    onClick={() => setModal({ type: "prices", customer: c })}
+                    onClick={() => setModal({ type: "saldos", customer: c })}
                   >
-                    <Tag size={14} /> Precios
+                    <Wallet size={14} /> Saldos
                   </button>
-                  {c.summary.balance > 0 && (
-                    <button
-                      className="secondary small"
-                      disabled={busy}
-                      onClick={() =>
-                        setModal({ type: "account-payment", customer: c })
-                      }
-                    >
-                      <Wallet size={14} /> Cobrar
-                    </button>
-                  )}
                   {c.summary.boxes > 0 && (
                     <button
+                      type="button"
                       className="secondary small"
                       disabled={busy}
                       onClick={() =>
                         setModal({ type: "boxes-return", customer: c })
                       }
                     >
-                      <Package size={14} /> Recibir envases
+                      <Package size={14} /> Envases
                     </button>
                   )}
                 </div>
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
     </>
   );
 }
