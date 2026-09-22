@@ -2644,3 +2644,50 @@ dialog.wallet-dialog {
     grid-template-columns: 1fr;
   }
 }
+
+/* Cargar pedido: confirmación con precio y saldo / sin precio ni saldo */
+.qo-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(20, 18, 14, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+}
+.qo-confirm-box {
+  width: min(520px, 100%);
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.qo-confirm-box h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.qo-confirm-options {
+  display: grid;
+  gap: 10px;
+}
+.qo-confirm-options button {
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  min-height: 60px;
+  padding: 10px 16px;
+  font-size: 15px;
+}
+.qo-confirm-options button small {
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.85;
+}
+@media (min-width: 700px) {
+  .qo-confirm-backdrop {
+    align-items: center;
+  }
+}

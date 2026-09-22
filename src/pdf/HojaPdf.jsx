@@ -65,11 +65,12 @@ const s = StyleSheet.create({
     paddingBottom: 1,
   },
   table: { borderWidth: 1, borderColor: LINE },
+  // Filas altas: los preventistas anotan a mano (peso corregido, faltantes, cambios).
   tr: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: LINE,
-    minHeight: 15,
+    minHeight: 24,
   },
   th: {
     backgroundColor: "#eee",
@@ -149,7 +150,7 @@ const s = StyleSheet.create({
   },
 });
 
-const ROWS_PER_PAGE = 26;
+const ROWS_PER_PAGE = 20;
 
 function Header({ date, drivers, zone, vehicle, logo }) {
   return (
@@ -211,7 +212,9 @@ function Row({ o, c }) {
         </Text>
       </View>
       <View style={[s.td, s.cTotal, s.num]}>
-        <Text style={s.bold}>{o.noPricing ? "s/precio" : money(o.total)}</Text>
+        <Text style={s.bold}>
+          {o.noPricing ? "s/precio" : o.weighed ? money(o.total) : " "}
+        </Text>
       </View>
       <View style={[s.td, s.cBalance, s.num]}>
         <Text>{!o.noPricing && prev ? money(prev) : " "}</Text>
@@ -354,7 +357,7 @@ export function HojaDocument({
             </View>
             {last && (
               <>
-                <View style={s.foot}>
+                <View style={s.foot} wrap={false}>
                   <View>
                     <View style={s.summary}>
                       {[
@@ -363,6 +366,7 @@ export function HojaDocument({
                         ["Transferencias", ""],
                         ["Cheques", ""],
                         ["Saldo / cuenta corriente", ""],
+                        ["Gastos (combustible, peajes, otros)", ""],
                         ["Total rendido / justificado", ""],
                         ["Diferencia", "", false, true],
                       ].map(([label, value, grand, lastRow], i) => (
@@ -389,15 +393,15 @@ export function HojaDocument({
                     </View>
                     <Text style={s.note}>
                       Control: total pedido = efectivo + transferencia + cheque
-                      + saldo. El saldo de cajas se controla por separado y no
-                      integra el total monetario.
+                      + saldo + gastos (con comprobante). El saldo de cajas se
+                      controla por separado y no integra el total monetario.
                     </Text>
                   </View>
                   <View style={s.obs}>
                     <Text style={s.obsTitle}>Observaciones</Text>
                   </View>
                 </View>
-                <View style={s.sign}>
+                <View style={s.sign} wrap={false}>
                   <View style={s.signBox}>
                     <Text style={s.signText}>Firma repartidor</Text>
                   </View>
@@ -407,9 +411,13 @@ export function HojaDocument({
                 </View>
               </>
             )}
-            <Text style={s.pageNum}>
-              Hoja {pi + 1} de {pages.length}
-            </Text>
+            <Text
+              style={s.pageNum}
+              fixed
+              render={({ pageNumber, totalPages }) =>
+                `Hoja ${pageNumber} de ${totalPages}`
+              }
+            />
           </Page>
         );
       })}

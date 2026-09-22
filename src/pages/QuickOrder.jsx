@@ -80,6 +80,9 @@ export default function QuickOrder() {
   const [noPricing, setNoPricing] = useState(false);
   const [otherLabel, setOtherLabel] = useState("");
   const [created, setCreated] = useState(null);
+  // Antes de cargar se confirma cómo va el pedido: con precio y saldo, o sin precio ni saldo
+  // (cliente exclusivo: familiares, facturación propia). La ficha sugiere la opción.
+  const [confirming, setConfirming] = useState(false);
   const searchRef = useRef();
   const products = config?.products || [];
   const drivers = config?.drivers || [];
@@ -178,23 +181,28 @@ export default function QuickOrder() {
   const totalBoxes = items.reduce((s, r) => s + (r.boxes || 0), 0);
   const totalKg = items.reduce((s, r) => s + (r.kg || 0), 0);
   // Sin importe estimado: nada vale hasta pasar por la balanza.
-  const noPrice = noPricing
-    ? []
-    : items.filter((r) => !Number.isFinite(r.price) || r.price <= 0);
+  // Renglones sin precio propio: bloquean "con precio y saldo", no "sin precio ni saldo".
+  const missingPrice = items.filter(
+    (r) => !Number.isFinite(r.price) || r.price <= 0,
+  );
+  const noPrice = noPricing ? [] : missingPrice;
   const otroSinNombre = items.some(
     (r) => r.p.id === "otro" && otherLabel.trim().length < 2,
   );
   const canSubmit =
-    picked &&
-    items.length > 0 &&
-    !invalid.length &&
-    !noPrice.length &&
-    !otroSinNombre &&
-    !busy;
+    picked && items.length > 0 && !invalid.length && !otroSinNombre && !busy;
 
-  async function submit(e) {
+  function submit(e) {
     e?.preventDefault();
     if (!canSubmit) return;
+    setConfirming(true);
+  }
+  async function confirmAndSubmit(withoutPricing) {
+    setConfirming(false);
+    setNoPricing(withoutPricing);
+    if (!picked || !items.length || invalid.length || otroSinNombre) return;
+    if (!withoutPricing && missingPrice.length) return;
+    const noPricing = withoutPricing;
     // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
     const editedPrices = noPricing
       ? {}
@@ -267,6 +275,65 @@ export default function QuickOrder() {
           </button>
         </div>
       )}
+      {confirming && picked && (
+        <div
+          className="qo-confirm-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="qo-confirm-title"
+        >
+          <div className="qo-confirm-box">
+            <span className="eyebrow">ANTES DE CARGAR</span>
+            <h2 id="qo-confirm-title">¿Cómo va el pedido de {picked.name}?</h2>
+            <p className="muted">
+              {items.length} {items.length === 1 ? "renglón" : "renglones"} ·{" "}
+              {deliveryDate.split("-").reverse().join("/")}
+              {picked.noPricing
+                ? " · en la ficha figura como cliente exclusivo (sin precio ni saldo)"
+                : ""}
+            </p>
+            <div className="qo-confirm-options">
+              <button
+                type="button"
+                className={picked.noPricing ? "secondary" : "primary"}
+                disabled={busy || missingPrice.length > 0}
+                title={
+                  missingPrice.length
+                    ? "Falta el precio de algún producto"
+                    : "Precio del cliente y cuenta corriente"
+                }
+                onClick={() => confirmAndSubmit(false)}
+              >
+                Con precio y saldo
+                <small>
+                  {missingPrice.length
+                    ? "Falta precio de " +
+                      missingPrice.map((r) => r.p.name.toLowerCase()).join(", ")
+                    : "Remito con precios, total y saldo"}
+                </small>
+              </button>
+              <button
+                type="button"
+                className={picked.noPricing ? "primary" : "secondary"}
+                disabled={busy}
+                onClick={() => confirmAndSubmit(true)}
+              >
+                Sin precio ni saldo
+                <small>
+                  Cliente exclusivo: remito solo con kilos y detalle
+                </small>
+              </button>
+            </div>
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setConfirming(false)}
+            >
+              Volver
+            </button>
+          </div>
+        </div>
+      )}
       <form
         className="quick-order"
         onSubmit={submit}
@@ -318,6 +385,7 @@ export default function QuickOrder() {
                           {c.summary?.balance > 0
                             ? ` · debe ${money(c.summary.balance)}`
                             : ""}
+                          {c.noPricing ? " · sin precio ni saldo" : ""}
                           {c.status && c.status !== "ok"
                             ? ` · ${c.status}`
                             : ""}

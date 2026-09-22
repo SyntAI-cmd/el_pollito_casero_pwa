@@ -60,19 +60,21 @@ export function remitoData(o, c) {
     ? Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100
     : 0;
   const after = Math.round((previous + onAccount) * 100) / 100;
-  // El saldo anterior entra al cuerpo del remito como un renglón virtual (sin kilos ni precio
-  // unitario) y el TOTAL impreso es productos + saldo anterior: lo que el cliente debe con este
-  // remito. Con saldo a favor el renglón resta.
-  if (previous !== 0)
+  // Si el cliente DEBE, el saldo anterior entra al cuerpo del remito como un renglón virtual (sin
+  // kilos ni precio unitario) y el TOTAL impreso es productos + saldo anterior: lo que debe con este
+  // remito. Sin deuda (o con saldo a favor) el remito no menciona saldo.
+  const owes = previous > 0;
+  if (owes)
     lines.push({
       id: SALDO_ANTERIOR,
       virtual: true,
       kg: "",
-      detail: previous > 0 ? "Saldo anterior" : "Saldo a favor (anterior)",
+      detail: "Saldo anterior",
       unit: "",
       total: money(previous),
     });
-  const printedTotal = Math.round((o.total + previous) * 100) / 100;
+  const printedTotal =
+    Math.round((o.total + (owes ? previous : 0)) * 100) / 100;
   return {
     ...remitoHeader(o, c),
     lines,
@@ -83,8 +85,8 @@ export function remitoData(o, c) {
     /** Total impreso: productos + saldo anterior. */
     total: money(printedTotal),
     productsTotal: money(o.total),
-    /** Pie "SALDO": el saldo anterior (el mismo renglón virtual); el TOTAL ya lo incluye. */
-    saldo: previous !== 0 ? money(previous) : "",
+    /** Saldo anterior (solo deuda); el TOTAL ya lo incluye. El remito no lleva línea de saldo al pie. */
+    saldo: owes ? money(previous) : "",
     after: after !== 0 ? money(after) : "",
     previous: previous !== 0 ? money(previous) : "",
     balance:

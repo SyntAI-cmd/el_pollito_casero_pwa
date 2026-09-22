@@ -307,10 +307,6 @@ function Remito({ data: d, fiscal, logo, slot }) {
             <Text style={s.footLabel}>CAJAS ADEUDADAS:</Text>
             <Text style={s.footBox}>{d.owedBoxesText || " "}</Text>
           </View>
-          <View style={s.footLine}>
-            <Text style={s.footLabel}>SALDO:</Text>
-            <Text style={s.footBox}>{d.saldo || " "}</Text>
-          </View>
         </View>
         <Text style={s.totalLine}>TOTAL: {d.total || " "}</Text>
       </View>
