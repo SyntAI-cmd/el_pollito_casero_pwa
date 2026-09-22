@@ -31,17 +31,23 @@ const dmy = (o) => {
 /** Id del renglón virtual "Saldo anterior" (no es un producto: no toca stock ni pesada). */
 export const SALDO_ANTERIOR = "ITEM_SALDO_ANTERIOR";
 
-export function remitoData(o, c) {
-  // Cliente exclusivo (sin precio ni saldo): el remito lleva solo kilos y detalle.
+export function remitoData(
+  o,
+  c,
+  { hidePrices = false, hideBalance = false } = {},
+) {
+  // Cliente exclusivo (ficha o pedido): ni precios ni saldo. Las casillas de la impresión recortan
+  // una cosa u otra: "sin precios" conserva el saldo; "sin saldo" conserva los precios.
   const plain = !!o.noPricing;
+  const sinPrecios = plain || hidePrices;
   const lines = o.items
     .filter((i) => i.kg > 0 || i.boxes || i.ordered)
     .map((l) => ({
       kg: l.kg > 0 ? fmtKg(l.kg) : "",
       detail: `${l.name}${l.boxes ? ` · ${l.boxes} ${l.boxes === 1 ? "caja" : "cajas"}` : !l.kg && l.ordered ? ` · pedido ${fmtKg(l.ordered)} kg` : ""}`,
       // Renglón sin pesar (kg 0): sin precio ni importe hasta la balanza.
-      unit: plain || !(l.weighed || l.kg > 0) ? "" : money(l.price),
-      total: plain || !(l.weighed || l.kg > 0) ? "" : money(l.lineTotal),
+      unit: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.price),
+      total: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.lineTotal),
     }));
   if (plain)
     return {
@@ -63,7 +69,9 @@ export function remitoData(o, c) {
   // Si el cliente DEBE, el saldo anterior entra al cuerpo del remito como un renglón virtual (sin
   // kilos ni precio unitario) y el TOTAL impreso es productos + saldo anterior: lo que debe con este
   // remito. Sin deuda (o con saldo a favor) el remito no menciona saldo.
-  const owes = previous > 0;
+  const owes = previous > 0 && !hideBalance;
+  // Sin precios, el total impreso es solo el saldo adeudado: la mercadería va sin importes.
+  const goods = sinPrecios ? 0 : o.total;
   if (owes)
     lines.push({
       id: SALDO_ANTERIOR,
@@ -73,8 +81,7 @@ export function remitoData(o, c) {
       unit: "",
       total: money(previous),
     });
-  const printedTotal =
-    Math.round((o.total + (owes ? previous : 0)) * 100) / 100;
+  const printedTotal = Math.round((goods + (owes ? previous : 0)) * 100) / 100;
   return {
     ...remitoHeader(o, c),
     lines,
@@ -82,8 +89,8 @@ export function remitoData(o, c) {
     owedBoxesText: owedBoxes
       ? `${owedBoxes} ${owedBoxes === 1 ? "caja" : "cajas"}`
       : "",
-    /** Total impreso: productos + saldo anterior. */
-    total: money(printedTotal),
+    /** Total impreso: productos (si llevan precio) + saldo anterior. */
+    total: printedTotal ? money(printedTotal) : "",
     productsTotal: money(o.total),
     /** Saldo anterior (solo deuda); el TOTAL ya lo incluye. El remito no lleva línea de saldo al pie. */
     saldo: owes ? money(previous) : "",

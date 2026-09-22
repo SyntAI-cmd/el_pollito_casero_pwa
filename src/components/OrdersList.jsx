@@ -1,7 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, ChevronUp, Ticket } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
-import { Link } from "../lib/router.jsx";
 import { money, orderNumber, labels, orderShift } from "../lib/format.js";
 import { methodNames } from "../lib/photo.js";
 import OrderCard from "./OrderCard.jsx";
@@ -133,15 +132,6 @@ export default function OrdersList({ orders, role = "admin" }) {
                   />
                 </td>
                 <td className="row-actions">
-                  {role === "admin" && (
-                    <Link
-                      to={`/imprimir?tipo=tickets&pedido=${o.id}`}
-                      className="link-button small"
-                      title="Ticket de preparación (comandera)"
-                    >
-                      <Ticket size={13} /> Ticket
-                    </Link>
-                  )}
                   <button
                     type="button"
                     className="link-button small"

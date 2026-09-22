@@ -83,14 +83,26 @@ export async function hojaAction(
  * Blob del PDF de remitos: un solo original por pedido, cuatro por hoja A4 (2 × 2) con las
  * proporciones del talonario 10 × 15 cm. El respaldo queda en el sistema.
  */
-export async function remitoPdfBlob({ orders, customers, fiscal }) {
+export async function remitoPdfBlob({
+  orders,
+  customers,
+  fiscal,
+  hidePrices = false,
+  hideBalance = false,
+}) {
   if (!orders?.length) throw Error("No hay pedidos para el remito.");
   const [pdf, { RemitoDocument }] = await Promise.all([
     engine(),
     import("../pdf/RemitoPdf.jsx"),
   ]);
   return pdf(
-    createElement(RemitoDocument, { orders, customers, fiscal }),
+    createElement(RemitoDocument, {
+      orders,
+      customers,
+      fiscal,
+      hidePrices,
+      hideBalance,
+    }),
   ).toBlob();
 }
 

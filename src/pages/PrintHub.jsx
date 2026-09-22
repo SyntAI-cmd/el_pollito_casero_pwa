@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Printer, FileText, Truck, ClipboardList, Ticket } from "lucide-react";
+import { Printer, FileText, Truck, ClipboardList } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { orderShift } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
@@ -162,32 +162,6 @@ export default function PrintHub() {
             {!drivers.length && (
               <span className="muted">Sin pedidos asignados.</span>
             )}
-          </div>
-        </section>
-        <section className="panel">
-          <h2>
-            <Ticket size={17} /> Tickets
-          </h2>
-          <p className="muted">
-            Uno por pedido para la comandera (80 mm): cliente, zona, productos
-            con cajas o kilos, totales y línea de cargado.
-          </p>
-          <div className="actions-row">
-            <Link
-              to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=todos`}
-              className="primary"
-            >
-              <Printer size={15} /> Imprimir tickets
-            </Link>
-            {drivers.map((d) => (
-              <Link
-                key={d}
-                to={`/imprimir?tipo=tickets&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
-                className="link-button"
-              >
-                {d}
-              </Link>
-            ))}
           </div>
         </section>
         <section className="panel">

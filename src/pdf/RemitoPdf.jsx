@@ -325,6 +325,8 @@ export function RemitoDocument({
   customers = [],
   fiscal = {},
   logo = "/brand/logo-pollito.png",
+  hidePrices = false,
+  hideBalance = false,
 }) {
   const pages = [];
   for (let i = 0; i < orders.length; i += PER_PAGE)
@@ -349,6 +351,7 @@ export function RemitoDocument({
               data={remitoData(
                 o,
                 customers.find((c) => c.phone === o.customer),
+                { hidePrices, hideBalance },
               )}
               fiscal={fiscal}
               logo={logo}

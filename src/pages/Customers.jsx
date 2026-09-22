@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   UserPlus,
@@ -29,6 +29,12 @@ export const statusNames = {
 export default function Customers() {
   const { customers, config, setModal, busy, session } = useStore();
   const [q, setQ] = useState("");
+  // La búsqueda se aplica 250 ms después de dejar de tipear: con 150 fichas no traba la pantalla.
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(q), 250);
+    return () => clearTimeout(t);
+  }, [q]);
   const [zone, setZone] = useState("");
   const [shift, setShift] = useState("");
   const [truck, setTruck] = useState("");
@@ -38,7 +44,7 @@ export default function Customers() {
     [customers],
   );
   const drivers = config?.drivers || [];
-  const nq = normalize(q.trim());
+  const nq = normalize(query.trim());
   const list = customers
     .filter(
       (c) =>
@@ -152,7 +158,16 @@ export default function Customers() {
                 return (
                   <tr key={c.phone} className={"status-" + st}>
                     <td>
-                      <strong>{c.name}</strong>
+                      <button
+                        type="button"
+                        className="customer-name"
+                        title="Ver y cargar saldo y cajas"
+                        onClick={() =>
+                          setModal({ type: "saldos", customer: c })
+                        }
+                      >
+                        <strong>{c.name}</strong>
+                      </button>
                       {c.branch && <small className="pill">Sucursal</small>}
                       <br />
                       <small>
@@ -212,10 +227,17 @@ export default function Customers() {
                             : "")
                       }
                     >
-                      {money(Math.abs(c.summary.balance))}
-                      {c.summary.balance < 0 ? <small> a favor</small> : ""}
+                      {/* Sin deuda ni cajas: se lee de un vistazo que está al día. */}
+                      {c.summary.balance === 0 && c.summary.boxes === 0 ? (
+                        <span className="al-dia">Al día</span>
+                      ) : (
+                        <>
+                          {money(Math.abs(c.summary.balance))}
+                          {c.summary.balance < 0 ? <small> a favor</small> : ""}
+                        </>
+                      )}
                     </td>
-                    <td className="num">{c.summary.boxes}</td>
+                    <td className="num">{c.summary.boxes || ""}</td>
                     <td>
                       <span className={"status-pill " + st}>
                         {st !== "ok" && <AlertTriangle size={11} />}{" "}

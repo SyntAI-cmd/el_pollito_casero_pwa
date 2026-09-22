@@ -110,6 +110,28 @@ if (dbPath !== ":memory:") {
 }
 
 // Pedido de ejemplo para la demostración: visible en Operación y para el repartidor Franco.
+// RESET_DATOS: puesta a cero al arrancar, para empezar a usar la app en serio.
+//   pedidos[:fecha|todos] · saldos · admin:maxi,franco   (pasos separados por "+")
+// Escribe copias en DATA_DIR/backups/. Sacar la variable después.
+if (process.env.RESET_DATOS) {
+  try {
+    const { resetOrders, resetBalances, makeAdmin } =
+      await import("./scripts/reset.mjs");
+    const rlog = (m) => log.info("Reset:", m);
+    const dir = (process.env.DATA_DIR || "data").replace(/\/$/, "");
+    for (const step of process.env.RESET_DATOS.split("+")) {
+      const [name, value = ""] = step.split(":");
+      if (name === "pedidos")
+        resetOrders(store, { date: value || undefined, log: rlog, dir });
+      else if (name === "saldos") resetBalances(store, { log: rlog, dir });
+      else if (name === "admin")
+        makeAdmin(store, value.split(","), { log: rlog });
+    }
+  } catch (e) {
+    log.warn("Reset:", e.message);
+  }
+}
+
 // PRUEBA_DATOS=1 (o =borrar): carga o borra los 10 clientes/pedidos de prueba al arrancar
 // (para probar la app publicada sin entrar por SSH). Sacar la variable después.
 if (process.env.PRUEBA_DATOS) {

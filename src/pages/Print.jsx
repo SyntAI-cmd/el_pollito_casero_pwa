@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import { Printer, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { orderShift } from "../lib/format.js";
@@ -6,7 +6,6 @@ import { useRoute, Link } from "../lib/router.jsx";
 import { today } from "../lib/report.js";
 import { EmptyState, PageHead } from "../components/ui.jsx";
 import PdfPreview from "../components/PdfPreview.jsx";
-import Tickets from "../components/Tickets.jsx";
 import { pedidosPdfBlob, pedidosFileName, remitoPdfBlob } from "../lib/pdf.js";
 import { remitoFileName } from "../lib/remito.js";
 
@@ -30,12 +29,9 @@ export default function Print() {
   const fecha = query.get("fecha") || today();
   const repartidor = query.get("repartidor") || "";
   const turno = query.get("turno") || "";
-  const native = tipo === "tickets";
-  useEffect(() => {
-    if (!native) return;
-    document.body.classList.add("printing");
-    return () => document.body.classList.remove("printing");
-  }, [native]);
+  // Opciones de impresión del remito: sin precios o sin saldo (además del cliente exclusivo).
+  const [hidePrices, setHidePrices] = useState(false);
+  const [hideBalance, setHideBalance] = useState(false);
   if (session?.role !== "admin")
     return (
       <>
@@ -59,44 +55,6 @@ export default function Print() {
       <ArrowLeft size={15} /> Volver a Imprimir
     </Link>
   );
-  if (tipo === "tickets") {
-    const pedido = query.get("pedido");
-    const list = pedido
-      ? orders.filter((o) => o.id === pedido)
-      : orders
-          .filter(onDate)
-          .filter(
-            (o) =>
-              !repartidor || repartidor === "todos" || o.driver === repartidor,
-          )
-          .sort(
-            (a, b) =>
-              (a.driver || "").localeCompare(b.driver || "") ||
-              (a.number || 0) - (b.number || 0),
-          );
-    return (
-      <div className="print-page tickets-page">
-        <style>{"@page { size: 80mm auto; margin: 0; }"}</style>
-        <div className="print-toolbar no-print">
-          {back}
-          <span className="muted">
-            {list.length} {list.length === 1 ? "ticket" : "tickets"} · comandera
-            80 mm, blanco y negro
-          </span>
-          <button className="primary" onClick={() => window.print()}>
-            <Printer size={16} /> Imprimir
-          </button>
-        </div>
-        <Tickets orders={list} customers={customers} />
-      </div>
-    );
-  }
-  if (!loaded)
-    return (
-      <div className="print-page">
-        <p className="muted">Cargando pedidos…</p>
-      </div>
-    );
   if (tipo === "remito" || tipo === "remitos") {
     const list =
       tipo === "remito"
@@ -127,12 +85,18 @@ export default function Print() {
         ) : (
           <PdfPreview
             key={list.map((o) => o.id).join(",")}
-            deps={[list.map((o) => o.id + ":" + o.total).join(",")]}
+            deps={[
+              list.map((o) => o.id + ":" + o.total).join(","),
+              hidePrices,
+              hideBalance,
+            ]}
             generate={() =>
               remitoPdfBlob({
                 orders: list,
                 customers,
                 fiscal: config?.fiscal || {},
+                hidePrices,
+                hideBalance,
               })
             }
             fileName={remitoFileName(list, {
@@ -147,6 +111,24 @@ export default function Print() {
             summary={`${n} remito${n === 1 ? "" : "s"} · ${hojas} hoja${hojas === 1 ? "" : "s"} A4, 4 por hoja (10 × 15 cm), solo original`}
           >
             {back}
+            <span className="print-switches">
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={hidePrices}
+                  onChange={(e) => setHidePrices(e.target.checked)}
+                />{" "}
+                Ocultar precios
+              </label>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={hideBalance}
+                  onChange={(e) => setHideBalance(e.target.checked)}
+                />{" "}
+                Ocultar saldo
+              </label>
+            </span>
           </PdfPreview>
         )}
       </div>

@@ -42,6 +42,7 @@ import Login from "./pages/Login.jsx";
 import Operations from "./pages/Operations.jsx";
 import Customers from "./pages/Customers.jsx";
 import { PageHead } from "./components/ui.jsx";
+import { todayKey } from "./lib/day.js";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
@@ -432,9 +433,12 @@ function StaffShell({ Page, path }) {
         ["/reparto/pesada", "Pesaje", Scale],
         ["/reparto/clientes", "Clientes", Users],
       ];
-  // Pedidos abiertos (recibidos, en preparación y en camino): el mismo número que la tarjeta de Pedidos.
-  const received = orders.filter((o) =>
-    ["recibido", "preparando", "en_camino"].includes(o.status),
+  // Globo de Pedidos: abiertos de HOY (lo mismo que se ve al entrar, que arranca filtrado en hoy).
+  const hoy = todayKey();
+  const received = orders.filter(
+    (o) =>
+      ["recibido", "preparando", "en_camino"].includes(o.status) &&
+      (o.deliveryDate || (o.created || "").slice(0, 10)) === hoy,
   ).length;
   return (
     <div className="staff-app">

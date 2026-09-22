@@ -4,7 +4,12 @@ import { useStore } from "../lib/store.jsx";
 import { money, dateText } from "../lib/format.js";
 import { ledger } from "../lib/ledger.js";
 
-const parse = (v) => Number(String(v ?? "").trim().replace(",", "."));
+const parse = (v) =>
+  Number(
+    String(v ?? "")
+      .trim()
+      .replace(",", "."),
+  );
 
 /**
  * Saldos de un cliente, estilo billetera: saldo actual en grande, importe y dos acciones claras
@@ -12,7 +17,7 @@ const parse = (v) => Number(String(v ?? "").trim().replace(",", "."));
  * Cada carga queda como ajuste con fecha, autor y motivo.
  */
 export default function Saldos({ customer: c }) {
-  const { saveBalances, busy, setModal, orders } = useStore();
+  const { saveBalances, busy, setModal, orders, formError } = useStore();
   const current = c.summary || { balance: 0, boxes: 0 };
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -42,7 +47,14 @@ export default function Saldos({ customer: c }) {
       <h2>{c.name}</h2>
       <div className="wallet-balance">
         <small>Saldo actual</small>
-        <strong className={current.balance > 0 ? "red" : current.balance < 0 ? "green" : ""}>
+        {current.balance === 0 && !current.boxes && (
+          <span className="al-dia">Al día · sin deuda ni cajas</span>
+        )}
+        <strong
+          className={
+            current.balance > 0 ? "red" : current.balance < 0 ? "green" : ""
+          }
+        >
           {current.balance < 0
             ? `${money(-current.balance)} a favor`
             : money(current.balance || 0)}
@@ -73,6 +85,11 @@ export default function Saldos({ customer: c }) {
         placeholder="Motivo (opcional): saldo inicial, arreglo, cajas contadas…"
         aria-label="Motivo"
       />
+      {formError && (
+        <p className="form-error" role="alert">
+          {formError}
+        </p>
+      )}
       <div className="wallet-actions">
         <button
           type="button"
@@ -92,8 +109,8 @@ export default function Saldos({ customer: c }) {
         </button>
       </div>
       <p className="muted small">
-        Deuda: suma al saldo. Saldo a favor: resta (un pago, una nota de crédito o
-        un saldo inicial a favor). Los cobros de pedidos se registran desde el
+        Deuda: suma al saldo. Saldo a favor: resta (un pago, una nota de crédito
+        o un saldo inicial a favor). Los cobros de pedidos se registran desde el
         pedido, no acá.
       </p>
       <section className="wallet-moves">
@@ -148,7 +165,11 @@ export default function Saldos({ customer: c }) {
           </button>
         </div>
       </section>
-      <button type="button" className="link-button" onClick={() => setModal(null)}>
+      <button
+        type="button"
+        className="link-button"
+        onClick={() => setModal(null)}
+      >
         Cerrar
       </button>
     </div>

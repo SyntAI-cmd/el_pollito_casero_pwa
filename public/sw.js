@@ -8,13 +8,49 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter((k) => k !== CACHE && k !== "pollito-datos")
+            .map((k) => caches.delete(k)),
+        ),
+      )
       .then(() => self.clients.claim()),
   ),
 );
+// Datos que se consultan a diario: se responde con la red y se guarda una copia; si no hay señal,
+// la app abre con lo último que se vio (pedidos, clientes, configuración y la nota del día).
+const API_CACHE = "pollito-datos";
+const OFFLINE_API = /^\/api\/(config|orders|customers|dia|salidas)(\?|$)/;
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
+  if (event.request.method !== "GET" || url.origin !== location.origin) return;
+  if (url.pathname.startsWith("/api/")) {
+    if (!OFFLINE_API.test(url.pathname + url.search)) return;
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(API_CACHE).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches
+            .match(event.request)
+            .then(
+              (hit) =>
+                hit ||
+                new Response(JSON.stringify({ error: "Sin conexión." }), {
+                  status: 503,
+                  headers: { "Content-Type": "application/json" },
+                }),
+            ),
+        ),
+    );
+    return;
+  }
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).catch(() => caches.match("/")));
     return;
