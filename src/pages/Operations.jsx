@@ -10,6 +10,7 @@ import {
   Package,
   Truck,
   Printer,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
@@ -43,6 +44,7 @@ export default function Operations() {
     }[path] || "pedidos";
   // Filtros del tablero en la URL: se comparten y sobreviven al botón atrás.
   const [showAll, setShowAll] = useState(query.get("todo") === "1");
+  const [showFilters, setShowFilters] = useState(false);
   const [search, setSearch] = useState(query.get("q") || "");
   const [driverFilter, setDriverFilter] = useState(query.get("rep") || "");
   // Fecha de reparto (hoy por defecto; vacío = todas) y turno.
@@ -95,6 +97,11 @@ export default function Operations() {
   // Turno del pedido; si no tiene, el habitual de la ficha del cliente.
   const shiftOf = (o) => orderShift(o, customers);
   // Pedidos abiertos que quedan fuera de la fecha elegida (p. ej. cargados para mañana).
+  const activeFilters =
+    (dateFilter && dateFilter !== todayKey() ? 1 : 0) +
+    (shiftFilter ? 1 : 0) +
+    (driverFilter ? 1 : 0) +
+    (showAll ? 1 : 0);
   const otherDates = dateFilter
     ? Object.entries(
         orders
@@ -170,7 +177,7 @@ export default function Operations() {
         </div>
       </PageHead>
       {tab === "pedidos" && (
-        <div className="stats">
+        <div className="stats stats-strip">
           <div>
             <ClipboardList size={18} />
             <strong>{totals.open}</strong>
@@ -204,58 +211,73 @@ export default function Operations() {
               placeholder="Buscar pedido, cliente, teléfono o dirección…"
               aria-label="Buscar pedidos"
             />
-            <span className="date-filter">
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                aria-label="Fecha de reparto"
-              />
-              {dateFilter && dateFilter !== todayKey() && (
+            <button
+              type="button"
+              className={
+                "secondary filters-toggle" + (activeFilters ? " on" : "")
+              }
+              aria-expanded={showFilters}
+              onClick={() => setShowFilters((v) => !v)}
+            >
+              <SlidersHorizontal size={15} /> Filtros
+              {activeFilters ? <b>{activeFilters}</b> : null}
+            </button>
+            <div className={"filters-panel" + (showFilters ? " open" : "")}>
+              <span className="date-filter">
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  aria-label="Fecha de reparto"
+                />
+                {dateFilter && dateFilter !== todayKey() && (
+                  <button
+                    type="button"
+                    className="link-button small"
+                    onClick={() => setDateFilter(todayKey())}
+                  >
+                    Hoy
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="link-button small"
-                  onClick={() => setDateFilter(todayKey())}
+                  className={
+                    "link-button small" + (dateFilter ? "" : " active")
+                  }
+                  onClick={() => setDateFilter(dateFilter ? "" : todayKey())}
+                  title="Ver todas las fechas"
                 >
-                  Hoy
+                  {dateFilter ? "Todas las fechas" : "Solo hoy"}
                 </button>
-              )}
-              <button
-                type="button"
-                className={"link-button small" + (dateFilter ? "" : " active")}
-                onClick={() => setDateFilter(dateFilter ? "" : todayKey())}
-                title="Ver todas las fechas"
+              </span>
+              <select
+                value={shiftFilter}
+                onChange={(e) => setShiftFilter(e.target.value)}
+                aria-label="Filtrar por turno"
               >
-                {dateFilter ? "Todas las fechas" : "Solo hoy"}
-              </button>
-            </span>
-            <select
-              value={shiftFilter}
-              onChange={(e) => setShiftFilter(e.target.value)}
-              aria-label="Filtrar por turno"
-            >
-              <option value="">Mañana y tarde</option>
-              <option value="manana">Turno mañana</option>
-              <option value="tarde">Turno tarde</option>
-            </select>
-            <select
-              value={driverFilter}
-              onChange={(e) => setDriverFilter(e.target.value)}
-              aria-label="Filtrar por repartidor"
-            >
-              <option value="">Todos los preventistas</option>
-              {drivers.map((d) => (
-                <option key={d}>{d}</option>
-              ))}
-            </select>
-            <label className="toggle">
-              <input
-                type="checkbox"
-                checked={showAll}
-                onChange={(e) => setShowAll(e.target.checked)}
-              />{" "}
-              Ver entregados y anteriores
-            </label>
+                <option value="">Mañana y tarde</option>
+                <option value="manana">Turno mañana</option>
+                <option value="tarde">Turno tarde</option>
+              </select>
+              <select
+                value={driverFilter}
+                onChange={(e) => setDriverFilter(e.target.value)}
+                aria-label="Filtrar por repartidor"
+              >
+                <option value="">Todos los preventistas</option>
+                {drivers.map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+              </select>
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={showAll}
+                  onChange={(e) => setShowAll(e.target.checked)}
+                />{" "}
+                Ver entregados y anteriores
+              </label>
+            </div>
           </div>
         </div>
       )}

@@ -12,6 +12,23 @@ export default function Access() {
   const inside = session && session.role !== "cliente";
   return (
     <div className="staff-login">
+      {/* Bienvenida: el video es decorativo, va mudo, en bucle y detrás de nada que haya que leer.
+          Si el navegador no reproduce webm (iPhone), queda la foto de portada. */}
+      <div className="access-hero" aria-hidden="true">
+        <video
+          className="access-video"
+          poster="/brand/acceso.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          disablePictureInPicture
+        >
+          <source src="/brand/acceso.webm" type="video/webm" />
+        </video>
+        <span className="access-hero-tint" />
+      </div>
       <div className="staff-card">
         <img
           className="staff-logo"

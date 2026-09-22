@@ -5,11 +5,13 @@ import {
   Tags,
   Tag,
   FileText,
+  SlidersHorizontal,
   Wallet,
   AlertTriangle,
   MessageCircle,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { useIsMobile } from "../lib/media.js";
 import ImportCustomers from "../components/ImportCustomers.jsx";
 import { money, normalize, waLink } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
@@ -39,6 +41,9 @@ export default function Customers() {
   const [shift, setShift] = useState("");
   const [truck, setTruck] = useState("");
   const [status, setStatus] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const activeFilters = [zone, shift, truck, status].filter(Boolean).length;
+  const mobile = useIsMobile();
   const zones = useMemo(
     () => [...new Set(customers.map((c) => c.zone).filter(Boolean))].sort(),
     [customers],
@@ -75,7 +80,7 @@ export default function Customers() {
         </span>
       </div>
       <div className="board-filters customers-filters">
-        <div className="search-field">
+        <div className="search-field wide">
           <Search size={16} />
           <input
             type="search"
@@ -85,47 +90,72 @@ export default function Customers() {
             aria-label="Buscar clientes"
           />
         </div>
-        <select
-          value={zone}
-          onChange={(e) => setZone(e.target.value)}
-          aria-label="Zona"
+        <button
+          type="button"
+          className={"secondary filters-toggle" + (activeFilters ? " on" : "")}
+          aria-expanded={showFilters}
+          onClick={() => setShowFilters((v) => !v)}
         >
-          <option value="">Todas las zonas</option>
-          {zones.map((z) => (
-            <option key={z}>{z}</option>
-          ))}
-        </select>
-        <select
-          value={shift}
-          onChange={(e) => setShift(e.target.value)}
-          aria-label="Turno"
-        >
-          <option value="">Mañana y tarde</option>
-          <option value="manana">Mañana</option>
-          <option value="tarde">Tarde</option>
-        </select>
-        <select
-          value={truck}
-          onChange={(e) => setTruck(e.target.value)}
-          aria-label="Preventista"
-        >
-          <option value="">Todos los preventistas</option>
-          {drivers.map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          aria-label="Estado"
-        >
-          <option value="">Todos los estados</option>
-          {Object.entries(statusNames).map(([v, n]) => (
-            <option key={v} value={v}>
-              {n}
-            </option>
-          ))}
-        </select>
+          <SlidersHorizontal size={15} /> Filtros
+          {activeFilters ? <b>{activeFilters}</b> : null}
+        </button>
+        <div className={"filters-panel" + (showFilters ? " open" : "")}>
+          <select
+            value={zone}
+            onChange={(e) => setZone(e.target.value)}
+            aria-label="Zona"
+          >
+            <option value="">Todas las zonas</option>
+            {zones.map((z) => (
+              <option key={z}>{z}</option>
+            ))}
+          </select>
+          <select
+            value={shift}
+            onChange={(e) => setShift(e.target.value)}
+            aria-label="Turno"
+          >
+            <option value="">Mañana y tarde</option>
+            <option value="manana">Mañana</option>
+            <option value="tarde">Tarde</option>
+          </select>
+          <select
+            value={truck}
+            onChange={(e) => setTruck(e.target.value)}
+            aria-label="Preventista"
+          >
+            <option value="">Todos los preventistas</option>
+            {drivers.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Estado"
+          >
+            <option value="">Todos los estados</option>
+            {Object.entries(statusNames).map(([v, n]) => (
+              <option key={v} value={v}>
+                {n}
+              </option>
+            ))}
+          </select>
+          {activeFilters > 0 && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setZone("");
+                setShift("");
+                setTruck("");
+                setStatus("");
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
         <button
           className="primary"
           onClick={() => setModal({ type: "new-customer" })}
@@ -136,6 +166,71 @@ export default function Customers() {
       </div>
       {list.length === 0 ? (
         <p className="muted">Ningún cliente coincide con el filtro.</p>
+      ) : mobile ? (
+        <ul className="customer-cards">
+          {list.map((c) => {
+            const st = c.status || "ok";
+            const alDia = c.summary.balance === 0 && c.summary.boxes === 0;
+            return (
+              <li key={c.phone} className={"customer-card status-" + st}>
+                <div className="cc-top">
+                  <h3>{c.name}</h3>
+                  {alDia ? (
+                    <span className="al-dia">Al día</span>
+                  ) : (
+                    <strong className={c.summary.balance > 0 ? "red" : "green"}>
+                      {c.summary.balance === 0
+                        ? "—"
+                        : c.summary.balance > 0
+                          ? money(c.summary.balance)
+                          : `${money(-c.summary.balance)} a favor`}
+                    </strong>
+                  )}
+                </div>
+                <p className="cc-meta">
+                  {[
+                    c.zone,
+                    shiftNames[c.shift || ""] !== "—"
+                      ? shiftNames[c.shift || ""]
+                      : null,
+                    c.truck || c.driver,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Sin zona"}
+                  {c.summary.boxes
+                    ? ` · ${c.summary.boxes} ${c.summary.boxes === 1 ? "envase" : "envases"}`
+                    : ""}
+                </p>
+                {st !== "ok" && (
+                  <span className={"status-pill " + st}>{statusNames[st]}</span>
+                )}
+                <div className="cc-actions">
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setModal({ type: "saldos", customer: c })}
+                  >
+                    <Wallet size={15} /> Saldos
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setModal({ type: "ficha", customer: c })}
+                  >
+                    <FileText size={15} /> Ficha
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setModal({ type: "prices", customer: c })}
+                  >
+                    <Tag size={15} /> Precios
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="table-scroll">
           <table className="customers gc-customers">

@@ -598,3 +598,404 @@
 .order-edit h2 {
   padding-right: 36px;
 }
+
+/* Pedidos en tarjetas (celular) */
+.orders-cards .dc-driver {
+  margin: 0;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+.dc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+}
+.dc-row .dc-open {
+  flex: 1;
+}
+.dc-loaded {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 0 var(--e3);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dc-loaded input {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--verde);
+}
+
+/* ===== Clientes en tarjetas (celular) y filtros plegables ===== */
+.customer-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e3);
+}
+.customer-card {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  padding: var(--e4);
+  box-shadow: var(--sombra-1);
+  display: grid;
+  gap: var(--e2);
+}
+.cc-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+.cc-top h3 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.cc-top strong {
+  font-size: 16px;
+  white-space: nowrap;
+}
+.cc-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--tinta-2);
+}
+.cc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--e2);
+}
+.cc-actions .primary {
+  grid-column: 1 / -1;
+}
+.cc-actions button {
+  min-height: 46px;
+  justify-content: center;
+  border-radius: var(--r-md);
+}
+.filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.filters-toggle b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: var(--rojo);
+  color: #fff;
+  font-size: 11px;
+}
+.filters-panel {
+  display: contents;
+}
+@media (max-width: 760px) {
+  .filters-panel {
+    display: none;
+    width: 100%;
+    gap: var(--e2);
+  }
+  .filters-panel.open {
+    display: grid;
+  }
+  .board-filters .search-field.wide {
+    width: 100%;
+  }
+  .board-filters .search-field.wide input {
+    width: 100%;
+  }
+}
+@media (min-width: 761px) {
+  .filters-toggle {
+    display: none;
+  }
+}
+
+/* Pedidos: tarjetas de resumen compactas en el celular */
+@media (max-width: 760px) {
+  .stats-strip {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--e2) !important;
+    margin-bottom: var(--e3);
+  }
+  .stats-strip > div {
+    padding: var(--e3) !important;
+    border-radius: var(--r-md);
+    gap: 2px;
+  }
+  .stats-strip strong {
+    font-size: 19px;
+  }
+  .stats-strip span {
+    font-size: 11px;
+  }
+  .stats-strip svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ===== Pesaje: contexto siempre visible y estado de guardado ===== */
+.weigh-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  margin-bottom: var(--e2);
+  padding: var(--e3) var(--e4);
+  border-radius: var(--r-md);
+  background: var(--oscuro);
+  color: var(--oscuro-texto);
+}
+.weigh-context small {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--oscuro-apagado);
+}
+.weigh-context strong {
+  font-size: 16px;
+  line-height: 1.2;
+}
+.weigh-context-right {
+  text-align: right;
+}
+.weigh-sync {
+  margin: 0 0 var(--e3);
+  font-size: 12.5px;
+}
+.weigh-sync .sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-weight: 600;
+}
+.weigh-sync .guardado {
+  background: var(--verde-claro);
+  color: var(--verde);
+}
+.weigh-sync .pendiente {
+  background: #fff2e4;
+  color: #a05000;
+}
+
+/* ===== Equipo en tarjetas (celular) ===== */
+.team-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--e3);
+}
+.team-card {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  padding: var(--e4);
+  box-shadow: var(--sombra-1);
+  display: grid;
+  gap: 6px;
+}
+.team-card.inactive {
+  opacity: 0.65;
+}
+.tc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+}
+.tc-top h3 {
+  margin: 0;
+  font-size: 17px;
+}
+.team-card .full,
+.secondary.full {
+  width: 100%;
+  min-height: 46px;
+  justify-content: center;
+  border-radius: var(--r-md);
+}
+
+/* ===== Ingreso: bienvenida con video corto (decorativo) ===== */
+.staff-login {
+  position: relative;
+  /* La columna define el ancho: así el 100% de la tarjeta es el de la pantalla, no el máximo. */
+  grid-template-columns: min(440px, 100%);
+  justify-content: center;
+}
+.access-hero {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 46vh;
+  min-height: 220px;
+  max-height: 420px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.access-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.access-hero-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    #1a151366 0%,
+    #1a151399 55%,
+    var(--fondo) 100%
+  );
+}
+.staff-login {
+  align-content: start;
+  justify-items: center;
+  padding: 0 var(--e4) calc(var(--e6) + var(--safe-b));
+  background: var(--fondo) !important;
+}
+.staff-login .staff-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-top: 26vh;
+  box-shadow: var(--sombra-2);
+  border: 1px solid var(--borde);
+}
+/* Quien pidió menos movimiento ve solo la foto */
+@media (prefers-reduced-motion: reduce) {
+  .access-video {
+    display: none;
+  }
+  .access-hero {
+    background: url("/brand/acceso.jpg") center/cover;
+  }
+}
+@media (max-width: 480px) {
+  .access-hero {
+    height: 34vh;
+  }
+  .staff-login .staff-card {
+    margin-top: 20vh;
+    padding: var(--e5) var(--e4);
+  }
+  .staff-logo {
+    width: min(220px, 80%);
+  }
+}
+
+/* Texto largo (usuarios de demostración, direcciones) sin empujar la pantalla */
+.staff-note,
+.staff-note code {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.staff-note {
+  display: block;
+}
+
+/* ===== Que ninguna grilla se estire por su contenido más ancho ===== */
+/* (una tabla adentro de una grilla agranda la columna y desborda la pantalla) */
+.team,
+.print-hub-grid,
+.quick-order,
+.delivery-sections,
+.tracking-grid,
+.board {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .print-hub-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+.panel,
+.table-scroll,
+.staff-main > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ===== Todo lo que se toca, cómodo (mínimo 44-48 px) ===== */
+@media (max-width: 900px) {
+  .link-button,
+  .secondary.small,
+  .link-button.small,
+  button.small,
+  .pill,
+  .chip {
+    min-height: 44px;
+  }
+  .link-button.small,
+  .secondary.small,
+  button.small {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+  .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Pastillas del pesaje y campos de la carga: cómodos al tacto */
+@media (max-width: 900px) {
+  .weigh-filters .pill {
+    min-height: 44px;
+  }
+  .qo-table input,
+  .qo-table select,
+  .edit-table input,
+  .print-hub select,
+  .hub-route select,
+  .board-filters select,
+  .board-filters input,
+  .ficha-form input,
+  .ficha-form select,
+  .team-form input,
+  .team-form select {
+    min-height: 44px;
+  }
+  /* La tabla de usuarios se desplaza dentro de su caja, sin mover la pantalla */
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Regla general: en el celular, todo campo se toca cómodo (48 px de alto) */
+@media (max-width: 900px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 48px;
+  }
+  .search-field input,
+  .qo-grid select,
+  .qo-grid input,
+  .quick-order select,
+  .quick-order input:not([type="checkbox"]) {
+    min-height: 48px;
+  }
+}

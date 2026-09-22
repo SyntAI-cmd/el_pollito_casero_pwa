@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Scale,
   Check,
@@ -55,6 +55,7 @@ export default function Weighing() {
   // una recarga por error no pierde el filtro.
   const [shift, setShift] = useState(query.get("turno") || "");
   const [grossFocus, setGrossFocus] = useState(false);
+  const saving = useRef(false);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     params.set("fecha", date);
@@ -141,7 +142,11 @@ export default function Weighing() {
   }, [done]);
 
   async function confirm() {
+    // Un toque = una pesada: mientras se está guardando, los demás toques se ignoran.
+    if (saving.current) return;
     if (!order || !product || !Number.isFinite(g) || net <= 0) return;
+    saving.current = true;
+    setTimeout(() => (saving.current = false), 600);
     const id = crypto.randomUUID();
     const count = nBoxes;
     const each = Math.round((net / count) * 100) / 100;
@@ -362,6 +367,28 @@ export default function Weighing() {
 
       {order && (
         <section className="weigh-panel">
+          <div className="weigh-context">
+            <div>
+              <small>Pedido N° {orderNumber(order)}</small>
+              <strong>{order.name}</strong>
+            </div>
+            <div className="weigh-context-right">
+              <small>Producto</small>
+              <strong>{item ? item.name : "Elegí uno"}</strong>
+            </div>
+          </div>
+          <p className="weigh-sync">
+            {queued > 0 ? (
+              <span className="sync pendiente">
+                <WifiOff size={14} /> {queued} pesada{queued === 1 ? "" : "s"}{" "}
+                pendiente{queued === 1 ? "" : "s"} de sincronizar
+              </span>
+            ) : (
+              <span className="sync guardado">
+                <Check size={14} /> Todo guardado en el servidor
+              </span>
+            )}
+          </p>
           <div
             className="weigh-products"
             role="tablist"

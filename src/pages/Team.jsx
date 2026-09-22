@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { UserPlus, KeyRound, ShieldCheck, Truck, Check } from "lucide-react";
 import { api, post, patch } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
+import { useIsMobile } from "../lib/media.js";
 import { dateText, timeText } from "../lib/format.js";
 import { shiftNames } from "./Customers.jsx";
 import Vehicles from "../components/Vehicles.jsx";
@@ -106,6 +107,7 @@ function DriverForm({ d, onDone, saveDriver, busy }) {
 
 /** Camiones / preventistas: quién reparte, con qué zonas y turno. */
 function Drivers() {
+  const mobile = useIsMobile();
   const { config, saveDriver, busy, customers } = useStore();
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
@@ -135,74 +137,129 @@ function Drivers() {
           busy={busy}
         />
       )}
-      <div className="table-scroll">
-        <table className="customers drivers-table">
-          <thead>
-            <tr>
-              <th>Nombre</th>
-              <th>WhatsApp</th>
-              <th>CUIT</th>
-              <th>Turno</th>
-              <th>Zonas</th>
-              <th>Clientes</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((d) =>
-              editing === d.name ? (
-                <tr key={d.name}>
-                  <td colSpan="8">
-                    <strong>{d.name}</strong>
-                    <DriverForm
-                      d={d}
-                      onDone={() => setEditing(null)}
-                      saveDriver={saveDriver}
-                      busy={busy}
-                    />
-                  </td>
-                </tr>
-              ) : (
-                <tr key={d.name} className={d.active ? "" : "inactive"}>
-                  <td>
-                    <strong>{d.name}</strong>
-                  </td>
-                  <td>{d.phone ? d.phone.replace(/^549/, "") : "—"}</td>
-                  <td>{d.cuit || <span className="muted">pendiente</span>}</td>
-                  <td>
-                    {shiftNames[d.shift || ""] === "—"
-                      ? "Ambos"
-                      : shiftNames[d.shift]}
-                  </td>
-                  <td>
-                    {d.zones.length ? (
-                      d.zones.join(", ")
-                    ) : (
-                      <span className="muted">sin zonas</span>
-                    )}
-                  </td>
-                  <td>
-                    {
-                      customers.filter((c) => (c.truck || c.driver) === d.name)
-                        .length
-                    }
-                  </td>
-                  <td>{d.active ? "Activo" : "Inactivo"}</td>
-                  <td>
-                    <button
-                      className="secondary small"
-                      onClick={() => setEditing(d.name)}
-                    >
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ),
-            )}
-          </tbody>
-        </table>
-      </div>
+      {mobile ? (
+        <ul className="team-cards">
+          {list.map((d) =>
+            editing === d.name ? (
+              <li key={d.name} className="team-card editing">
+                <strong>{d.name}</strong>
+                <DriverForm
+                  d={d}
+                  onDone={() => setEditing(null)}
+                  saveDriver={saveDriver}
+                  busy={busy}
+                />
+              </li>
+            ) : (
+              <li
+                key={d.name}
+                className={"team-card" + (d.active ? "" : " inactive")}
+              >
+                <div className="tc-top">
+                  <h3>{d.name}</h3>
+                  <span className={"status-pill " + (d.active ? "ok" : "")}>
+                    {d.active ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+                <p className="cc-meta">
+                  {[
+                    shiftNames[d.shift || ""] === "—"
+                      ? "Ambos turnos"
+                      : shiftNames[d.shift],
+                    d.zones.length ? d.zones.join(", ") : "Sin zonas",
+                    `${customers.filter((c) => (c.truck || c.driver) === d.name).length} clientes`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="cc-meta">
+                  {d.phone ? d.phone.replace(/^549/, "") : "Sin WhatsApp"}
+                  {d.cuit ? ` · CUIT ${d.cuit}` : " · CUIT pendiente"}
+                </p>
+                <button
+                  type="button"
+                  className="secondary full"
+                  onClick={() => setEditing(d.name)}
+                >
+                  Editar preventista
+                </button>
+              </li>
+            ),
+          )}
+        </ul>
+      ) : (
+        <div className="table-scroll">
+          <table className="customers drivers-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>WhatsApp</th>
+                <th>CUIT</th>
+                <th>Turno</th>
+                <th>Zonas</th>
+                <th>Clientes</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((d) =>
+                editing === d.name ? (
+                  <tr key={d.name}>
+                    <td colSpan="8">
+                      <strong>{d.name}</strong>
+                      <DriverForm
+                        d={d}
+                        onDone={() => setEditing(null)}
+                        saveDriver={saveDriver}
+                        busy={busy}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={d.name} className={d.active ? "" : "inactive"}>
+                    <td>
+                      <strong>{d.name}</strong>
+                    </td>
+                    <td>{d.phone ? d.phone.replace(/^549/, "") : "—"}</td>
+                    <td>
+                      {d.cuit || <span className="muted">pendiente</span>}
+                    </td>
+                    <td>
+                      {shiftNames[d.shift || ""] === "—"
+                        ? "Ambos"
+                        : shiftNames[d.shift]}
+                    </td>
+                    <td>
+                      {d.zones.length ? (
+                        d.zones.join(", ")
+                      ) : (
+                        <span className="muted">sin zonas</span>
+                      )}
+                    </td>
+                    <td>
+                      {
+                        customers.filter(
+                          (c) => (c.truck || c.driver) === d.name,
+                        ).length
+                      }
+                    </td>
+                    <td>{d.active ? "Activo" : "Inactivo"}</td>
+                    <td>
+                      <button
+                        className="secondary small"
+                        onClick={() => setEditing(d.name)}
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                ),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
       <p className="demo-note">
         Cada camión tiene sus zonas y turno: los clientes de esas zonas le
         quedan preasignados al cargar pedidos. El usuario con el que entra el
