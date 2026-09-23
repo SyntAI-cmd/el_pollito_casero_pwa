@@ -340,11 +340,15 @@ export function createApi({
     const eta = await estimate(from, o.destination);
     await withOrderLock(o.id, () => {
       const current = store.orders.get(o.id);
-      if (!current || current.status !== "en_camino" ||
-          current.departedAt !== o.departedAt ||
-          JSON.stringify(current.location) !== JSON.stringify(o.location) ||
-          JSON.stringify(current.destination) !== JSON.stringify(o.destination) ||
-          JSON.stringify(current.eta) !== JSON.stringify(o.eta)) return;
+      if (
+        !current ||
+        current.status !== "en_camino" ||
+        current.departedAt !== o.departedAt ||
+        JSON.stringify(current.location) !== JSON.stringify(o.location) ||
+        JSON.stringify(current.destination) !== JSON.stringify(o.destination) ||
+        JSON.stringify(current.eta) !== JSON.stringify(o.eta)
+      )
+        return;
       current.eta = eta;
       store.orders.save(current);
       events.orderChanged(current);
@@ -1575,7 +1579,8 @@ export function createApi({
         if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
         // Una salida es una transición única. Clientes viejos sin opId también
         // pueden reconciliar una respuesta perdida sin repetir historial/push.
-        const startOnly = body.status === "en_camino" &&
+        const startOnly =
+          body.status === "en_camino" &&
           Object.keys(body).every((k) => k === "status" || k === "opId");
         if (startOnly) {
           if (!isStaff(session)) fail(403, "Solo el equipo inicia el reparto.");
@@ -1593,18 +1598,32 @@ export function createApi({
           total: o.total,
         };
         const after = await updateOrder(o, body, session);
+        const despues = {
+          status: o.status,
+          paid: o.paid,
+          driver: o.driver,
+          total: o.total,
+        };
+        // La modificación y su registro van en la misma transacción: si falla una, no queda la otra.
         store.transaction(() => {
           store.orders.save(o);
-          store.audit.log(session, "order.update", "order", o.id, {
-            before,
-            after: {
-              status: o.status,
-              paid: o.paid,
-              driver: o.driver,
-              total: o.total,
+          store.audit.log(
+            session,
+            before.status !== o.status && o.status === "entregado"
+              ? "order.delivered"
+              : before.driver !== o.driver
+                ? "order.assign"
+                : "order.update",
+            "order",
+            o.id,
+            { campos: Object.keys(body) },
+            {
+              antes: before,
+              despues,
+              motivo: body.reason || body.motivo,
+              opId: body.opId,
             },
-            keys: Object.keys(body),
-          });
+          );
         });
         events.orderChanged(o);
         for (const task of after)
@@ -1692,6 +1711,7 @@ export function createApi({
       const sub = customerMatch[2];
       if (!sub && method === "PATCH") {
         // Modalidad, crédito y preventista habitual: los edita todo el equipo.
+        const previo = { plan: c.plan, credit: c.credit, driver: c.driver };
         if (body.plan !== undefined)
           c.plan = oneOf(body.plan, plans, "modalidad");
         if (body.credit !== undefined) c.credit = bool(body.credit, "crédito");
@@ -1700,8 +1720,22 @@ export function createApi({
             body.driver === ""
               ? ""
               : oneOf(body.driver, config.drivers, "repartidor");
-        store.customers.save(c);
-        store.audit.log(session, "customer.update", "customer", phone, body);
+        // La ficha y su registro, juntos; el historial guarda qué cambió, no el cuerpo entero.
+        store.transaction(() => {
+          store.customers.save(c);
+          store.audit.log(
+            session,
+            "customer.update",
+            "customer",
+            phone,
+            { campos: Object.keys(body) },
+            {
+              antes: previo,
+              despues: { plan: c.plan, credit: c.credit, driver: c.driver },
+              motivo: body.motivo,
+            },
+          );
+        });
         events.customerChanged(c);
         return json(200, withSummary(c));
       }

@@ -622,6 +622,8 @@ export function createFloor({
         }
       }
       if (!Object.keys(changes).length) fail(400, "No hay nada que ajustar.");
+      // Antes y después del saldo, para que Movimientos pueda decir "100.000 → 90.000".
+      const posterior = accountSummary(store.orders.forCustomer(c.phone), c);
       store.transaction(() => {
         store.customers.save(c);
         store.audit.log(
@@ -629,7 +631,13 @@ export function createFloor({
           "customer.saldos",
           "customer",
           c.phone,
-          changes,
+          { ...changes, cliente: c.name },
+          {
+            antes: { balance: current.balance, boxes: current.boxes },
+            despues: { balance: posterior.balance, boxes: posterior.boxes },
+            motivo: body.note,
+            opId,
+          },
         );
       });
       events.customerChanged(c);

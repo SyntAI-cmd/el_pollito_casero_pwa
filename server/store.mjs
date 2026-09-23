@@ -8,6 +8,12 @@
  */
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
+import {
+  actorDe,
+  cambios as cambiosDe,
+  categoriaDe,
+  limpiar as limpiarDetalle,
+} from "./auditoria.mjs";
 import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
@@ -211,6 +217,26 @@ export async function openStore(path, { log = console } = {}) {
     .map((c) => c.name);
   if (!itemCols.includes("boxes"))
     db.exec("ALTER TABLE order_items ADD COLUMN boxes REAL");
+  // PC-003: el historial guarda actor estable, categoría, antes/después, motivo y operación.
+  // Aditivo: las filas viejas conservan su autor de texto y quedan con las columnas nuevas en NULL.
+  const auditCols = db
+    .prepare("PRAGMA table_info(audit_log)")
+    .all()
+    .map((c) => c.name);
+  for (const [col, tipo] of [
+    ["actor_id", "TEXT"],
+    ["actor_name", "TEXT"],
+    ["category", "TEXT"],
+    ["op_id", "TEXT"],
+    ["changes", "TEXT"],
+    ["reason", "TEXT"],
+    ["outcome", "TEXT"],
+  ])
+    if (!auditCols.includes(col))
+      db.exec(`ALTER TABLE audit_log ADD COLUMN ${col} ${tipo}`);
+  db.exec(`CREATE INDEX IF NOT EXISTS audit_at ON audit_log(at DESC, id DESC);
+CREATE INDEX IF NOT EXISTS audit_actor ON audit_log(actor_id, at DESC);
+CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
   const applied = new Set(
     db
       .prepare("SELECT version FROM schema_migrations")
@@ -503,7 +529,12 @@ export async function openStore(path, { log = console } = {}) {
       "SELECT thread, MAX(id) AS last FROM messages GROUP BY thread ORDER BY last DESC",
     ),
     audit: db.prepare(
-      "INSERT INTO audit_log(at, actor_role, actor, action, entity, entity_id, detail) VALUES(?,?,?,?,?,?,?)",
+      `INSERT INTO audit_log(at, actor_role, actor, actor_id, actor_name, action, category,
+        entity, entity_id, detail, changes, reason, op_id, outcome)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    ),
+    auditByOp: db.prepare(
+      "SELECT id FROM audit_log WHERE op_id = ? AND action = ? LIMIT 1",
     ),
     closuresFor: db.prepare(
       "SELECT id, date, driver, expected, received, transfers, cheques, account_cash AS accountCash, note, by_actor AS by, at FROM cash_closures WHERE date = ? ORDER BY driver",
@@ -1397,17 +1428,116 @@ export async function openStore(path, { log = console } = {}) {
       threads: () => q.threads.all().map((r) => r.thread),
     },
     audit: {
-      log: (session, action, entity, entityId, detail) =>
+      /**
+       * Registra un movimiento. `extra` acepta:
+       *   antes / despues → se guardan solo los campos que cambiaron
+       *   cambios         → alternativa ya calculada { campo: [antes, después] }
+       *   motivo, opId, categoria, resultado ("ok" por omisión, "rechazado" si no se aplicó)
+       * Todo pasa por la lista de campos permitidos: nunca guarda claves, tokens ni imágenes.
+       */
+      log: (session, action, entity, entityId, detail, extra = {}) => {
+        // Reintento de la misma operación: no se duplica el movimiento comercial.
+        if (extra.opId && q.auditByOp.get(extra.opId, action)) return;
+        const actor = actorDe(session);
+        const cambios =
+          extra.cambios ||
+          (extra.antes || extra.despues
+            ? cambiosDe(extra.antes, extra.despues)
+            : undefined);
         q.audit.run(
           now(),
-          session?.role || "sistema",
-          session?.driver || session?.name || session?.phone || null,
+          actor.rol,
+          actor.nombre,
+          actor.id,
+          actor.nombre,
           action,
+          extra.categoria || categoriaDe(action),
           entity,
           entityId || null,
-          detail ? JSON.stringify(detail) : null,
-        ),
+          detail ? JSON.stringify(limpiarDetalle(detail) || {}) : null,
+          cambios ? JSON.stringify(cambios) : null,
+          extra.motivo ? String(extra.motivo).slice(0, 400) : null,
+          extra.opId ? String(extra.opId).slice(0, 80) : null,
+          extra.resultado || "ok",
+        );
+      },
       for: (entity, entityId) => q.auditFor.all(entity, entityId),
+      /**
+       * Consulta paginada para la pantalla de Movimientos (PC-014).
+       * Orden estable por instante e ID; el cursor es el último ID devuelto.
+       */
+      query: ({
+        desde,
+        hasta,
+        actorId,
+        categoria,
+        accion,
+        entidad,
+        entidadId,
+        cursor,
+        limite = 50,
+      } = {}) => {
+        const where = [];
+        const args = [];
+        const add = (sql, v) => {
+          if (v === undefined || v === null || v === "") return;
+          where.push(sql);
+          args.push(v);
+        };
+        add("at >= ?", desde);
+        add("at <= ?", hasta);
+        add("actor_id = ?", actorId);
+        add("category = ?", categoria);
+        add("action = ?", accion);
+        add("entity = ?", entidad);
+        add("entity_id = ?", entidadId);
+        add("id < ?", cursor);
+        const n = Math.min(Math.max(Number(limite) || 50, 1), 200);
+        const filas = db
+          .prepare(
+            `SELECT * FROM audit_log${where.length ? " WHERE " + where.join(" AND ") : ""}
+             ORDER BY at DESC, id DESC LIMIT ?`,
+          )
+          .all(...args, n + 1);
+        const hay = filas.length > n;
+        const pagina = hay ? filas.slice(0, n) : filas;
+        return {
+          movimientos: pagina.map((r) => ({
+            id: r.id,
+            at: r.at,
+            actorId: r.actor_id,
+            actor: r.actor_name || r.actor,
+            rol: r.actor_role,
+            accion: r.action,
+            categoria: r.category || categoriaDe(r.action),
+            entidad: r.entity,
+            entidadId: r.entity_id,
+            detalle: p(r.detail, null),
+            cambios: p(r.changes, null),
+            motivo: r.reason,
+            opId: r.op_id,
+            resultado: r.outcome || "ok",
+            // Las filas anteriores a PC-003 no tienen actor con identidad ni antes/después.
+            historico: !r.actor_id,
+          })),
+          siguiente: hay ? pagina[pagina.length - 1].id : null,
+        };
+      },
+      /** Categorías y actores presentes, para armar los filtros sin bajar todo el historial. */
+      facetas: () => ({
+        categorias: db
+          .prepare(
+            "SELECT DISTINCT category AS c FROM audit_log WHERE category IS NOT NULL ORDER BY c",
+          )
+          .all()
+          .map((r) => r.c),
+        actores: db
+          .prepare(
+            `SELECT actor_id AS id, MAX(actor_name) AS nombre, MAX(actor_role) AS rol
+             FROM audit_log WHERE actor_id IS NOT NULL GROUP BY actor_id ORDER BY nombre`,
+          )
+          .all(),
+      }),
     },
     /** Copia de seguridad consistente (VACUUM INTO); conserva las últimas `keep`. */
     async backup(dir = "data/backups", keep = 14) {
