@@ -47,7 +47,11 @@ import Operations from "./pages/Operations.jsx";
 import Customers from "./pages/Customers.jsx";
 import { PageHead } from "./components/ui.jsx";
 import { todayKey } from "./lib/day.js";
-import { useHideOnScroll, useKeyboardOpen } from "./lib/media.js";
+import {
+  useHideOnScroll,
+  useKeyboardOpen,
+  useVisibleHeight,
+} from "./lib/media.js";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
@@ -668,6 +672,9 @@ export default function App() {
   const { path, navigate } = useRoute();
   const { session, loaded, config } = useStore();
   useDocumentMeta(path);
+  // Alto realmente visible con el teclado abierto: lo usan las ventanas para no dejar
+  // los botones de guardar debajo del teclado.
+  useVisibleHeight();
   // Modo equipo: el portal de clientes queda apagado; todo el mundo entra por /admin.
   const teamOnly = config?.mode === "equipo";
   const role =

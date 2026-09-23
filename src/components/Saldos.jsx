@@ -13,6 +13,7 @@ import { useStore } from "../lib/store.jsx";
 import { money, dateText } from "../lib/format.js";
 import { ledger } from "../lib/ledger.js";
 import { modalGuard } from "../lib/guard.js";
+import { useFieldVisibility } from "../lib/media.js";
 
 const parse = (v) =>
   Number(
@@ -31,6 +32,7 @@ const r2 = (n) => Math.round(n * 100) / 100;
  * duplicada, aunque se reintente). Después de guardar la ventana sigue abierta.
  */
 export default function Saldos({ customer }) {
+  const ensureFieldVisible = useFieldVisibility();
   const { saveBalances, busy, setModal, orders, customers, formError } =
     useStore();
   // Ficha fresca: después de guardar, los saldos de arriba tienen que mostrar lo nuevo.
@@ -228,6 +230,7 @@ export default function Saldos({ customer }) {
             autoFocus
             placeholder="0"
             disabled={busy}
+            onFocus={ensureFieldVisible}
             value={amount}
             onChange={(e) =>
               setAmount(

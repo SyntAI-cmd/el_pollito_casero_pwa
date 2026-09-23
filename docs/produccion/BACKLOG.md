@@ -7,8 +7,8 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | --- | --- | --- | --- | --- |
 | PC-000 | Diagnóstico reproducible y línea base | P0 | Hecho | ninguna. |
 | PC-001 | Iniciar reparto con un toque y sin espera de servicios auxiliares | P0 | Hecho | PC-000. |
-| PC-002 | Formularios móviles, teclado y desplazamiento estable | P0 | En curso | PC-000. |
-| PC-003 | Auditoría consistente para todas las mutaciones | P0 | Pendiente | PC-000. Esta base debe estar antes de los cambios de saldos, cantidades y documentos. |
+| PC-002 | Formularios móviles, teclado y desplazamiento estable | P0 | En revisión (falta teléfono físico) | PC-000. |
+| PC-003 | Auditoría consistente para todas las mutaciones | P0 | En curso | PC-000. Esta base debe estar antes de los cambios de saldos, cantidades y documentos. |
 | PC-004 | Pesaje con cero cajas, cantidad escrita y tara correcta | P0 | Pendiente | PC-000, PC-003. |
 | PC-005 | Corregir saldos ya guardados sin perder historial | P0 | Pendiente | PC-003; incorporar la solución de teclado PC-002. |
 | PC-006 | Pedir por unidades en administración y reparto | P1 | Pendiente | PC-003 y contrato de peso/envases de PC-004. |

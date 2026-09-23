@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Pencil, ArrowRight } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { useFieldVisibility } from "../lib/media.js";
 import { orderNumber, money, kgText } from "../lib/format.js";
 import { shiftNames } from "../pages/Customers.jsx";
 
@@ -17,6 +18,7 @@ const parse = (v) =>
  * su pesada; los que se quitan pierden sus cajones. Nada vale hasta pasar por la balanza.
  */
 export default function OrderEdit({ order: o }) {
+  const ensureFieldVisible = useFieldVisibility();
   const { products, config, customers, editOrder, busy, setModal, session } =
     useStore();
   const customer = customers.find((c) => c.phone === o.customer);
@@ -161,6 +163,7 @@ export default function OrderEdit({ order: o }) {
                     <input
                       type="text"
                       inputMode="decimal"
+                      onFocus={ensureFieldVisible}
                       value={prices[p.id] ?? customer?.prices?.[p.id] ?? ""}
                       onChange={(e) =>
                         setPrices({ ...prices, [p.id]: e.target.value })
@@ -174,6 +177,7 @@ export default function OrderEdit({ order: o }) {
                   <input
                     type="text"
                     inputMode="numeric"
+                    onFocus={ensureFieldVisible}
                     value={lines[p.id]?.boxes ?? ""}
                     aria-label={`Cajas de ${p.name}`}
                     onChange={(e) =>
@@ -188,6 +192,7 @@ export default function OrderEdit({ order: o }) {
                   <input
                     type="text"
                     inputMode="decimal"
+                    onFocus={ensureFieldVisible}
                     value={lines[p.id]?.kg ?? ""}
                     aria-label={`Kilos de ${p.name}`}
                     onChange={(e) =>

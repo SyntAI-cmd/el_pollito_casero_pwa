@@ -1429,3 +1429,30 @@ input[type="checkbox"] {
     max-height: calc(100dvh - 104px);
   }
 }
+
+/* ===================================================================
+   16. Ventanas con el teclado abierto (PC-002)
+   ===================================================================
+   `100dvh` no se achica cuando sube el teclado de Android: la ventana quedaba más alta que
+   la pantalla útil y los botones de guardar caían debajo del teclado. `--alto-visible` lo
+   publica `useVisibleHeight()` desde visualViewport. */
+dialog[open] {
+  max-height: calc(var(--alto-visible, 100dvh) - 32px);
+}
+@media (max-width: 760px) {
+  dialog.wallet-dialog[open],
+  dialog.sheet-dialog[open],
+  dialog.wide-dialog[open] {
+    height: var(--alto-visible, 100dvh);
+    max-height: var(--alto-visible, 100dvh);
+  }
+  /* Los botones de guardar quedan siempre al alcance, encima del teclado. */
+  .saldos-actions,
+  .od-actions .op-actions-main:not(:empty) {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom, 0px));
+    background: #fff;
+  }
+}
