@@ -24,7 +24,7 @@ COPY --from=build /app/seed ./seed
 RUN mkdir -p /data
 # Verificación: los módulos del servidor resuelven todas sus importaciones dentro de la imagen
 # (si falta un archivo, falla el build en vez de caerse el servicio ya desplegado).
-RUN node --input-type=module -e "await import('./server/api.mjs'); await import('./server/floor.mjs'); await import('./server/fleet.mjs'); await import('./server/receipts.mjs'); await import('./server/auth.mjs'); await import('./server/store.mjs')"
+RUN node --input-type=module -e "await import('./server/api.mjs'); await import('./server/floor.mjs'); await import('./server/fleet.mjs'); await import('./server/receipts.mjs'); await import('./server/auth.mjs'); await import('./server/store.mjs'); await import('./server/documents.mjs')"
 # El volumen se monta desde Railway (Settings → Volumes → /data); Railway rechaza la instrucción VOLUME.
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD wget -qO- http://127.0.0.1:8080/api/health || exit 1
