@@ -26,3 +26,21 @@ No se ejecutaron scripts de limpieza/importación ni se abrió la base operativa
 - 4 pruebas nuevas en `tests/reparto.test.mjs`. Suite completa: 33 aprobadas.
 - Pendiente de medir: navegador, teléfono real y hosting.
 - Ticket activo: PC-002 (teclado y desplazamiento). Próximos: PC-003, PC-004, PC-005.
+
+## 2026-09-23 — PC-002, PC-003, PC-004 y PC-016
+
+- **PC-002 (en revisión):** el ajuste del campo activo dejó de usar temporizadores y ahora
+  desplaza el contenedor real (la caja del `dialog`), no `window`. `--alto-visible` reemplaza a
+  `100dvh`, que en Android no se achica con el teclado. Falta la prueba en teléfono físico.
+- **PC-003 (hecho):** `audit_log` con actor estable, categoría, antes/después, motivo, operación
+  y resultado; lista de campos permitidos (se cortó el volcado del cuerpo en `customer.update`);
+  cambio y evento en la misma transacción; consulta paginada lista para PC-014.
+- **PC-004 (hecho):** `crates.boxes` separa peso de envases. Bolsa = 0 cajas, sin tara y sin
+  deuda de envases. Los tres casos numéricos del encargo, comprobados.
+- **PC-016 (hecho):** llegó la plantilla el 23/09 y la hoja de ruta se rehízo contra ella.
+- **PC-021:** recomendación emitida con mediciones: no cambiar de servidor, base ni plataforma.
+
+Pruebas: 49 unitarias y 18 comprobaciones en navegador, todas en verde.
+
+Ticket activo: ninguno. Próximos por dependencias: PC-005 (corregir saldos guardados),
+PC-019 (offline y cambio de usuario), PC-017 (reducir recargas), PC-006 (unidades).

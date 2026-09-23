@@ -26,4 +26,4 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | PC-018 | Interfaz liviana y renders controlados | P1 | Pendiente | PC-000; integrar PC-009, PC-010, PC-011 y PC-013. |
 | PC-019 | Offline, cambios de usuario y actualización PWA sin pérdida | P0 | Pendiente | PC-000. Coordinar versión de datos con PC-004, PC-006 y PC-008. |
 | PC-020 | Integración, regresión y entrega revisable | P1 | Pendiente | tickets de implementación incluidos en cada entrega. Repetir la verificación pertinente por lote; no esperar a terminar todo para comprobar integración. |
-| PC-021 | Decisión de rendimiento: código, servidor o nativo | P2 | Pendiente | PC-000 y mediciones de PC-001, PC-017, PC-018, PC-019. No bloquear arreglos operativos por esta decisión. |
+| PC-021 | Decisión de rendimiento: código, servidor o nativo | P2 | Recomendación emitida | PC-000 y mediciones de PC-001, PC-017, PC-018, PC-019. No bloquear arreglos operativos por esta decisión. |
