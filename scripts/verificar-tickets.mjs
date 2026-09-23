@@ -339,6 +339,72 @@ const CON_TECLADO = { ...TELEFONO, viewport: { width: 393, height: 400 } };
   await ctx.close();
 }
 
+// ============================================================
+// PC-007 · Pesada filtrable por preventista
+// ============================================================
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await ctx.newPage();
+  await entrar(page);
+  await page.goto(BASE + "/operacion/pesada");
+  await page.waitForTimeout(1800);
+  const total = await page.locator(".floor-card").count();
+  const sel = page.locator('select[aria-label="Filtrar por preventista"]');
+  check(
+    (await sel.count()) > 0,
+    "PC-007 · hay selector de preventista en el pesaje",
+  );
+  const opciones = await sel.locator("option").allTextContents();
+  check(
+    opciones.includes("Todos") && opciones.includes("Sin asignar"),
+    "PC-007 · ofrece Todos y Sin asignar",
+    opciones.slice(0, 5).join(" / "),
+  );
+  const alguno = opciones.find((o) => !["Todos", "Sin asignar"].includes(o));
+  await sel.selectOption({ label: alguno });
+  await page.waitForTimeout(900);
+  const filtrados = await page.locator(".floor-card").count();
+  check(
+    filtrados > 0 && filtrados < total,
+    "PC-007 · filtrar por preventista recorta la lista",
+    `${total} → ${filtrados} con ${alguno}`,
+  );
+  // Cada pedido aparece una sola vez aunque vayan dos preventistas.
+  const numeros = await page.locator(".floor-card-num").allTextContents();
+  check(
+    new Set(numeros).size === numeros.length,
+    "PC-007 · ningún pedido aparece repetido",
+    `${numeros.length} tarjetas`,
+  );
+  // El filtro sobrevive a la recarga.
+  await page.reload();
+  await page.waitForTimeout(1800);
+  const trasRecargar = await page
+    .locator('select[aria-label="Filtrar por preventista"]')
+    .inputValue();
+  check(
+    trasRecargar === alguno,
+    "PC-007 · el filtro se mantiene al recargar",
+    `${alguno} → ${trasRecargar}`,
+  );
+  const cuenta = await page.locator(".weigh-filters-count").textContent();
+  check(
+    /\d+ pedido/.test(cuenta || ""),
+    "PC-007 · muestra cuántos coinciden",
+    cuenta?.trim(),
+  );
+  // Limpiar filtros devuelve la lista completa.
+  await page.locator('button:has-text("Limpiar filtros")').click();
+  await page.waitForTimeout(900);
+  check(
+    (await page.locator(".floor-card").count()) === total,
+    "PC-007 · limpiar filtros devuelve la lista completa",
+  );
+  await ctx.close();
+}
+
 await browser.close();
 
 const fallas = resultados.filter((r) => r.estado === "FALLA");

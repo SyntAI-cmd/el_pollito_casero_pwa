@@ -12,7 +12,7 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | PC-004 | Pesaje con cero cajas, cantidad escrita y tara correcta | P0 | Hecho | PC-000, PC-003. |
 | PC-005 | Corregir saldos ya guardados sin perder historial | P0 | En revisión (falta teléfono físico) | PC-003; incorporar la solución de teclado PC-002. |
 | PC-006 | Pedir por unidades en administración y reparto | P1 | Pendiente | PC-003 y contrato de peso/envases de PC-004. |
-| PC-007 | Pesada filtrable por preventista | P1 | Pendiente | PC-004. |
+| PC-007 | Pesada filtrable por preventista | P1 | Hecho | PC-004. |
 | PC-008 | Eliminar checklist de carga al camión | P1 | Pendiente | PC-001, PC-004; integrar el contrato de PC-006. |
 | PC-009 | Tarjetas plegables de pedidos y filtro de asignados | P1 | Pendiente | PC-002, PC-006, PC-008. |
 | PC-010 | Clientes compactos con detalle completo | P1 | Pendiente | PC-002, PC-005. |

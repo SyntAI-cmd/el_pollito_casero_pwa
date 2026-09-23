@@ -1496,3 +1496,25 @@ dialog[open] {
     font-size: 27px;
   }
 }
+
+/* Segunda línea de filtros del pesaje: preventista y estado de la pesada (PC-007). */
+.weigh-filters-2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e2);
+  margin-top: var(--e2);
+}
+.weigh-filters-2 label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 150px;
+  min-width: 0;
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.weigh-filters-2 select {
+  width: 100%;
+}

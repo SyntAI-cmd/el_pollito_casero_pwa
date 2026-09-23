@@ -59,6 +59,10 @@ export default function Weighing() {
   // Turno (todos / mañana / tarde): pastillas de un toque. Fecha y turno viven en la URL, así
   // una recarga por error no pierde el filtro.
   const [shift, setShift] = useState(query.get("turno") || "");
+  // Preventista y estado de la pesada: se combinan con fecha y turno, y viven en la URL para
+  // que volver atrás o recargar no pierda el filtro.
+  const [driver, setDriver] = useState(query.get("preventista") || "");
+  const [estado, setEstado] = useState(query.get("estado") || "");
   const [grossFocus, setGrossFocus] = useState(false);
   const saving = useRef(false);
   // Un solo teclado a la vista. En el celular manda el teclado de la app (el del teléfono no
@@ -88,12 +92,17 @@ export default function Weighing() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     params.set("fecha", date);
-    if (shift) params.set("turno", shift);
-    else params.delete("turno");
+    for (const [clave, valor] of [
+      ["turno", shift],
+      ["preventista", driver],
+      ["estado", estado],
+    ])
+      if (valor) params.set(clave, valor);
+      else params.delete(clave);
     const next = "?" + params.toString();
     if (next !== location.search)
       navigate(location.pathname + next, { replace: true, scroll: false });
-  }, [date, shift]);
+  }, [date, shift, driver, estado]);
   const { day, loading, error, reload, setDay } = useDay(date);
   const [selected, setSelected] = useState(query.get("pedido") || null);
   const [product, setProduct] = useState(null);
@@ -105,6 +114,16 @@ export default function Weighing() {
   const tare = day.tare || 1.7;
   const back = session?.role === "admin" ? "/operacion" : "/reparto";
 
+  // Preventistas que realmente figuran en la nota del día, como primero o como segundo.
+  const preventistas = useMemo(
+    () =>
+      [
+        ...new Set(
+          day.orders.flatMap((o) => [o.driver, o.driver2].filter(Boolean)),
+        ),
+      ].sort((a, b) => a.localeCompare(b)),
+    [day.orders],
+  );
   // Pedidos de hoy en el orden en que se cargaron (N° de pedido), con búsqueda por cliente o N°.
   const [search, setSearch] = useState("");
   const q = normalize(search.trim());
@@ -113,6 +132,24 @@ export default function Weighing() {
       day.orders
         .filter((o) => !["en_camino", "entregado"].includes(o.status))
         .filter((o) => !shift || orderShift(o, customers) === shift)
+        // Un pedido aparece una sola vez: alcanza con que el preventista sea el primero o el
+        // segundo. "Sin asignar" son los que todavía no tienen a nadie.
+        .filter((o) =>
+          !driver
+            ? true
+            : driver === "sin-asignar"
+              ? !o.driver && !o.driver2
+              : o.driver === driver || o.driver2 === driver,
+        )
+        .filter((o) =>
+          !estado
+            ? true
+            : estado === "pendiente"
+              ? floorStatus(o) === "pendiente"
+              : estado === "pesando"
+                ? floorStatus(o) === "pesando"
+                : ["pesado", "cargado"].includes(floorStatus(o)),
+        )
         .filter(
           (o) =>
             !q ||
@@ -126,7 +163,7 @@ export default function Weighing() {
             (a.o.number || 0) - (b.o.number || 0) ||
             a.o.created.localeCompare(b.o.created),
         ),
-    [day.orders, q, shift, customers],
+    [day.orders, q, shift, driver, estado, customers],
   );
 
   useEffect(() => {
@@ -324,6 +361,51 @@ export default function Weighing() {
           <span className="weigh-filters-count muted">
             {list.length} {list.length === 1 ? "pedido" : "pedidos"}
           </span>
+        </div>
+      )}
+      {!order && (
+        <div className="weigh-filters weigh-filters-2">
+          <label>
+            Preventista
+            <select
+              value={driver}
+              onChange={(e) => setDriver(e.target.value)}
+              aria-label="Filtrar por preventista"
+            >
+              <option value="">Todos</option>
+              <option value="sin-asignar">Sin asignar</option>
+              {preventistas.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Pesada
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              aria-label="Filtrar por estado de la pesada"
+            >
+              <option value="">Todas</option>
+              <option value="pendiente">Sin empezar</option>
+              <option value="pesando">A medio pesar</option>
+              <option value="pesado">Terminadas</option>
+            </select>
+          </label>
+          {(shift || driver || estado || search) && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setShift("");
+                setDriver("");
+                setEstado("");
+                setSearch("");
+              }}
+            >
+              Limpiar filtros
+            </button>
+          )}
         </div>
       )}
       {!order && (
