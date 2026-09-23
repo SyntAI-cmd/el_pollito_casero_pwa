@@ -4,6 +4,7 @@ import {
   priceOrder,
   normalizePhone,
   accountSummary,
+  orderBoxes,
   applyWeights,
   applyPayment,
   validateLists,
@@ -162,6 +163,9 @@ test("resumen de cuenta: saldo a cuenta, envases y cancelados excluidos", () => 
     adjustments: 0,
     pendingOrders: 1,
     boxes: 2,
+    boxesOut: 5,
+    boxesBack: 3,
+    boxesAdjust: 0,
   });
 });
 
@@ -190,7 +194,13 @@ test("ajustes manuales de saldo y de cajas entran en el resumen", () => {
 
 test("equipo: los kilos pedidos esperan la balanza y no valen hasta pesar", () => {
   const r = priceOrder(
-    { ...base, items: [{ id: "entero", kg: 200 }, { id: "alas", boxes: 3 }] },
+    {
+      ...base,
+      items: [
+        { id: "entero", kg: 200 },
+        { id: "alas", boxes: 3 },
+      ],
+    },
     { staff: true, enforceMin: false, prices: { entero: 4000, alas: 3000 } },
   );
   assert.equal(r.items[0].kg, 0);
@@ -358,4 +368,45 @@ test("cambio de precio en el pedido recalcula renglones y total", () => {
   assert.equal(r.items[0].lineTotal, 104000);
   assert.equal(r.total, 108150);
   assert.throws(() => applyPrices(order, { entero: 0 }), /inválido/);
+});
+
+test("cajas: el saldo es anteriores + salientes − devueltas, y no se lleva a cero solo", () => {
+  // Caso confirmado por el negocio: 10 anteriores + 30 entregadas − 5 devueltas = 35.
+  const s = accountSummary(
+    [{ payment: "entrega", paid: true, total: 0, boxes: 30, returned: 5 }],
+    { boxesAdjust: 10 },
+  );
+  assert.equal(s.boxesOut, 30);
+  assert.equal(s.boxesBack, 5);
+  assert.equal(s.boxesAdjust, 10);
+  assert.equal(s.boxes, 35);
+  // Las cuatro cifras de ese pedido cierran con el saldo.
+  const b = orderBoxes({ boxes: 30, returned: 5 }, s.boxes);
+  assert.equal(b.previas, 10);
+  assert.equal(b.previas + b.salientes - b.devueltas, s.boxes);
+  // Devolvió más de lo que debía: queda negativo, a la vista.
+  const neg = accountSummary(
+    [{ payment: "entrega", paid: true, total: 0, boxes: 2, returned: 5 }],
+    {},
+  );
+  assert.equal(neg.boxes, -3);
+});
+
+test("cajas: cargar al camión no genera deuda de cajas", () => {
+  // Un pedido con cajones pedidos pero sin entregar todavía: boxes sigue en 0.
+  const s = accountSummary(
+    [
+      {
+        payment: "cuenta",
+        paid: false,
+        total: 100,
+        boxes: 0,
+        returned: 0,
+        status: "en_camino",
+        items: [{ id: "entero", boxes: 12 }],
+      },
+    ],
+    {},
+  );
+  assert.equal(s.boxes, 0);
 });

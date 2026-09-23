@@ -1,0 +1,1431 @@
+@charset "UTF-8";
+/**
+ * Sistema visual 2026 de El Pollito Casero.
+ *
+ * Dirección: fondo blanco o gris muy claro, texto negro, rojo de marca para la acción principal
+ * y lo seleccionado, vidrio suave solo en la navegación. Sin fondos marrones, sin brillos
+ * permanentes y sin animaciones decorativas.
+ *
+ * Esta hoja carga última: acá viven los valores compartidos y las piezas reutilizables
+ * (botones, campos, tarjetas, tablas, filtros, estados, menús) que usan todas las pantallas.
+ */
+
+/* ===================================================================
+   1. Valores compartidos
+   =================================================================== */
+:root {
+  /* Marca */
+  --rojo: #c9262e;
+  --rojo-fuerte: #a81f26;
+  --rojo-suave: #fdf2f2;
+  --rojo-borde: #f4cdcf;
+  --verde: #1c6b34;
+  --verde-claro: #edf7f0;
+  --ambar: #8a5312;
+  --ambar-claro: #fdf4e6;
+
+  /* Superficies: blanco y gris muy claro */
+  --fondo: #f4f5f7;
+  --tarjeta: #ffffff;
+  --tarjeta-2: #fafbfc;
+  --borde: #e5e7ea;
+  --borde-fuerte: #d3d6db;
+
+  /* Tinta */
+  --tinta: #15171b;
+  --tinta-2: #5a616b;
+  --tinta-3: #868d97;
+
+  /* El chrome ya no es oscuro: barra y panel lateral son claros */
+  --oscuro: #ffffff;
+  --oscuro-2: #f4f5f7;
+  --oscuro-borde: #e5e7ea;
+  --oscuro-texto: #15171b;
+  --oscuro-apagado: #5a616b;
+
+  /* Formas y profundidad: bordes discretos, sombras ligeras */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-pill: 999px;
+  --sombra-1: 0 1px 2px #15171b0f;
+  --sombra-2: 0 1px 2px #15171b0d, 0 6px 16px -8px #15171b24;
+  --sombra-3: 0 2px 4px #15171b0f, 0 16px 32px -12px #15171b2e;
+  --glow: none;
+
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 20px;
+  --e6: 24px;
+  --e8: 32px;
+
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+  --barra: 0px;
+  /* Ancho del panel lateral de escritorio */
+  --rail: 244px;
+  --rail-min: 68px;
+}
+
+html,
+body {
+  background: var(--fondo);
+  color: var(--tinta);
+}
+
+/* Foco siempre visible, en cualquier pieza */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--rojo);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Sin animaciones decorativas: solo transiciones cortas y útiles */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===================================================================
+   2. Vidrio: transparencia suave con alternativa sólida
+   =================================================================== */
+.glass,
+.glass-dark {
+  background: #ffffff;
+  border: 1px solid var(--borde);
+}
+@supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
+  .glass,
+  .glass-dark {
+    background: #ffffffd9;
+    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    backdrop-filter: blur(16px) saturate(130%);
+  }
+}
+
+/* ===================================================================
+   3. Botones
+   =================================================================== */
+.primary,
+.secondary,
+button.small,
+.link-button,
+.chip,
+.pill {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.primary,
+a.primary,
+button.primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--rojo);
+  border-radius: var(--r-md);
+  background: var(--rojo);
+  color: #fff;
+  font-size: 15px;
+  box-shadow: none;
+}
+.primary:hover:not(:disabled) {
+  background: var(--rojo-fuerte);
+  border-color: var(--rojo-fuerte);
+}
+.secondary,
+a.secondary,
+button.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: #fff;
+  color: var(--tinta);
+  font-size: 15px;
+  box-shadow: none;
+}
+.secondary:hover:not(:disabled) {
+  background: var(--tarjeta-2);
+  border-color: var(--tinta-3);
+}
+.secondary.small,
+button.small {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  border-radius: var(--r-sm);
+}
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--tinta-2);
+  font-size: 13px;
+  text-decoration: none;
+}
+.link-button:hover:not(:disabled) {
+  background: var(--fondo);
+  color: var(--tinta);
+}
+.link-button.danger,
+.danger {
+  color: var(--rojo);
+}
+.full {
+  width: 100%;
+}
+
+/* ===================================================================
+   4. Campos y selectores
+   =================================================================== */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: #fff;
+  color: var(--tinta);
+  font-size: 15px;
+}
+textarea {
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--tinta-3);
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: #fff;
+  color: var(--tinta-3);
+}
+.search-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+}
+.search-field input:focus {
+  outline: none;
+}
+.search-field:focus-within {
+  border-color: var(--rojo);
+  box-shadow: 0 0 0 3px #c9262e1f;
+}
+
+/* ===================================================================
+   5. Tarjetas, paneles y tablas
+   =================================================================== */
+.panel,
+.ui-card {
+  background: var(--tarjeta);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sombra-1);
+}
+table.customers th,
+table.customers td,
+.orders-list th,
+.orders-list td {
+  border-color: var(--borde);
+}
+table.customers thead th,
+.orders-list thead th {
+  background: var(--tarjeta-2);
+  color: var(--tinta-2);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+table.customers tbody tr:hover {
+  background: var(--tarjeta-2);
+}
+
+/* Etiqueta compacta (sucursal, turno, aviso) */
+.ui-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-pill);
+  background: var(--fondo);
+  color: var(--tinta-2);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: 2px;
+}
+.ui-tag.sucursal {
+  border-color: var(--borde-fuerte);
+  background: #fff;
+}
+
+/* Estado: color + palabra (nunca color solo) */
+.chip,
+.status-pill,
+.badge {
+  border-radius: var(--r-pill);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ===================================================================
+   6. Escritorio: panel lateral plegable + encabezado compacto
+   =================================================================== */
+.side-rail {
+  display: none;
+}
+@media (min-width: 901px) {
+  .staff-app.railed {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    min-height: 100vh;
+    align-items: start;
+  }
+  .staff-app.railed.plegado {
+    grid-template-columns: var(--rail-min) minmax(0, 1fr);
+  }
+  /* La barra superior saturada se reemplaza por panel lateral + encabezado */
+  .staff-app.railed .staff-bar {
+    display: none !important;
+  }
+  /* El encabezado ya dice en qué sección estamos: la línea decorativa sobra */
+  .staff-app.railed .page-heading .eyebrow {
+    display: none;
+  }
+  .side-rail {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e3);
+    height: 100vh;
+    padding: var(--e4) var(--e3);
+    border-right: 1px solid var(--borde);
+    background: #fff;
+    overflow-y: auto;
+  }
+  .side-rail .rail-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 6px;
+    color: var(--tinta);
+  }
+  .side-rail .rail-brand img {
+    flex: none;
+    width: 30px;
+    height: 30px;
+  }
+  .side-rail .rail-brand span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .side-rail .rail-brand strong {
+    font-size: 14px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .side-rail .rail-brand small {
+    color: var(--tinta-2);
+    font-size: 11px;
+  }
+  .rail-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 1px solid var(--borde);
+    border-radius: var(--r-md);
+    background: #fff;
+    color: var(--tinta-2);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rail-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rail-group > h3 {
+    margin: var(--e3) 6px 4px;
+    color: var(--tinta-3);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .rail-group a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: var(--r-md);
+    color: var(--tinta);
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .rail-group a svg {
+    flex: none;
+    color: var(--tinta-2);
+  }
+  .rail-group a > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail-group a:hover {
+    background: var(--fondo);
+  }
+  .rail-group a.active {
+    background: var(--rojo-suave);
+    color: var(--rojo-fuerte);
+    box-shadow: inset 3px 0 0 var(--rojo);
+  }
+  .rail-group a.active svg {
+    color: var(--rojo);
+  }
+  .rail-group a .nav-count {
+    margin-left: auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--r-pill);
+    background: var(--rojo);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+  /* Perfil y salir, separados de las tareas */
+  .rail-foot {
+    margin-top: auto;
+    padding-top: var(--e3);
+    border-top: 1px solid var(--borde);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .rail-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 10px;
+    border-radius: var(--r-md);
+    color: var(--tinta);
+    font-size: 13px;
+  }
+  .rail-user .avatar {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--rojo);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .rail-user span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rail-foot button,
+  .rail-foot a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--r-md);
+    background: none;
+    color: var(--tinta-2);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+  }
+  .rail-foot button:hover,
+  .rail-foot a:hover {
+    background: var(--fondo);
+    color: var(--tinta);
+  }
+
+  /* Plegado: solo iconos, con el nombre en el title */
+  .staff-app.railed.plegado .side-rail {
+    padding-inline: 8px;
+    align-items: stretch;
+  }
+  .staff-app.railed.plegado .side-rail .rail-brand span,
+  .staff-app.railed.plegado .rail-group > h3,
+  .staff-app.railed.plegado .rail-group a > span,
+  .staff-app.railed.plegado .rail-user span,
+  .staff-app.railed.plegado .rail-foot button span,
+  .staff-app.railed.plegado .rail-toggle span {
+    display: none;
+  }
+  .staff-app.railed.plegado .rail-group a,
+  .staff-app.railed.plegado .rail-foot button,
+  .staff-app.railed.plegado .rail-user,
+  .staff-app.railed.plegado .rail-toggle {
+    justify-content: center;
+    padding-inline: 0;
+  }
+  .staff-app.railed.plegado .rail-group > h3 {
+    display: block;
+    margin: var(--e3) 0 2px;
+    height: 1px;
+    background: var(--borde);
+    overflow: hidden;
+    text-indent: -999px;
+  }
+
+  /* Encabezado compacto: sección actual + accesos del usuario */
+  .app-head {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--e3);
+    min-height: 60px;
+    padding: 0 var(--e6);
+    border-bottom: 1px solid var(--borde);
+  }
+  .app-head h1 {
+    margin: 0;
+    color: var(--tinta-2);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .app-head .app-head-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: var(--e2);
+  }
+  .staff-app.railed .staff-main {
+    padding: var(--e6);
+  }
+}
+@media (max-width: 900px) {
+  .app-head {
+    display: none;
+  }
+}
+
+/* ===================================================================
+   7. Celular: barra inferior compacta, sin botón central gigante
+   =================================================================== */
+@media (max-width: 900px) {
+  :root {
+    --barra: calc(58px + var(--safe-b));
+  }
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0 4px var(--safe-b);
+    border: 0;
+    border-top: 1px solid var(--borde);
+    border-radius: 0;
+    box-shadow: none;
+    color: var(--tinta-2);
+    transition: transform 0.2s ease;
+  }
+  /* Se va al bajar y vuelve al subir, sin mover el contenido */
+  .tabbar.oculta {
+    transform: translateY(110%);
+  }
+  .tabbar a,
+  .tabbar button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 58px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--tinta-2);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.1;
+    position: relative;
+  }
+  .tabbar a span,
+  .tabbar button span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tabbar a.active {
+    color: var(--rojo);
+    background: none;
+    box-shadow: none;
+  }
+  .tabbar a.active::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--rojo);
+  }
+  .tabbar .tab-count {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    margin-left: 6px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: var(--r-pill);
+    background: var(--rojo);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: grid;
+    place-items: center;
+  }
+  /* Espacio al final para que el último control nunca quede tapado */
+  .staff-main {
+    padding-bottom: calc(var(--barra) + 28px) !important;
+  }
+  /* Con el teclado abierto o una hoja encima, la barra estorba */
+  body.teclado-abierto .tabbar,
+  body.hoja-abierta .tabbar,
+  body.escribiendo-peso .tabbar {
+    display: none;
+  }
+  body.teclado-abierto .chat-fab,
+  body.escribiendo-peso .chat-fab {
+    display: none;
+  }
+}
+
+/* Hoja de "Más" */
+.more-sheet-box {
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: #fff;
+  color: var(--tinta);
+}
+.more-sheet-box a,
+.more-sheet-box button {
+  color: var(--tinta);
+  border-bottom: 1px solid var(--borde);
+}
+
+/* ===================================================================
+   8. Filtros: buscador visible + panel con Aplicar / Limpiar
+   =================================================================== */
+.ui-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+.ui-filterbar .search-field {
+  flex: 1 1 260px;
+  min-width: 0;
+  min-height: 44px;
+}
+.filters-toggle {
+  position: relative;
+}
+.filters-toggle b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  background: var(--rojo);
+  color: #fff;
+  font-size: 11px;
+}
+/* Filtros activos, cada uno con su “quitar” */
+.ui-active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--e2);
+}
+.ui-active-filters .ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 6px 0 10px;
+  border: 1px solid var(--rojo-borde);
+  border-radius: var(--r-pill);
+  background: var(--rojo-suave);
+  color: var(--rojo-fuerte);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ui-active-filters .ui-chip button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffffb3;
+  color: inherit;
+}
+.ui-results-count {
+  color: var(--tinta-2);
+  font-size: 13px;
+}
+.ui-panel-actions {
+  display: flex;
+  gap: var(--e2);
+  justify-content: flex-end;
+  margin-top: var(--e3);
+  padding-top: var(--e3);
+  border-top: 1px solid var(--borde);
+}
+
+/* Escritorio: el panel es un desplegable ordenado bajo el botón */
+@media (min-width: 761px) {
+  .filters-wrap {
+    position: relative;
+  }
+  .filters-panel.open {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 6px);
+    right: 0;
+    width: min(420px, calc(100vw - 32px));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--e3);
+    padding: var(--e4);
+    border: 1px solid var(--borde);
+    border-radius: var(--r-lg);
+    background: #fff;
+    box-shadow: var(--sombra-3);
+  }
+  .filters-panel.open > .wide,
+  .filters-panel.open > .ui-panel-actions {
+    grid-column: 1 / -1;
+  }
+  .filters-panel:not(.open) {
+    display: none;
+  }
+}
+/* Celular: hoja inferior que no choca con la navegación ni el teclado */
+@media (max-width: 760px) {
+  .filters-panel.open {
+    position: fixed;
+    z-index: 90;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 82vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--e3);
+    padding: var(--e4) var(--e4) calc(var(--e4) + var(--safe-b));
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    background: #fff;
+    box-shadow: var(--sombra-3);
+  }
+  .filters-panel:not(.open) {
+    display: none;
+  }
+  .filters-panel.open .ui-panel-actions {
+    position: sticky;
+    bottom: calc(-1 * var(--e4));
+    background: #fff;
+  }
+}
+.filters-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.filters-panel label select,
+.filters-panel label input {
+  width: 100%;
+}
+
+/* ===================================================================
+   9. Estados vacíos y avisos reales
+   =================================================================== */
+.ui-empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: var(--e8) var(--e4);
+  color: var(--tinta-2);
+  text-align: center;
+}
+.ui-empty svg {
+  color: var(--tinta-3);
+}
+.ui-empty strong {
+  color: var(--tinta);
+  font-size: 15px;
+}
+/* “En vivo”, puntos luminosos y campanas sin función: fuera */
+.live-indicator {
+  display: none !important;
+}
+
+/* ===================================================================
+   10. Cajas (envases): siempre separadas del dinero
+   =================================================================== */
+.cajas-box {
+  display: grid;
+  gap: 6px;
+  padding: var(--e3);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+}
+.cajas-box h4 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+.cajas-box dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  font-size: 13px;
+}
+.cajas-box dt {
+  color: var(--tinta-2);
+}
+.cajas-box dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cajas-box .cajas-total {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--borde);
+  font-weight: 700;
+}
+.cajas-box .cajas-total dd {
+  font-size: 15px;
+}
+.cajas-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-pill);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cajas-chip.pendiente {
+  border-color: var(--ambar);
+  background: var(--ambar-claro);
+  color: var(--ambar);
+}
+
+/* ===================================================================
+   11. Ventana de saldos: cambios pendientes y guardado explícito
+   =================================================================== */
+.saldos-edit {
+  display: grid;
+  gap: var(--e4);
+}
+.saldos-edit h2 {
+  margin: 0;
+  font-size: 19px;
+}
+.saldos-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--fondo);
+}
+.saldos-tabs button {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--tinta-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+.saldos-tabs button[aria-selected="true"] {
+  background: #fff;
+  color: var(--tinta);
+  box-shadow: var(--sombra-1);
+}
+.saldos-state {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--e2);
+  text-align: center;
+}
+.saldos-state > div {
+  padding: var(--e3) var(--e2);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+}
+.saldos-state small {
+  display: block;
+  color: var(--tinta-2);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.saldos-state strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.saldos-state .previsto {
+  border-color: var(--rojo-borde);
+  background: var(--rojo-suave);
+}
+.saldos-entry {
+  display: grid;
+  gap: var(--e2);
+}
+.saldos-entry input {
+  min-height: 56px;
+  font-size: 26px;
+  font-weight: 700;
+  text-align: right;
+}
+.saldos-entry-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e2);
+}
+.saldos-pending {
+  display: grid;
+  gap: 6px;
+  padding: var(--e3);
+  border: 1px dashed var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+}
+.saldos-pending h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.saldos-pending ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+.saldos-pending li {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  font-size: 13px;
+}
+.saldos-pending li strong {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.saldos-saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--verde);
+  font-size: 13px;
+  font-weight: 600;
+}
+.saldos-actions {
+  display: flex;
+  gap: var(--e2);
+}
+.saldos-actions .primary {
+  flex: 1;
+}
+
+/* ===================================================================
+   12. Vista de pedido: resumen, detalle y acciones
+   =================================================================== */
+.op-level {
+  display: grid;
+  gap: 6px;
+}
+.op-level > h4 {
+  margin: 0;
+  color: var(--tinta-3);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.op-actions-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+  align-items: center;
+}
+.op-actions-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.op-actions-danger {
+  margin-top: var(--e2);
+  padding-top: var(--e2);
+  border-top: 1px dashed var(--borde);
+}
+.op-assign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e3);
+  padding: var(--e3);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--tarjeta-2);
+}
+.op-assign label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 180px;
+  min-width: 0;
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.op-assign label select {
+  width: 100%;
+}
+.op-assign .sin-asignar {
+  color: var(--ambar);
+}
+
+/* ===================================================================
+   13. Pesaje: un solo teclado a la vista
+   =================================================================== */
+.weigh-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e2);
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: #fff;
+}
+.weigh-value small {
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.weigh-value b {
+  font-size: 34px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.weigh-value.vacio b {
+  color: var(--tinta-3);
+}
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--e2);
+}
+.keypad button {
+  min-height: 56px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--r-md);
+  background: #fff;
+  font-size: 22px;
+  font-weight: 600;
+}
+.keypad button:active {
+  background: var(--fondo);
+}
+.keypad button.clear {
+  font-size: 15px;
+}
+.teclado-modo {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ===================================================================
+   14. Toques cómodos y textos legibles en el celular
+   =================================================================== */
+@media (max-width: 900px) {
+  :root {
+    font-size: 15px;
+  }
+  .link-button,
+  .secondary.small,
+  button.small,
+  .pill,
+  .chip {
+    min-height: 44px;
+  }
+  .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    min-height: 48px;
+    font-size: 16px; /* el navegador no hace zoom al enfocar */
+  }
+  input[type="checkbox"] {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Operación: filtros en el flujo, sin cubrir búsquedas ni barras. */
+.board-filters {
+  position: relative;
+  flex-wrap: wrap;
+}
+.board-filters > .filters-panel.open {
+  position: static;
+  inset: auto;
+  flex: 1 0 100%;
+  width: 100%;
+  max-height: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 18px;
+  gap: 14px;
+  box-shadow: none;
+  background: #f8f9fb;
+  border: 1px solid #e3e5e9;
+  border-radius: 16px;
+}
+.filters-panel .ui-panel-actions {
+  grid-column: 1/-1;
+  position: static;
+  flex-wrap: wrap;
+}
+.active-filter-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 20px;
+  font-size: 13px;
+  color: #52565f;
+}
+.filter-chip {
+  border: 1px solid #f0c8cd;
+  background: #fff2f3;
+  color: #92182a;
+  border-radius: 24px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+.customer-card .cajas-chip {
+  margin: 8px 0;
+  display: inline-flex;
+}
+.operation-order > .od {
+  padding: 8px;
+}
+.op-actions-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ui-tag.sucursal {
+  display: inline-flex;
+  align-items: center;
+  min-height: 0;
+  height: auto;
+  width: auto;
+  max-width: 100%;
+  white-space: normal;
+  padding: 3px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+.customers .customer-name {
+  display: inline;
+}
+.saldos-error {
+  color: #a6192e;
+}
+body:has(.qo-search input:focus) .tabbar,
+body:has(.customers-filters input:focus) .tabbar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(120%);
+}
+@media (max-width: 760px) {
+  .board-filters > .filters-panel.open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .op-assign {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .saldos-state {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .od-head {
+    flex-wrap: wrap;
+  }
+  .operation-order {
+    padding: 16px;
+  }
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+}
+.document-list > li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 0;
+  border-bottom: 1px solid #e4e5e8;
+}
+.document-list strong {
+  overflow-wrap: anywhere;
+}
+.document-list p {
+  font-size: 13px;
+  color: #545966;
+}
+.document-list a {
+  min-height: 44px;
+}
+
+/* The native dialog owns the viewport; background scrolling never moves its header. */
+body.hoja-abierta {
+  overflow: hidden;
+}
+dialog[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  background: #fff;
+  color: #15171b;
+}
+.skip-link:not(:focus) {
+  transform: translateY(-200%);
+  top: -100px;
+}
+.staff-app.railed .staff-bar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #15171b;
+  border-bottom: 1px solid #e5e7ea;
+  backdrop-filter: blur(14px);
+}
+.staff-bar .staff-user,
+.staff-bar .staff-actions,
+.staff-bar button,
+.staff-bar a {
+  color: #15171b;
+}
+@media (max-width: 900px) {
+  .secondary.small,
+  button.small,
+  .link-button {
+    min-height: 44px;
+  }
+  .tabbar a,
+  .tabbar button {
+    touch-action: manipulation;
+  }
+}
+@media (max-width: 760px) {
+  dialog.wallet-dialog[open],
+  dialog.sheet-dialog[open],
+  dialog.wide-dialog[open] {
+    inset: 0;
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    padding: 24px 18px max(24px, env(safe-area-inset-bottom));
+  }
+  .saldos-actions {
+    position: sticky;
+    bottom: -24px;
+    background: rgba(255, 255, 255, 0.97);
+    padding: 14px 0;
+    z-index: 2;
+  }
+  .saldos-state {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    font-size: 12px;
+  }
+  .saldos-state strong {
+    font-size: 16px;
+  }
+}
+
+/* El botón del chat vive por encima de la barra inferior, nunca tapándola. */
+@media (max-width: 900px) {
+  .chat-fab {
+    bottom: calc(var(--barra) + 12px) !important;
+    z-index: 60;
+  }
+  .chat-panel {
+    bottom: calc(var(--barra) + 68px) !important;
+    max-height: calc(100dvh - var(--barra) - 96px);
+  }
+}
+
+/* ===================================================================
+   15. Repaso de tamaños: nada que se toque queda por debajo de 44 px
+   =================================================================== */
+/* La marca de la barra superior también se toca (lleva al inicio). */
+.staff-brand {
+  min-height: 44px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  /* Botones de cabecera y de formularios que venían con 42 px */
+  .head-actions .secondary,
+  .head-actions .primary,
+  .head-actions a.secondary,
+  .staff-note .secondary,
+  .qo-actions button,
+  .filters-panel button {
+    min-height: 44px;
+  }
+  /* Campos angostos (cajas y kilos por producto): angostos se ven, pero se tocan cómodos */
+  .qo-table input,
+  .qo-box input,
+  .edit-table input,
+  .weigh-boxes input {
+    min-width: 56px;
+  }
+  .weigh-boxes span button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Buscar cliente con el teclado abierto: el campo queda arriba y la lista se desplaza sola. */
+.qo-search {
+  scroll-margin-top: 8px;
+}
+.qo-search .suggestions {
+  max-height: min(46vh, 320px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Casilleros: el cuadrito es chico, pero se toca cómodo (la etiqueta entera es el control). */
+input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--rojo);
+}
+
+/* Buscar cliente con el teclado abierto: campo arriba y resultados con su propio desplazamiento.
+   Con tan poca pantalla no alcanza con desplazar: el buscador se fija arriba mientras se escribe. */
+@media (max-width: 900px) and (max-height: 560px) {
+  .qo-customer:has(.qo-search input:focus) .qo-search {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 95;
+    margin: 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+    box-shadow: var(--sombra-2);
+  }
+  .qo-customer:has(.qo-search input:focus) .qo-search .suggestions {
+    max-height: calc(100dvh - 104px);
+  }
+}

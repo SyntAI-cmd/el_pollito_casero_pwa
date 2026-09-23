@@ -437,7 +437,7 @@ const server = http.createServer(async (req, res) => {
           ? {}
           : await readBody(
               req,
-              /\/comprobantes?$|\/customers\/importar$/.test(path)
+              /\/comprobantes?$|\/customers\/importar$|\/documents$/.test(path)
                 ? 6_000_000
                 : 50000,
             );

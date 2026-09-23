@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useIsMobile } from "../lib/media.js";
+import { CajasChip } from "../components/CajasBox.jsx";
 import ImportCustomers from "../components/ImportCustomers.jsx";
 import { money, normalize, waLink } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
@@ -37,12 +38,42 @@ export default function Customers() {
     const t = setTimeout(() => setQuery(q), 250);
     return () => clearTimeout(t);
   }, [q]);
-  const [zone, setZone] = useState("");
-  const [shift, setShift] = useState("");
-  const [truck, setTruck] = useState("");
-  const [status, setStatus] = useState("");
+  const emptyFilters = {
+    zone: "",
+    shift: "",
+    truck: "",
+    status: "",
+    balance: "",
+    boxes: "",
+  };
+  const [filters, setFilters] = useState(emptyFilters);
+  const [draft, setDraft] = useState(emptyFilters);
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilters = [zone, shift, truck, status].filter(Boolean).length;
+  const { zone, shift, truck, status, balance, boxes } = filters;
+  const activeFilters = Object.values(filters).filter(Boolean).length;
+  const changeDraft = (key) => (e) =>
+    setDraft((v) => ({ ...v, [key]: e.target.value }));
+  const clearFilters = () => {
+    setDraft(emptyFilters);
+    setFilters(emptyFilters);
+  };
+  const filterNames = {
+    zone: "Zona",
+    shift: "Turno",
+    truck: "Preventista",
+    status: "Estado",
+    balance: "Dinero",
+    boxes: "Cajas",
+  };
+  const filterValues = {
+    debt: "Con deuda",
+    zero: "Sin deuda (saldo 0)",
+    credit: "Saldo a favor",
+    pending: "Con cajas pendientes",
+    clear: "Sin cajas pendientes",
+    ...shiftNames,
+    ...statusNames,
+  };
   const mobile = useIsMobile();
   const zones = useMemo(
     () => [...new Set(customers.map((c) => c.zone).filter(Boolean))].sort(),
@@ -57,9 +88,17 @@ export default function Customers() {
         (!shift || (c.shift || "") === shift) &&
         (!truck || (c.truck || c.driver || "") === truck) &&
         (!status || (c.status || "ok") === status) &&
+        (!balance ||
+          (balance === "debt"
+            ? c.summary.balance > 0
+            : balance === "zero"
+              ? c.summary.balance === 0
+              : c.summary.balance < 0)) &&
+        (!boxes ||
+          (boxes === "pending" ? c.summary.boxes > 0 : c.summary.boxes <= 0)) &&
         (!nq ||
           normalize(
-            `${c.name} ${c.alias || ""} ${c.legalName || ""} ${c.cuit || ""} ${c.contactPhone || ""} ${c.zone || ""} ${c.code || ""}`,
+            `${c.name} ${c.alias || ""} ${c.legalName || ""} ${c.cuit || ""} ${c.contactPhone || ""} ${c.zone || ""} ${c.code || ""} ${c.branch || ""}`,
           ).includes(nq)),
     )
     .sort(
@@ -94,15 +133,18 @@ export default function Customers() {
           type="button"
           className={"secondary filters-toggle" + (activeFilters ? " on" : "")}
           aria-expanded={showFilters}
-          onClick={() => setShowFilters((v) => !v)}
+          onClick={() => {
+            setDraft(filters);
+            setShowFilters((v) => !v);
+          }}
         >
           <SlidersHorizontal size={15} /> Filtros
           {activeFilters ? <b>{activeFilters}</b> : null}
         </button>
         <div className={"filters-panel" + (showFilters ? " open" : "")}>
           <select
-            value={zone}
-            onChange={(e) => setZone(e.target.value)}
+            value={draft.zone}
+            onChange={changeDraft("zone")}
             aria-label="Zona"
           >
             <option value="">Todas las zonas</option>
@@ -111,8 +153,8 @@ export default function Customers() {
             ))}
           </select>
           <select
-            value={shift}
-            onChange={(e) => setShift(e.target.value)}
+            value={draft.shift}
+            onChange={changeDraft("shift")}
             aria-label="Turno"
           >
             <option value="">Mañana y tarde</option>
@@ -120,8 +162,8 @@ export default function Customers() {
             <option value="tarde">Tarde</option>
           </select>
           <select
-            value={truck}
-            onChange={(e) => setTruck(e.target.value)}
+            value={draft.truck}
+            onChange={changeDraft("truck")}
             aria-label="Preventista"
           >
             <option value="">Todos los preventistas</option>
@@ -130,8 +172,8 @@ export default function Customers() {
             ))}
           </select>
           <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            value={draft.status}
+            onChange={changeDraft("status")}
             aria-label="Estado"
           >
             <option value="">Todos los estados</option>
@@ -141,20 +183,47 @@ export default function Customers() {
               </option>
             ))}
           </select>
-          {activeFilters > 0 && (
+          <select
+            aria-label="Saldo monetario"
+            value={draft.balance}
+            onChange={changeDraft("balance")}
+          >
+            <option value="">Todos los saldos monetarios</option>
+            <option value="debt">Con deuda</option>
+            <option value="zero">Sin deuda (saldo 0)</option>
+            <option value="credit">Saldo a favor</option>
+          </select>
+          <select
+            aria-label="Saldo de cajas"
+            value={draft.boxes}
+            onChange={changeDraft("boxes")}
+          >
+            <option value="">Todas las cajas</option>
+            <option value="pending">Con cajas pendientes</option>
+            <option value="clear">Sin cajas pendientes</option>
+          </select>
+          <div className="ui-panel-actions">
+            <button type="button" className="secondary" onClick={clearFilters}>
+              Limpiar
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                setFilters(draft);
+                setShowFilters(false);
+              }}
+            >
+              Aplicar filtros
+            </button>
             <button
               type="button"
               className="link-button"
-              onClick={() => {
-                setZone("");
-                setShift("");
-                setTruck("");
-                setStatus("");
-              }}
+              onClick={() => setShowFilters(false)}
             >
-              Limpiar filtros
+              Cerrar filtros
             </button>
-          )}
+          </div>
         </div>
         <button
           className="primary"
@@ -163,6 +232,24 @@ export default function Customers() {
           <UserPlus size={15} /> Nuevo cliente
         </button>
         {session?.role === "admin" && <ImportCustomers />}
+      </div>
+      <div className="active-filter-list" aria-label="Filtros activos">
+        {Object.entries(filters)
+          .filter(([, v]) => v)
+          .map(([key, value]) => (
+            <button
+              type="button"
+              className="filter-chip"
+              key={key}
+              onClick={() => setFilters((v) => ({ ...v, [key]: "" }))}
+              aria-label={`Quitar ${filterNames[key]}`}
+            >
+              {filterNames[key]}: {filterValues[value] || value} ×
+            </button>
+          ))}
+        <span role="status">
+          {list.length} de {customers.length} clientes
+        </span>
       </div>
       {list.length === 0 ? (
         <p className="muted">Ningún cliente coincide con el filtro.</p>
@@ -174,7 +261,12 @@ export default function Customers() {
             return (
               <li key={c.phone} className={"customer-card status-" + st}>
                 <div className="cc-top">
-                  <h3>{c.name}</h3>
+                  <h3>
+                    {c.name}{" "}
+                    {c.branch && (
+                      <span className="ui-tag sucursal">{c.branch}</span>
+                    )}
+                  </h3>
                   {alDia ? (
                     <span className="al-dia">Al día</span>
                   ) : (
@@ -187,6 +279,10 @@ export default function Customers() {
                     </strong>
                   )}
                 </div>
+                {c.legalName && c.legalName !== c.name && (
+                  <p className="muted small">{c.legalName}</p>
+                )}
+                <CajasChip customer={c} />
                 <p className="cc-meta">
                   {[
                     c.zone,
@@ -197,9 +293,6 @@ export default function Customers() {
                   ]
                     .filter(Boolean)
                     .join(" · ") || "Sin zona"}
-                  {c.summary.boxes
-                    ? ` · ${c.summary.boxes} ${c.summary.boxes === 1 ? "envase" : "envases"}`
-                    : ""}
                 </p>
                 {st !== "ok" && (
                   <span className={"status-pill " + st}>{statusNames[st]}</span>
@@ -263,7 +356,11 @@ export default function Customers() {
                       >
                         <strong>{c.name}</strong>
                       </button>
-                      {c.branch && <small className="pill">Sucursal</small>}
+                      {c.branch && (
+                        <span className="ui-tag sucursal">
+                          Sucursal · {c.branch}
+                        </span>
+                      )}
                       <br />
                       <small>
                         {c.legalName && c.legalName !== c.name

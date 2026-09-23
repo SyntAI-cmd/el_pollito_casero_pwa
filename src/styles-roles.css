@@ -27,8 +27,8 @@
   inset: 0;
   background: linear-gradient(
     180deg,
-    #20201e22 0%,
-    #20201e66 45%,
+    #1f1f1f22 0%,
+    #1f1f1f66 45%,
     #cc242acc 100%
   );
 }
@@ -115,7 +115,7 @@
 }
 .login-form input {
   min-height: 50px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 12px;
   padding: 0 14px;
   font-size: 16px;
@@ -131,7 +131,7 @@
 .phone-field {
   display: grid;
   grid-template-columns: auto 1fr;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -139,9 +139,9 @@
   display: grid;
   place-items: center;
   padding: 0 14px;
-  background: #f1efe9;
+  background: #ededed;
   font-weight: 600;
-  color: #5c594f;
+  color: #565656;
 }
 .phone-field input {
   border: 0;
@@ -166,7 +166,7 @@
   text-underline-offset: 3px;
 }
 .top-login:hover {
-  background: #3a3935;
+  background: #383838;
 }
 .top-login {
   display: inline-flex;
@@ -209,7 +209,7 @@
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(60% 50% at 80% 0%, #cc242a33 0%, transparent 60%), #171412;
+    radial-gradient(60% 50% at 80% 0%, #cc242a33 0%, transparent 60%), #141414;
 }
 .staff-card {
   width: min(440px, 100%);
@@ -255,7 +255,7 @@
 /* ---- Interfaz del equipo ---- */
 .staff-app {
   min-height: 100dvh;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .staff-bar {
   position: sticky;
@@ -283,7 +283,7 @@
 }
 .staff-brand small {
   font-size: 11px;
-  color: #b8b4aa;
+  color: #b1b1b1;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -299,7 +299,7 @@
   padding: 0 14px;
   min-height: 40px;
   border-radius: 9px;
-  color: #d4d1c7;
+  color: #cecece;
   font-size: 13px;
   font-weight: 500;
 }
@@ -355,13 +355,13 @@
   gap: 12px;
 }
 .staff-bar .live-indicator {
-  color: #b8b4aa;
+  color: #b1b1b1;
 }
 .staff-bar .push-chip,
 .staff-bar .push-button {
   background: #ffffff10;
   border-color: #ffffff22;
-  color: #d4d1c7;
+  color: #cecece;
 }
 .staff-bar .push-chip.on {
   color: #8fd7ad;
@@ -381,7 +381,7 @@
   color: #fff;
 }
 .staff-bar .link-button {
-  color: #d4d1c7;
+  color: #cecece;
 }
 .staff-bar .link-button:hover {
   color: #fff;
@@ -396,7 +396,7 @@
   left: 12px;
   bottom: 10px;
   font-size: 11px;
-  color: #a19d92;
+  color: #9a9a9a;
   pointer-events: none;
 }
 @media (max-width: 740px) {
@@ -458,7 +458,7 @@
   color: #fff;
   font-weight: 600;
   font-size: 13px;
-  box-shadow: 0 14px 34px #20201e55;
+  box-shadow: 0 14px 34px #1f1f1f55;
 }
 .chat-fab.has-unread {
   background: var(--red);
@@ -487,7 +487,7 @@
   background: #fff;
   border-radius: 16px;
   border: 1px solid var(--line);
-  box-shadow: 0 24px 60px #20201e44;
+  box-shadow: 0 24px 60px #1f1f1f44;
   overflow: hidden;
 }
 .chat-panel > header {
@@ -496,7 +496,7 @@
   justify-content: space-between;
   padding: 12px 12px 12px 16px;
   border-bottom: 1px solid var(--line);
-  background: #faf9f6;
+  background: #f8f8f8;
 }
 .chat-tabs {
   display: flex;
@@ -532,7 +532,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: #f7f6f2;
+  background: #f4f4f4;
 }
 .chat-day {
   align-self: center;
@@ -587,7 +587,7 @@
 .chat-form input {
   flex: 1;
   min-height: 44px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 10px;
   padding: 0 12px;
   font-size: 14px;
@@ -677,7 +677,7 @@
   gap: 10px;
   padding: 8px 8px 8px 12px;
   border-radius: 10px;
-  background: #faf9f6;
+  background: #f8f8f8;
   border: 1px solid var(--line);
 }
 .copy-field small {
@@ -701,7 +701,7 @@
   flex: 1;
   min-width: 180px;
   min-height: 44px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 10px;
   padding: 0 12px;
 }
@@ -735,7 +735,7 @@
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #faf9f6;
+  background: #f8f8f8;
 }
 .accounts-list strong {
   display: block;
@@ -852,7 +852,7 @@
 .staff-bar .demo-pill {
   background: #ffffff1a;
   border-color: #ffffff33;
-  color: #f3f1eb;
+  color: #efefef;
 }
 
 /* ---- Pantalla de error (nunca en blanco) ---- */
@@ -864,7 +864,7 @@
   text-align: center;
   gap: 12px;
   padding: 24px;
-  background: #f8f7f4;
+  background: #f6f6f6;
 }
 .fatal h1 {
   font-size: 26px;
@@ -895,7 +895,7 @@
   gap: 10px;
   min-height: 52px;
   border-radius: 28px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   background: #fff;
   font-weight: 600;
   font-size: 15px;
@@ -914,16 +914,16 @@
   color: var(--muted);
 }
 .login-option.disabled {
-  color: #5a5750;
-  border-color: #e3dfd6;
-  background: #f6f4ef;
+  color: #555555;
+  border-color: #dddddd;
+  background: #f3f3f3;
   cursor: not-allowed;
 }
 .login-option.disabled:disabled {
   opacity: 1;
 }
 .login-option.disabled small {
-  color: #6f6c63;
+  color: #696969;
 }
 .login-option.disabled svg {
   filter: grayscale(1);
@@ -946,7 +946,7 @@
   display: flex;
   gap: 6px;
   margin: 18px 0 4px;
-  background: #f1efe9;
+  background: #ededed;
   padding: 4px;
   border-radius: 12px;
   max-width: 460px;
@@ -997,7 +997,7 @@
   padding: 0 16px;
 }
 .staff-note code {
-  background: #f1efe9;
+  background: #ededed;
   padding: 1px 6px;
   border-radius: 5px;
   font-size: 12px;
@@ -1024,7 +1024,7 @@
   gap: 20px;
 }
 .team-table code {
-  background: #f1efe9;
+  background: #ededed;
   padding: 2px 7px;
   border-radius: 6px;
 }
@@ -1038,7 +1038,7 @@
   font-size: 12px;
   padding: 4px 9px;
   border-radius: 20px;
-  background: #f1efe9;
+  background: #ededed;
 }
 .role-pill.admin {
   background: #fbe1e2;
@@ -1050,7 +1050,7 @@
 }
 .inline-form input {
   min-height: 34px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 8px;
   padding: 0 8px;
   width: 170px;
@@ -1075,7 +1075,7 @@
 .team-form input,
 .team-form select {
   min-height: 44px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 9px;
   padding: 0 12px;
   background: #fff;
@@ -1089,7 +1089,7 @@
   justify-content: center;
 }
 .footer-staff {
-  color: #6f6c63;
+  color: #696969;
 }
 
 /* ---- Búsqueda de dirección ---- */
@@ -1116,7 +1116,7 @@
   right: 12px;
   width: 14px;
   height: 14px;
-  border: 2px solid #d7d3c9;
+  border: 2px solid #d0d0d0;
   border-top-color: var(--red);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -1133,7 +1133,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   background: #fff;
-  box-shadow: 0 16px 40px #20201e22;
+  box-shadow: 0 16px 40px #1f1f1f22;
   display: grid;
   gap: 2px;
   max-height: 260px;
@@ -1152,7 +1152,7 @@
 }
 .suggestions button:hover,
 .suggestions button:focus-visible {
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .suggestions svg {
   color: var(--red);
@@ -1191,7 +1191,7 @@
   gap: 10px;
   padding: 14px;
   border-radius: 12px;
-  background: #faf9f6;
+  background: #f8f8f8;
   border: 1px solid var(--line);
   margin-bottom: 14px;
 }
@@ -1246,19 +1246,19 @@
   padding: 0 12px;
   border-radius: 20px;
   border: 1px solid var(--line);
-  color: #4a4842;
+  color: #464646;
   font-size: 13px;
   font-weight: 600;
   background: #fff;
 }
 .top-staff:hover {
-  border-color: #c9c5bb;
+  border-color: #c2c2c2;
   color: var(--black);
 }
 .staff-row {
   margin-top: 8px;
   border-top: 1px dashed var(--line);
-  color: #4a4842;
+  color: #464646;
 }
 @media (max-width: 720px) {
   .top-staff span {
@@ -1336,7 +1336,7 @@
   gap: 5px;
   font-size: 12px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .quick-order input,
 .quick-order select {
@@ -1395,7 +1395,7 @@
 }
 .qo-table td {
   padding: 5px 8px;
-  border-bottom: 1px solid #f0eee8;
+  border-bottom: 1px solid #ececec;
 }
 .qo-table .num {
   text-align: right;
@@ -1436,7 +1436,7 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #f6f4ef;
+  background: #f3f3f3;
   font-size: 13px;
   line-height: 1.5;
 }
@@ -1611,7 +1611,7 @@
 .closure-figure span {
   font-size: 12px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .closure-figure strong {
   font-size: 20px;
@@ -1622,7 +1622,7 @@
   gap: 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .closure-form .wide {
   grid-column: 1 / -1;
@@ -1681,11 +1681,11 @@
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: #f0ede3;
+  background: #eaeaea;
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #4a4842;
+  color: #464646;
 }
 .status-pill {
   display: inline-flex;
@@ -1720,7 +1720,7 @@
 .ficha-form .qo-grid label {
   font-size: 12px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
   display: grid;
   gap: 4px;
   margin: 0;
@@ -1788,7 +1788,7 @@ dialog.wide-dialog {
   gap: 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .driver-form .wide,
 .driver-form .actions-row {
@@ -1905,8 +1905,8 @@ button.floor-card:hover {
   font-style: normal;
   font-size: 11px;
   font-weight: 600;
-  background: #f0ede3;
-  color: #4a4842;
+  background: #eaeaea;
+  color: #464646;
 }
 .chip.st-pesando {
   background: #fff4d6;
@@ -1996,7 +1996,7 @@ button.floor-card:hover {
   gap: 8px;
   margin: 0;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .weigh-mode {
   display: grid;
@@ -2004,7 +2004,7 @@ button.floor-card:hover {
   gap: 6px;
   padding: 4px;
   border-radius: 12px;
-  background: #ece9e1;
+  background: #e7e7e7;
 }
 .weigh-mode button {
   border: 0;
@@ -2013,7 +2013,7 @@ button.floor-card:hover {
   font-size: 13px;
   font-weight: 600;
   background: transparent;
-  color: #4a4842;
+  color: #464646;
   cursor: pointer;
 }
 .weigh-mode button.active {
@@ -2026,7 +2026,7 @@ button.floor-card:hover {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .weigh-boxes > span {
   display: grid;
@@ -2037,7 +2037,7 @@ button.floor-card:hover {
   font-size: 24px;
   font-weight: 700;
   border-radius: 10px;
-  border: 1px solid #d8d4ca;
+  border: 1px solid #d1d1d1;
   background: #fff;
   cursor: pointer;
 }
@@ -2053,7 +2053,7 @@ button.floor-card:hover {
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: #4a4842;
+  color: #464646;
 }
 .weigh-gross input {
   font-size: 44px;
@@ -2068,7 +2068,7 @@ button.floor-card:hover {
   margin: 0;
   padding: 12px 16px;
   border-radius: 12px;
-  background: #f6f4ef;
+  background: #f3f3f3;
   color: var(--muted);
   font-size: 13px;
 }
@@ -2091,12 +2091,12 @@ button.floor-card:hover {
 .keypad button {
   min-height: 60px;
   border-radius: 12px;
-  background: #f0ede3;
+  background: #eaeaea;
   font-size: 24px;
   font-weight: 600;
 }
 .keypad button:active {
-  background: #e3dfd3;
+  background: #dbdbdb;
 }
 .weigh-confirm {
   min-height: 64px;
@@ -2204,7 +2204,7 @@ button.floor-card:hover {
   font-size: 14px;
 }
 .qo-table input.qo-off {
-  background: #f6f4ef;
+  background: #f3f3f3;
   color: var(--muted);
   border-style: dashed;
 }
@@ -2224,7 +2224,7 @@ button.floor-card:hover {
   opacity: 0.45;
 }
 .qo-price-btn:hover {
-  background: #f0ede3;
+  background: #eaeaea;
 }
 .qo-price-btn:hover svg {
   opacity: 1;
@@ -2318,7 +2318,7 @@ dialog label.check input {
   width: 100%;
   max-width: min(100%, calc(100vw - 40px));
   box-sizing: border-box;
-  border-color: #e3dccd;
+  border-color: #d8d8d8;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
 }
 .operation-order .op-grid {
@@ -2336,8 +2336,8 @@ dialog label.check input {
   align-content: start;
   padding: 10px 12px;
   border-radius: 8px;
-  background: #faf9f6;
-  border: 1px solid #efece4;
+  background: #f8f8f8;
+  border: 1px solid #eaeaea;
 }
 .operation-order .op-side .op-payment,
 .operation-order .op-side .op-balance,
@@ -2365,7 +2365,7 @@ dialog label.check input {
   align-items: center;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid #efece4;
+  border-top: 1px solid #eaeaea;
 }
 .operation-order .operation-actions > .primary {
   order: -2;
@@ -2480,7 +2480,7 @@ dialog label.check input {
   -webkit-overflow-scrolling: touch;
 }
 .weigh-filters .pill {
-  border: 1px solid #d5d4cc;
+  border: 1px solid #d1d1d1;
   background: #fff;
   color: var(--black);
   border-radius: 999px;
@@ -2548,7 +2548,7 @@ dialog.wallet-dialog {
   gap: 2px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .wallet-balance small {
   font-size: 11px;
@@ -2618,7 +2618,7 @@ dialog.wallet-dialog {
   gap: 10px;
   font-size: 12px;
   padding: 6px 0;
-  border-bottom: 1px solid #efece4;
+  border-bottom: 1px solid #eaeaea;
 }
 .wallet-moves li small {
   display: block;

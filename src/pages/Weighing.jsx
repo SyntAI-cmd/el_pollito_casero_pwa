@@ -8,6 +8,8 @@ import {
   WifiOff,
   CircleCheck,
   Search,
+  Keyboard,
+  Delete,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute } from "../lib/router.jsx";
@@ -56,11 +58,30 @@ export default function Weighing() {
   const [shift, setShift] = useState(query.get("turno") || "");
   const [grossFocus, setGrossFocus] = useState(false);
   const saving = useRef(false);
-  // Mientras se escribe el peso, la barra inferior se va: el campo y el botón flotante quedan libres.
+  // Un solo teclado a la vista. En el celular manda el teclado de la app (el del teléfono no
+  // aparece porque el campo va con inputMode="none"); en escritorio, el teclado físico.
+  // La preferencia se recuerda y se puede cambiar cuando se quiera.
+  const [teclado, setTeclado] = useState(() => {
+    const guardado = localStorage.getItem("teclado-pesaje");
+    if (guardado === "app" || guardado === "sistema") return guardado;
+    return typeof window !== "undefined" &&
+      window.matchMedia("(pointer: coarse)").matches
+      ? "app"
+      : "sistema";
+  });
+  const tecladoApp = teclado === "app";
+  const cambiarTeclado = () => {
+    const otro = tecladoApp ? "sistema" : "app";
+    localStorage.setItem("teclado-pesaje", otro);
+    setTeclado(otro);
+  };
+  // Con el teclado del teléfono abierto, la barra inferior tapa el campo: se aparta.
+  // Con el teclado de la app no hace falta, porque el botón de confirmar siempre se ve.
   useEffect(() => {
-    document.body.classList.toggle("escribiendo-peso", grossFocus);
+    const tapando = grossFocus && !tecladoApp;
+    document.body.classList.toggle("escribiendo-peso", tapando);
     return () => document.body.classList.remove("escribiendo-peso");
-  }, [grossFocus]);
+  }, [grossFocus, tecladoApp]);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     params.set("fecha", date);
@@ -215,9 +236,15 @@ export default function Weighing() {
     }
   }
   const pad = (k) => {
-    if (k === "⌫") return setGross((v) => v.slice(0, -1));
+    if (k === "borrar") return setGross((v) => v.slice(0, -1));
+    if (k === "limpiar") return setGross("");
     if (k === "," && gross.includes(",")) return;
-    setGross((v) => (v + k).slice(0, 7));
+    // Hasta dos decimales, como la balanza.
+    setGross((v) => {
+      const next = (v + k).slice(0, 7);
+      const [, dec] = next.split(",");
+      return dec && dec.length > 2 ? v : next;
+    });
   };
 
   return (
@@ -476,21 +503,27 @@ export default function Weighing() {
                 <label className="weigh-gross">
                   {`Peso bruto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`}
                   <input
-                    inputMode="decimal"
+                    /* Con el teclado de la app, el del teléfono no se abre: nunca hay dos. */
+                    inputMode={tecladoApp ? "none" : "decimal"}
                     enterKeyHint="done"
                     autoComplete="off"
                     value={gross}
-                    onChange={(e) => setGross(e.target.value.replace(".", ","))}
+                    onChange={(e) =>
+                      setGross(
+                        e.target.value.replace(".", ",").replace(/[^\d,]/g, ""),
+                      )
+                    }
                     onFocus={(e) => {
                       setGrossFocus(true);
-                      setTimeout(
-                        () =>
-                          e.target.scrollIntoView({
-                            block: "center",
-                            behavior: "smooth",
-                          }),
-                        250,
-                      );
+                      if (!tecladoApp)
+                        setTimeout(
+                          () =>
+                            e.target.scrollIntoView({
+                              block: "center",
+                              behavior: "smooth",
+                            }),
+                          250,
+                        );
                     }}
                     onBlur={() => setTimeout(() => setGrossFocus(false), 150)}
                     onKeyDown={(e) => {
@@ -524,31 +557,65 @@ export default function Weighing() {
                       : ""}
                   </small>
                 </p>
-                <div className="keypad" aria-hidden="true">
-                  {[
-                    "7",
-                    "8",
-                    "9",
-                    "4",
-                    "5",
-                    "6",
-                    "1",
-                    "2",
-                    "3",
-                    ",",
-                    "0",
-                    "⌫",
-                  ].map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => pad(k)}
-                    >
-                      {k}
-                    </button>
-                  ))}
+                <div className="teclado-modo">
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={cambiarTeclado}
+                  >
+                    <Keyboard size={15} />{" "}
+                    {tecladoApp
+                      ? "Usar el teclado del teléfono"
+                      : "Usar el teclado de la app"}
+                  </button>
                 </div>
+                {tecladoApp && (
+                  <div
+                    className="keypad"
+                    role="group"
+                    aria-label="Teclado para el peso"
+                  >
+                    {[
+                      "7",
+                      "8",
+                      "9",
+                      "4",
+                      "5",
+                      "6",
+                      "1",
+                      "2",
+                      "3",
+                      ",",
+                      "0",
+                    ].map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        aria-label={k === "," ? "coma decimal" : k}
+                        onClick={() => pad(k)}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      aria-label="Borrar el último número"
+                      onClick={() => pad("borrar")}
+                    >
+                      <Delete size={22} />
+                    </button>
+                    <button
+                      type="button"
+                      className="clear"
+                      aria-label="Limpiar el peso"
+                      disabled={gross === ""}
+                      onClick={() => pad("limpiar")}
+                      style={{ gridColumn: "span 3" }}
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="primary weigh-confirm"
@@ -559,7 +626,7 @@ export default function Weighing() {
                   {nBoxes > 1 ? `Confirmar ${nBoxes} cajas` : "Confirmar cajón"}
                 </button>
                 {/* Botón flotante sobre el teclado del celular: confirma sin cerrar el teclado ni hacer scroll. */}
-                {grossFocus && net > 0 && (
+                {grossFocus && !tecladoApp && net > 0 && (
                   <button
                     type="button"
                     className="weigh-fab"

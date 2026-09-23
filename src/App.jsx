@@ -16,6 +16,8 @@ import {
   MessageCircle,
   Truck,
   Menu as MenuIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
   LogOut,
   ClipboardList,
   Plus,
@@ -32,6 +34,8 @@ import { MobileCartBar } from "./components/Cart.jsx";
 import Modals from "./components/Modals.jsx";
 import Chat from "./components/Chat.jsx";
 import PushToggle from "./components/PushToggle.jsx";
+import Documents from "./pages/Documents.jsx";
+import { setArchiveOwner } from "./lib/archive.js";
 import Catalog from "./pages/Catalog.jsx";
 import Orders from "./pages/Orders.jsx";
 import Tracking from "./pages/Tracking.jsx";
@@ -43,6 +47,7 @@ import Operations from "./pages/Operations.jsx";
 import Customers from "./pages/Customers.jsx";
 import { PageHead } from "./components/ui.jsx";
 import { todayKey } from "./lib/day.js";
+import { useHideOnScroll, useKeyboardOpen } from "./lib/media.js";
 import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
 import Print from "./pages/Print.jsx";
@@ -68,6 +73,7 @@ const CLIENT_ROUTES = {
 };
 const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
 const ADMIN_ROUTES = {
+  "/operacion/documentos": Documents,
   "/operacion": Operations,
   "/operacion/clientes": Operations,
   "/operacion/equipo": Operations,
@@ -94,6 +100,7 @@ function DriverCustomers() {
   );
 }
 const DRIVER_ROUTES = {
+  "/reparto/documentos": Documents,
   "/reparto": Delivery,
   "/reparto/nuevo": QuickOrder,
   "/reparto/pesada": Weighing,
@@ -102,16 +109,8 @@ const DRIVER_ROUTES = {
   "/ayuda": Help,
 };
 const STAFF_LOGIN = { "/admin": Access, "/acceso": Access };
-/** MVP: barra reducida (Pedidos · Cargar · Pesaje · Imprimir · Clientes · Equipo). */
-const SIMPLE_NAV = true;
 const homeFor = (role) =>
-  role === "admin"
-    ? SIMPLE_NAV
-      ? "/operacion"
-      : "/operacion/dia"
-    : role === "repartidor"
-      ? "/reparto"
-      : "/";
+  role === "admin" ? "/operacion" : role === "repartidor" ? "/reparto" : "/";
 
 const clientNav = [
   ["/", "Hacer un pedido", House],
@@ -398,13 +397,19 @@ function ClientShell({ Page, path }) {
   );
 }
 
-/** Barra inferior del celular: los cuatro accesos más usados y el resto en "Más". */
-function TabBar({ nav, path, badge, onMore }) {
+/**
+ * Barra inferior del celular: cuatro accesos frecuentes con icono y palabra, más "Más".
+ * Todos los casilleros miden igual (ninguno recorta su etiqueta) y la barra se aparta sola
+ * al bajar por la pantalla o cuando se abre el teclado.
+ */
+function TabBar({ nav, path, badge, onMore, oculta }) {
   const main = nav.slice(0, 4);
-  const rest = nav.slice(4);
   return (
-    <nav className="tabbar glass-dark" aria-label="Secciones">
-      {main.map(([url, name, Icon]) => (
+    <nav
+      className={"tabbar glass" + (oculta ? " oculta" : "")}
+      aria-label="Secciones"
+    >
+      {main.map(([url, name, Icon, corto]) => (
         <Link
           key={url}
           to={url}
@@ -412,55 +417,146 @@ function TabBar({ nav, path, badge, onMore }) {
           aria-current={path === url ? "page" : undefined}
         >
           <Icon size={20} />
-          <span>{name}</span>
+          <span>{corto || name}</span>
           {url === "/operacion" && badge > 0 && (
             <b className="tab-count">{badge}</b>
           )}
         </Link>
       ))}
-      {rest.length > 0 && (
-        <button type="button" onClick={onMore} aria-haspopup="dialog">
-          <MenuIcon size={20} />
-          <span>Más</span>
-        </button>
-      )}
+      <button type="button" onClick={onMore} aria-haspopup="dialog">
+        <MenuIcon size={20} />
+        <span>Más</span>
+      </button>
     </nav>
   );
 }
 
-/** Interfaz del equipo: barra oscura compacta, sin nada del lado del cliente. */
+/**
+ * Secciones del equipo, agrupadas por función y filtradas por rol.
+ * Cada entrada es [url, nombre, icono, nombre corto para la barra del celular].
+ */
+function seccionesDe(role) {
+  if (role === "admin")
+    return [
+      [
+        "Operación del día",
+        [
+          ["/operacion", "Pedidos", ClipboardList, "Pedidos"],
+          ["/operacion/nuevo", "Cargar pedido", Plus, "Nuevo"],
+          ["/operacion/pesada", "Pesaje", Scale, "Pesaje"],
+          ["/operacion/clientes", "Clientes", Users, "Clientes"],
+        ],
+      ],
+      [
+        "Gestión",
+        [
+          ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
+          ["/operacion/documentos", "Documentos", ClipboardList, "Documentos"],
+          ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
+        ],
+      ],
+    ];
+  return [
+    [
+      "Mi día",
+      [
+        ["/reparto", "Mis entregas", Truck, "Entregas"],
+        ["/reparto/nuevo", "Cargar pedido", Plus, "Nuevo"],
+        ["/reparto/pesada", "Pesaje", Scale, "Pesaje"],
+        ["/reparto/clientes", "Clientes", Users, "Clientes"],
+        ["/reparto/documentos", "Documentos", ClipboardList, "Documentos"],
+      ],
+    ],
+  ];
+}
+
+/** Panel lateral de escritorio: secciones agrupadas, plegable, con perfil y salida aparte. */
+function SideRail({ grupos, path, badge, plegado, onPlegar, session, logout }) {
+  return (
+    <aside className="side-rail" aria-label="Navegación del equipo">
+      <Link to={path} className="rail-brand">
+        <img src="/icon.svg" width="30" height="30" alt="" />
+        <span>
+          <strong>Pollito Casero</strong>
+          <small>
+            {session.role === "admin" ? "Administración" : "Reparto"}
+          </small>
+        </span>
+      </Link>
+      <button
+        type="button"
+        className="rail-toggle"
+        onClick={onPlegar}
+        aria-expanded={!plegado}
+        title={plegado ? "Mostrar los nombres" : "Dejar solo los iconos"}
+      >
+        {plegado ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+        <span>{plegado ? "" : "Plegar menú"}</span>
+      </button>
+      {grupos.map(([titulo, items]) => (
+        <nav className="rail-group" key={titulo} aria-label={titulo}>
+          <h3>{titulo}</h3>
+          {items.map(([url, name, Icon]) => (
+            <Link
+              key={url}
+              to={url}
+              title={name}
+              className={path === url ? "active" : ""}
+              aria-current={path === url ? "page" : undefined}
+            >
+              <Icon size={18} />
+              <span>{name}</span>
+              {url === "/operacion" && badge > 0 && (
+                <b className="nav-count" title="Pedidos abiertos">
+                  {badge}
+                </b>
+              )}
+            </Link>
+          ))}
+        </nav>
+      ))}
+      <div className="rail-foot">
+        <span className="rail-user" title={session.name}>
+          <i className="avatar" aria-hidden="true">
+            {session.name[0]}
+          </i>
+          <span>{session.name}</span>
+        </span>
+        <Link to="/ayuda" title="Ayuda">
+          <CircleHelp size={17} />
+          <span>Ayuda</span>
+        </Link>
+        <button type="button" onClick={logout} title="Salir">
+          <LogOut size={17} />
+          <span>Salir</span>
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+/** Interfaz del equipo: panel lateral en escritorio, barra inferior en el celular. */
 function StaffShell({ Page, path }) {
-  const { session, orders, logout, config, live } = useStore();
+  const { session, orders, logout, config, notify } = useStore();
+  useEffect(() => {
+    setArchiveOwner(session);
+    return () => setArchiveOwner(null);
+  }, [session]);
+  useEffect(() => {
+    const on = (e) => notify(e.detail);
+    window.addEventListener("archive-status", on);
+    return () => window.removeEventListener("archive-status", on);
+  }, [notify]);
   const [more, setMore] = useState(false);
+  const [plegado, setPlegado] = useState(
+    () => localStorage.getItem("menu-plegado") === "1",
+  );
+  const oculta = useHideOnScroll();
+  useKeyboardOpen();
   const admin = session.role === "admin";
-  // MVP simple: cinco secciones. Las demás pantallas siguen existiendo por URL (Nota del día,
-  // Carga, Flota, Rendición, Listas de precios) pero no van en la barra; SIMPLE_NAV = false las vuelve a mostrar.
-  const nav = admin
-    ? SIMPLE_NAV
-      ? [
-          ["/operacion", "Pedidos", ClipboardList],
-          ["/operacion/nuevo", "Cargar pedido", Plus],
-          ["/operacion/pesada", "Pesaje", Scale],
-          ["/operacion/imprimir", "Imprimir", Printer],
-          ["/operacion/clientes", "Clientes", Users],
-          ["/operacion/equipo", "Equipo", ShieldCheck],
-        ]
-      : [
-          ["/operacion/dia", "Nota del día", ClipboardList],
-          ["/operacion/nuevo", "Cargar pedido", Plus],
-          ["/operacion/pesada", "Pesada", Scale],
-          ["/operacion/carga", "Carga", Package],
-          ["/operacion/imprimir", "Imprimir", Printer],
-          ["/operacion", "Pedidos", ClipboardList],
-          ["/operacion/clientes", "Clientes", Users],
-          ["/operacion/equipo", "Equipo", ShieldCheck],
-        ]
-    : [
-        ["/reparto", "Mis entregas", Truck],
-        ["/reparto/nuevo", "Cargar pedido", Plus],
-        ["/reparto/pesada", "Pesaje", Scale],
-        ["/reparto/clientes", "Clientes", Users],
-      ];
+  const grupos = seccionesDe(session.role);
+  const nav = grupos.flatMap(([, items]) => items);
+  const seccion = nav.find(([url]) => url === path)?.[1] || "Pollito Casero";
   // Globo de Pedidos: abiertos de HOY (lo mismo que se ve al entrar, que arranca filtrado en hoy).
   const hoy = todayKey();
   const received = orders.filter(
@@ -468,69 +564,68 @@ function StaffShell({ Page, path }) {
       ["recibido", "preparando", "en_camino"].includes(o.status) &&
       (o.deliveryDate || (o.created || "").slice(0, 10)) === hoy,
   ).length;
+  const plegar = () => {
+    setPlegado((v) => {
+      localStorage.setItem("menu-plegado", v ? "0" : "1");
+      return !v;
+    });
+  };
   return (
-    <div className="staff-app">
+    <div className={"staff-app railed" + (plegado ? " plegado" : "")}>
       <a className="skip-link" href="#contenido">
         Saltar al contenido
       </a>
-      <header className="staff-bar">
-        <Link to={homeFor(session.role)} className="staff-brand">
-          <img src="/icon.svg" width="34" height="34" alt="" />
-          <img
-            className="staff-wordmark"
-            src="/brand/logo-texto-blanco.png"
-            width="1200"
-            height="362"
-            alt="El Pollito Casero"
-          />
-          <span>
-            <strong className="sr-only">Pollito Casero</strong>
-            <small>{admin ? "Administración" : "Reparto"}</small>
-          </span>
-        </Link>
-        <nav aria-label="Secciones del equipo">
-          {nav.map(([url, name, Icon]) => (
-            <Link
-              key={url}
-              to={url}
-              className={path === url ? "active" : ""}
-              aria-current={path === url ? "page" : undefined}
-            >
-              <Icon size={16} /> <span>{name}</span>
-              {url === "/operacion" && received > 0 && (
-                <b className="nav-count" title="Pedidos abiertos">
-                  {received}
-                </b>
-              )}
-            </Link>
-          ))}
-        </nav>
-        <div className="staff-bar-right">
-          {config?.demo && <span className="demo-pill">Demo</span>}
-          <span
-            className={"live-indicator " + (live ? "on" : "")}
-            title={live ? "Conexión en vivo" : "Reconectando"}
-          >
-            <i />
-          </span>
-          <PushToggle compact />
-          <span className="staff-user">
-            <span className="avatar">{session.name[0]}</span>
-            <span>{session.name}</span>
-          </span>
-          <button className="link-button" onClick={logout}>
-            <LogOut size={14} /> Salir
-          </button>
-        </div>
-      </header>
-      <main id="contenido" tabIndex="-1" className="staff-main">
-        <Notices />
-        {Page ? <Page /> : <NotFound />}
-      </main>
+      <SideRail
+        grupos={grupos}
+        path={path}
+        badge={received}
+        plegado={plegado}
+        onPlegar={plegar}
+        session={session}
+        logout={logout}
+      />
+      <div className="rail-main">
+        <header className="app-head glass">
+          <h1>{seccion}</h1>
+          <div className="app-head-right">
+            {config?.demo && <span className="demo-pill">Demo</span>}
+          </div>
+        </header>
+        {/* Barra superior del celular: solo marca y usuario; la navegación va abajo. */}
+        <header className="staff-bar">
+          <Link to={homeFor(session.role)} className="staff-brand">
+            <img src="/icon.svg" width="34" height="34" alt="" />
+            <img
+              className="staff-wordmark"
+              src="/brand/logo-texto.png"
+              width="1200"
+              height="362"
+              alt="El Pollito Casero"
+            />
+            <span>
+              <strong className="sr-only">Pollito Casero</strong>
+              <small>{admin ? "Administración" : "Reparto"}</small>
+            </span>
+          </Link>
+          <div className="staff-bar-right">
+            {config?.demo && <span className="demo-pill">Demo</span>}
+
+            <span className="staff-user">
+              <span className="avatar">{session.name[0]}</span>
+              <span>{session.name}</span>
+            </span>
+          </div>
+        </header>
+        <main id="contenido" tabIndex="-1" className="staff-main">
+          <Notices />
+          {Page ? <Page /> : <NotFound />}
+        </main>
+      </div>
       <TabBar
         nav={nav}
         path={path}
         badge={received}
+        oculta={oculta}
         onMore={() => setMore(true)}
       />
       {more && (
@@ -549,7 +644,7 @@ function StaffShell({ Page, path }) {
               </Link>
             ))}
             <Link to="/ayuda" onClick={() => setMore(false)}>
-              <ShieldCheck size={18} /> Ayuda
+              <CircleHelp size={18} /> Ayuda
             </Link>
             <button
               type="button"

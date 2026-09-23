@@ -244,6 +244,39 @@ export function priceOrder(
   };
 }
 
+/**
+ * Cajas (envases) de un cliente. Nada de esto es dinero: las cajas se cuentan aparte de la deuda.
+ *
+ *   saldo de cajas = adeudadas anteriores + salientes − devueltas
+ *
+ *  - `salientes`: cajas efectivamente entregadas al cliente (se cuentan al confirmar la entrega,
+ *    no al cargar el camión: subir mercadería al reparto no genera deuda de cajas).
+ *  - `devueltas`: cajas que el cliente devolvió, con su fecha y quién la recibió.
+ *  - `adjust`: correcciones cargadas a mano (conteo físico, saldo inicial), con fecha y autor.
+ *
+ * El saldo puede quedar negativo (devolvió más de lo que debía) y NO se lleva a cero solo:
+ * queda a la vista para que administración decida qué hacer.
+ */
+export function boxSummary(orders, customer = {}) {
+  const valid = orders.filter((o) => o.status !== "cancelado");
+  const out = valid.reduce((s, o) => s + (o.boxes || 0), 0);
+  const back = valid.reduce((s, o) => s + (o.returned || 0), 0);
+  const adjust = Number(customer.boxesAdjust) || 0;
+  return { out, back, adjust, balance: out - back + adjust };
+}
+
+/**
+ * Las cuatro cifras de cajas de UN pedido, para el detalle y la hoja de ruta.
+ * `balance` es el saldo de cajas del cliente hoy (boxSummary().balance).
+ * Las "anteriores" se deducen de ese saldo para que la fórmula siempre cierre.
+ */
+export function orderBoxes(order, balance = 0) {
+  const salientes = order?.boxes || 0;
+  const devueltas = order?.returned || 0;
+  const previas = balance - (salientes - devueltas);
+  return { previas, salientes, devueltas, saldo: balance };
+}
+
 /** Saldo de cuenta corriente y envases pendientes de un conjunto de pedidos. */
 export function accountSummary(orders, customer = {}) {
   const valid = orders.filter((o) => o.status !== "cancelado");
@@ -255,15 +288,18 @@ export function accountSummary(orders, customer = {}) {
     (s, a) => s + Math.round((a.amount || 0) * 100),
     0,
   );
+  const cajas = boxSummary(valid, customer);
   return {
     balance: (owed - favor + adjusted) / 100,
     owed: owed / 100,
     creditBalance: favor / 100,
     adjustments: adjusted / 100,
     pendingOrders: credit.length,
-    boxes:
-      valid.reduce((s, o) => s + (o.boxes || 0) - (o.returned || 0), 0) +
-      (Number(customer.boxesAdjust) || 0),
+    // Cajas: el saldo y también sus partes, para poder mostrar de dónde sale.
+    boxes: cajas.balance,
+    boxesOut: cajas.out,
+    boxesBack: cajas.back,
+    boxesAdjust: cajas.adjust,
   };
 }
 

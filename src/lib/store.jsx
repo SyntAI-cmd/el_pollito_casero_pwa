@@ -645,7 +645,7 @@ export function StoreProvider({ children }) {
     run(
       async () => {
         await patch("/orders/" + o.id, data);
-        await loadOrders({ silent: true });
+        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
         return true;
       },
       { onError: (e) => notify(e.message) },

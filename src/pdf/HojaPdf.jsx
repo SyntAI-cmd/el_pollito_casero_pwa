@@ -8,431 +8,261 @@ import {
   Image,
 } from "@react-pdf/renderer";
 import { orderNumber } from "../lib/remito.js";
-
-/**
- * Hoja de ruta · rendición de reparto (PDF, A4 apaisada): la que se lleva cada preventista y
- * rinde en papel. Cabecera con fecha, repartidor(es), ruta/zona y vehículo; por pedido
- * N° PEDIDO / REMITO, CLIENTE, TOTAL PEDIDO, SALDO DE CAJAS y columnas en blanco EFECTIVO,
- * TRANSFERENCIA, CHEQUE y SALDO; totales, cuadro de rendición (total hoja de ruta, efectivo,
- * transferencias, cheques, saldo, total rendido, diferencia), observaciones y firmas.
- * Compacta: hasta 26 pedidos por hoja; sigue en otra hoja si hay más.
- */
-
-const INK = "#000";
-const MUTED = "#333";
-const LINE = "#000";
-const HAND = "#fffdf2";
+import { routeRows, routeParts } from "../lib/routeRows.js";
 
 const money = (n) =>
-  new Intl.NumberFormat("es-AR", {
-    style: "currency",
-    currency: "ARS",
+  Number(n || 0).toLocaleString("es-AR", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
-  }).format(Number(n) || 0);
-const dmy = (iso) => (iso || "").split("-").reverse().join("/");
-
+  });
 const s = StyleSheet.create({
   page: {
-    backgroundColor: "#fff",
-    paddingVertical: 20,
-    paddingHorizontal: 24,
+    padding: 24,
     fontFamily: "Helvetica",
     fontSize: 8,
-    color: INK,
+    color: "#111",
+    backgroundColor: "#fff",
   },
-  head: {
-    borderBottomWidth: 2,
-    borderBottomColor: LINE,
-    paddingBottom: 6,
-    marginBottom: 6,
-  },
-  logo: { width: 110, height: 33, objectFit: "contain", marginRight: 10 },
-  title: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    textTransform: "uppercase",
-  },
-  sub: { fontSize: 7, color: MUTED, marginTop: 2 },
-  data: { flexDirection: "row", gap: 16, marginTop: 6 },
-  field: { flexDirection: "row", alignItems: "flex-end" },
-  label: { fontFamily: "Helvetica-Bold", fontSize: 7.5, marginRight: 4 },
-  value: {
-    fontSize: 8.5,
-    borderBottomWidth: 1,
-    borderBottomColor: LINE,
-    width: 90,
-    paddingBottom: 1,
-  },
-  table: { borderWidth: 1, borderColor: LINE },
-  // Filas altas: los preventistas anotan a mano (peso corregido, faltantes, cambios).
-  tr: {
+  header: {
     flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+  },
+  logo: { width: 105, height: 32, objectFit: "contain" },
+  title: { fontSize: 14, fontFamily: "Helvetica-Bold" },
+  sub: { fontSize: 7, color: "#444", marginTop: 4 },
+  meta: {
+    flexDirection: "row",
+    gap: 16,
     borderBottomWidth: 1,
-    borderBottomColor: LINE,
+    paddingBottom: 8,
+    marginBottom: 8,
+  },
+  row: {
+    flexDirection: "row",
     minHeight: 24,
+    borderBottomWidth: 0.5,
+    borderColor: "#777",
   },
-  // La fila de títulos no lleva la altura de anotación: va justa, con los textos centrados.
-  trHead: { minHeight: 0, alignItems: "center" },
-  th: {
-    backgroundColor: "#eee",
-    alignSelf: "stretch",
-    paddingVertical: 4,
-    paddingHorizontal: 3,
-    justifyContent: "center",
-    borderRightWidth: 1,
-    borderRightColor: LINE,
-  },
-  thText: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 6.8,
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-  td: {
-    paddingVertical: 4,
-    paddingHorizontal: 5,
-    borderRightWidth: 1,
-    borderRightColor: LINE,
+  cell: {
+    padding: 4,
+    borderRightWidth: 0.5,
+    borderColor: "#999",
     justifyContent: "center",
   },
-  hand: { backgroundColor: HAND },
-  num: { textAlign: "right" },
+  th: { fontFamily: "Helvetica-Bold", fontSize: 6.8, textAlign: "center" },
+  table: { borderWidth: 0.5, borderColor: "#777" },
+  note: { fontSize: 7, color: "#444", marginTop: 6 },
+  foot: { flexDirection: "row", gap: 16, marginTop: 12 },
+  box: { flex: 1, borderWidth: 0.5, padding: 8 },
   bold: { fontFamily: "Helvetica-Bold" },
-  small: { fontSize: 6.5, color: MUTED },
-  cNum: { width: 64 },
-  cClient: { flex: 1 },
-  cTotal: { width: 76 },
-  cBalance: { width: 76 },
-  cBoxes: { width: 58 },
-  cPay: { width: 74 },
-  foot: { flexDirection: "row", gap: 10, marginTop: 8 },
-  summary: {
-    borderWidth: 2,
-    borderColor: LINE,
-    width: 300,
+  line: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderBottomWidth: 0.4,
+    borderColor: "#bbb",
+    paddingVertical: 4,
   },
-  sRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: LINE },
-  sLabel: {
-    flex: 1,
-    paddingVertical: 3.5,
-    paddingHorizontal: 5,
-    fontFamily: "Helvetica-Bold",
-    fontSize: 7.5,
-    textTransform: "uppercase",
-  },
-  sValue: {
-    width: 110,
-    borderLeftWidth: 1,
-    borderLeftColor: LINE,
-    paddingVertical: 3.5,
-    paddingHorizontal: 5,
-    textAlign: "right",
-    fontFamily: "Helvetica-Bold",
-  },
-  grand: { backgroundColor: "#eee", fontSize: 9.5 },
-  obs: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: LINE,
-    padding: 5,
-    minHeight: 90,
-  },
-  obsTitle: {
-    fontFamily: "Helvetica-Bold",
-    fontSize: 7.5,
-    textTransform: "uppercase",
-  },
-  sign: { flexDirection: "row", gap: 60, marginTop: 22, paddingHorizontal: 40 },
-  signBox: { flex: 1, borderTopWidth: 1, borderTopColor: LINE, paddingTop: 3 },
-  signText: { fontSize: 7, textAlign: "center" },
-  note: { fontSize: 6.5, color: MUTED, marginTop: 4 },
-  pageNum: {
-    position: "absolute",
-    bottom: 10,
-    right: 24,
-    fontSize: 6.5,
-    color: MUTED,
-  },
+  signs: { flexDirection: "row", gap: 80, marginTop: 25 },
+  sign: { flex: 1, borderTopWidth: 0.5, paddingTop: 4, textAlign: "center" },
+  footer: { position: "absolute", bottom: 12, right: 24, fontSize: 7 },
+  obs: { borderWidth: 0.5, minHeight: 350, padding: 12, marginTop: 12 },
 });
-
-const ROWS_PER_PAGE = 20;
-
-function Header({ date, drivers, zone, vehicle, logo }) {
+const cols = [
+  ["Pedido / remito", 44],
+  ["Cliente / zona", 233],
+  ["Pedido $", 65],
+  ["Deuda previa $", 65],
+  ["Cajas previas", 34],
+  ["Salientes", 34],
+  ["Devueltas", 34],
+  ["Saldo cajas", 40],
+  ["Efectivo $", 60],
+  ["Transfer. $", 65],
+  ["Cheque $", 55],
+  ["Saldo final $", 65],
+];
+function Header({ date, drivers, vehicle, zone, logo, part, total, back }) {
   return (
-    <View style={s.head}>
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        {logo ? <Image style={s.logo} src={logo} /> : null}
+    <>
+      <View style={s.header}>
+        {logo && <Image style={s.logo} src={logo} />}
         <View>
-          <Text style={s.title}>Hoja de ruta · Rendición de reparto</Text>
+          <Text style={s.title}>HOJA DE RUTA · RENDICIÓN DE REPARTO</Text>
           <Text style={s.sub}>
-            El número de pedido coincide con el número de remito.
+            Parte {part} de {total} ·{" "}
+            {back ? "Dorso / Observaciones" : "Frente / Control de pedidos"} ·
+            N° pedido = N° remito
           </Text>
         </View>
       </View>
-      <View style={s.data}>
-        <View style={s.field}>
-          <Text style={s.label}>Fecha:</Text>
-          <Text style={s.value}>{dmy(date)}</Text>
-        </View>
-        <View style={s.field}>
-          <Text style={s.label}>Repartidor:</Text>
-          <Text style={[s.value, { width: 150 }]}>
-            {drivers.length ? drivers.join(" / ") : " "}
-          </Text>
-        </View>
-        <View style={s.field}>
-          <Text style={s.label}>Ruta / Zona:</Text>
-          <Text style={[s.value, { width: 150 }]}>{zone || " "}</Text>
-        </View>
-        <View style={s.field}>
-          <Text style={s.label}>Vehículo:</Text>
-          <Text style={[s.value, { width: 150 }]}>{vehicle || " "}</Text>
-        </View>
+      <View style={s.meta}>
+        <Text>Fecha: {(date || "").split("-").reverse().join("/")}</Text>
+        <Text>Preventistas: {drivers.join(" / ") || "Sin asignar"}</Text>
+        <Text>Vehículo: {vehicle || "—"}</Text>
       </View>
-    </View>
+      {zone && <Text style={s.note}>Ruta / Zona: {zone}</Text>}
+    </>
   );
 }
-
-/** Saldo de cuenta corriente del cliente ANTES de este pedido (lo que ya debía). */
-const previousBalance = (o, c) => {
-  if (!c) return 0;
-  const onAccount = o.payment === "cuenta" && !o.paid ? o.total : 0;
-  return Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100;
-};
-
-function Row({ o, c }) {
-  const owed = Math.max(0, c?.summary?.boxes || 0);
-  const prev = previousBalance(o, c);
-  return (
-    <View style={s.tr} wrap={false}>
-      <View style={[s.td, s.cNum]}>
-        <Text style={s.bold}>{orderNumber(o)}</Text>
-      </View>
-      <View style={[s.td, s.cClient]}>
-        <Text>
-          <Text style={s.bold}>{c?.alias || o.name}</Text>
-          {o.zone || c?.zone ? (
-            <Text style={s.small}> {o.zone || c?.zone}</Text>
-          ) : null}
-        </Text>
-      </View>
-      <View style={[s.td, s.cTotal, s.num]}>
-        <Text style={s.bold}>
-          {o.noPricing ? "s/precio" : o.weighed ? money(o.total) : " "}
-        </Text>
-      </View>
-      <View style={[s.td, s.cBalance, s.num]}>
-        <Text>{!o.noPricing && prev ? money(prev) : " "}</Text>
-      </View>
-      <View style={[s.td, s.cBoxes, s.num]}>
-        <Text>{owed || " "}</Text>
-      </View>
-      <View style={[s.td, s.cPay, s.hand]}>
-        <Text> </Text>
-      </View>
-      <View style={[s.td, s.cPay, s.hand]}>
-        <Text> </Text>
-      </View>
-      <View style={[s.td, s.cPay, s.hand]}>
-        <Text> </Text>
-      </View>
-      <View style={[s.td, s.cPay, s.hand, { borderRightWidth: 0 }]}>
-        <Text> </Text>
-      </View>
-    </View>
-  );
-}
-
 export function HojaDocument({
   date,
   drivers = [],
   vehicle = "",
   zone = "",
-  orders,
+  orders = [],
   customers = [],
   logo = "/brand/logo-texto.png",
 }) {
-  const sorted = [...orders].sort((a, b) => (a.number || 0) - (b.number || 0));
-  const pages = [];
-  for (let i = 0; i < Math.max(1, sorted.length); i += ROWS_PER_PAGE)
-    pages.push(sorted.slice(i, i + ROWS_PER_PAGE));
-  const total = orders.reduce((a, o) => a + o.total, 0);
-  const boxes = orders.reduce(
-    (a, o) =>
-      a +
-      Math.max(
-        0,
-        customers.find((x) => x.phone === o.customer)?.summary?.boxes || 0,
-      ),
-    0,
-  );
-  const balances = orders.reduce(
-    (a, o) =>
-      a +
-      previousBalance(
-        o,
-        customers.find((x) => x.phone === o.customer),
-      ),
-    0,
-  );
-  const zones =
-    zone ||
-    [...new Set(orders.map((o) => o.zone).filter(Boolean))]
-      .slice(0, 3)
-      .join(" / ");
+  const rows = routeRows(orders, customers),
+    parts = routeParts(rows);
   return (
     <Document
-      title={`Hoja de ruta ${dmy(date)} ${drivers.join(" y ")}`}
+      title={`Hoja de ruta ${date}`}
       author="El Pollito Casero"
       language="es-AR"
     >
-      {pages.map((chunk, pi) => {
-        const last = pi === pages.length - 1;
-        return (
-          <Page key={pi} size="A4" orientation="landscape" style={s.page}>
-            <Header
-              date={date}
-              drivers={drivers}
-              zone={zones}
-              vehicle={vehicle}
-              logo={logo}
-            />
+      {parts.flatMap((chunk, i) => {
+        const total = chunk.reduce(
+          (n, r) => n + (r.order.noPricing ? 0 : r.order.total || 0),
+          0,
+        );
+        const props = {
+          date,
+          drivers,
+          vehicle,
+          zone,
+          logo,
+          part: i + 1,
+          total: parts.length,
+        };
+        return [
+          <Page
+            key={`${i}-front`}
+            size="A4"
+            orientation="landscape"
+            style={s.page}
+            wrap={false}
+          >
+            <Header {...props} />
             <View style={s.table}>
-              <View style={[s.tr, s.trHead]}>
-                {[
-                  ["N° Pedido / Remito", s.cNum],
-                  ["Cliente", s.cClient],
-                  ["Total pedido", s.cTotal],
-                  ["Saldo actual", s.cBalance],
-                  ["Saldo cajas", s.cBoxes],
-                  ["Efectivo", s.cPay],
-                  ["Transferencia", s.cPay],
-                  ["Cheque", s.cPay],
-                  ["Saldo", s.cPay, { borderRightWidth: 0 }],
-                ].map(([label, col, extra], i) => (
-                  <View key={i} style={[s.th, col, extra || null]}>
-                    <Text style={s.thText}>{label}</Text>
+              <View style={[s.row, { backgroundColor: "#eee" }]}>
+                {cols.map(([label, width]) => (
+                  <View key={label} style={[s.cell, { width }]}>
+                    <Text style={s.th}>{label}</Text>
                   </View>
                 ))}
               </View>
-              {chunk.map((o) => (
-                <Row
-                  key={o.id}
-                  o={o}
-                  c={customers.find((x) => x.phone === o.customer)}
-                />
-              ))}
-              {last && (
-                <View
-                  style={[
-                    s.tr,
-                    { backgroundColor: "#f5f5f5", borderBottomWidth: 0 },
-                  ]}
-                >
-                  <View style={[s.td, s.cNum]}>
-                    <Text style={s.bold}>TOTALES</Text>
+              {chunk.map((r) => {
+                const o = r.order;
+                const values = [
+                  orderNumber(o),
+                  `${r.customer?.alias || o.name}${o.zone ? " · " + o.zone : ""}`,
+                  o.noPricing
+                    ? "Sin precio"
+                    : o.weighed
+                      ? money(o.total)
+                      : "Sin pesar",
+                  r.firstCustomer ? money(r.moneyBefore) : "Incl. anterior",
+                  r.before,
+                  r.out,
+                  r.back,
+                  r.after,
+                  "",
+                  "",
+                  "",
+                ];
+                return (
+                  <View style={s.row} key={o.id}>
+                    {values.map((v, k) => (
+                      <View key={k} style={[s.cell, { width: cols[k][1] }]}>
+                        <Text style={{ fontSize: k === 1 ? 7.5 : 8 }}>
+                          {String(v)}
+                        </Text>
+                      </View>
+                    ))}
                   </View>
-                  <View style={[s.td, s.cClient]}>
-                    <Text style={s.bold}>
-                      {orders.length}{" "}
-                      {orders.length === 1 ? "pedido" : "pedidos"}
-                    </Text>
-                  </View>
-                  <View style={[s.td, s.cTotal, s.num]}>
-                    <Text style={s.bold}>{money(total)}</Text>
-                  </View>
-                  <View style={[s.td, s.cBalance, s.num]}>
-                    <Text style={s.bold}>
-                      {balances ? money(balances) : " "}
-                    </Text>
-                  </View>
-                  <View style={[s.td, s.cBoxes, s.num]}>
-                    <Text style={s.bold}>{boxes || " "}</Text>
-                  </View>
-                  <View style={[s.td, s.cPay, s.hand]}>
-                    <Text> </Text>
-                  </View>
-                  <View style={[s.td, s.cPay, s.hand]}>
-                    <Text> </Text>
-                  </View>
-                  <View style={[s.td, s.cPay, s.hand]}>
-                    <Text> </Text>
-                  </View>
-                  <View style={[s.td, s.cPay, s.hand, { borderRightWidth: 0 }]}>
-                    <Text> </Text>
-                  </View>
-                </View>
-              )}
+                );
+              })}
             </View>
-            {last && (
-              <>
-                <View style={s.foot} wrap={false}>
-                  <View>
-                    <View style={s.summary}>
-                      {[
-                        ["Total hoja de ruta", money(total), true],
-                        ["Efectivo total", ""],
-                        ["Transferencias", ""],
-                        ["Cheques", ""],
-                        ["Saldo / cuenta corriente", ""],
-                        ["Gastos (combustible, peajes, otros)", ""],
-                        ["Total rendido / justificado", ""],
-                        ["Diferencia", "", false, true],
-                      ].map(([label, value, grand, lastRow], i) => (
-                        <View
-                          key={i}
-                          style={[
-                            s.sRow,
-                            grand ? s.grand : null,
-                            lastRow ? { borderBottomWidth: 0 } : null,
-                          ]}
-                        >
-                          <Text
-                            style={[s.sLabel, grand ? { fontSize: 9.5 } : null]}
-                          >
-                            {label}
-                          </Text>
-                          <Text
-                            style={[s.sValue, grand ? { fontSize: 9.5 } : null]}
-                          >
-                            {value || " "}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                    <Text style={s.note}>
-                      Control: total pedido = efectivo + transferencia + cheque
-                      + saldo + gastos (con comprobante). El saldo de cajas se
-                      controla por separado y no integra el total monetario.
-                    </Text>
+            <Text style={s.note}>
+              Cajas: previas + salientes - devueltas = saldo. Saldos proyectados
+              al emitir; las salientes pendientes se confirman al entregar.
+              Deuda previa: corte de emisión, una vez por cliente.
+            </Text>
+            <View style={s.foot}>
+              <View style={s.box}>
+                <Text style={s.bold}>RENDICIÓN DE ESTA PARTE</Text>
+                {[
+                  ["Total pedidos", money(total)],
+                  ["Efectivo cobrado", ""],
+                  ["Transferencias / cheques", ""],
+                  ["Gastos con comprobante", ""],
+                  ["Efectivo entregado", ""],
+                  ["Diferencia de efectivo", ""],
+                ].map(([k, v]) => (
+                  <View style={s.line} key={k}>
+                    <Text>{k}</Text>
+                    <Text>{v || "________________"}</Text>
                   </View>
-                  <View style={s.obs}>
-                    <Text style={s.obsTitle}>Observaciones</Text>
+                ))}
+              </View>
+              <View style={s.box}>
+                <Text style={s.bold}>
+                  GASTOS · CONCEPTO / IMPORTE / COMPROBANTE
+                </Text>
+                {[1, 2, 3, 4].map((x) => (
+                  <View key={x} style={[s.line, { minHeight: 23 }]}>
+                    <Text> </Text>
                   </View>
+                ))}
+                <Text style={s.note}>
+                  Diferencia = efectivo cobrado - gastos pagados en efectivo -
+                  efectivo entregado. Los gastos no aumentan la deuda del
+                  cliente.
+                </Text>
+              </View>
+            </View>
+            <View style={s.signs}>
+              <Text style={s.sign}>Firma repartidor</Text>
+              <Text style={s.sign}>Control / Administración</Text>
+            </View>
+            <Text style={s.footer}>
+              Parte {i + 1}/{parts.length} · Página 1 de 2 · Imprimir doble faz,
+              borde corto
+            </Text>
+          </Page>,
+          <Page
+            key={`${i}-back`}
+            size="A4"
+            orientation="landscape"
+            style={s.page}
+            wrap={false}
+          >
+            <Header {...props} back />
+            <View style={s.obs}>
+              <Text style={s.bold}>
+                OBSERVACIONES · Indicar pedido/remito cuando corresponda
+              </Text>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((x) => (
+                <View key={x} style={[s.line, { minHeight: 32 }]}>
+                  <Text> </Text>
                 </View>
-                <View style={s.sign} wrap={false}>
-                  <View style={s.signBox}>
-                    <Text style={s.signText}>Firma repartidor</Text>
-                  </View>
-                  <View style={s.signBox}>
-                    <Text style={s.signText}>Control / Administración</Text>
-                  </View>
-                </View>
-              </>
-            )}
-            <Text
-              style={s.pageNum}
-              fixed
-              render={({ pageNumber, totalPages }) =>
-                `Hoja ${pageNumber} de ${totalPages}`
-              }
-            />
-          </Page>
-        );
+              ))}
+            </View>
+            <Text style={s.note}>
+              Esta parte incluye {chunk.length} pedidos. Los importes y las
+              cajas se controlan por separado. No sumar dos veces la deuda
+              previa de un mismo cliente.
+            </Text>
+            <Text style={s.footer}>
+              Parte {i + 1}/{parts.length} · Página 2 de 2 · Dorso
+            </Text>
+          </Page>,
+        ];
       })}
     </Document>
   );
 }
-
 export default HojaDocument;

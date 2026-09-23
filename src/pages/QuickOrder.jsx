@@ -355,7 +355,21 @@ export default function QuickOrder() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Apodo, zona, razón social…"
                 autoComplete="off"
+                enterKeyHint="search"
                 aria-label="Buscar cliente por nombre, zona o CUIT"
+                onFocus={(e) => {
+                  // Con el teclado abierto queda poca pantalla: el campo sube arriba de todo
+                  // y la lista de resultados se desplaza sola, sin mover la página entera.
+                  const campo = e.target.closest(".qo-search") || e.target;
+                  setTimeout(
+                    () =>
+                      campo.scrollIntoView({
+                        block: "start",
+                        behavior: "smooth",
+                      }),
+                    300,
+                  );
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
@@ -368,7 +382,13 @@ export default function QuickOrder() {
               <ul className="suggestions" aria-label="Clientes encontrados">
                 {matches.map((c) => (
                   <li key={c.phone}>
-                    <button type="button" onClick={() => pick(c)}>
+                    <button
+                      type="button"
+                      /* Sin quitarle el foco al campo: si no, el teclado se cierra, la lista
+                         se reacomoda y el toque termina cayendo en otro lado. */
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => pick(c)}
+                    >
                       <span>
                         <strong>{c.name}</strong>
                         <small>

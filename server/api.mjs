@@ -27,6 +27,7 @@ import { estimate, inMendoza } from "./route.mjs";
 import { ApiError, fail } from "./errors.mjs";
 import { createFloor } from "./floor.mjs";
 import { createFleet } from "./fleet.mjs";
+import { createDocuments } from "./documents.mjs";
 import { createReceipts } from "./receipts.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
@@ -429,8 +430,11 @@ export function createApi({
         accountId:
           nextSession.role === "cliente" ? nextSession.accountId || null : null,
         sessionId: nextSession.role === "cliente" ? nextSession.id : null,
+        // Quién reparte: administración elige a cualquiera; un preventista también puede
+        // elegir al cargar (el pedido recién creado es suyo y sin asignar, lo mismo que ya
+        // permite "Editar pedido"). Si no eligen nadie, queda el preventista habitual de la ficha.
         driver:
-          session?.role === "admin" && driverNames().includes(b.driver)
+          isStaff(session) && driverNames().includes(b.driver)
             ? b.driver
             : driverNames().includes(customer.driver)
               ? customer.driver
@@ -643,6 +647,11 @@ export function createApi({
           integer: true,
           name: "envases",
         });
+        const boxCustomer = store.customers.get(o.customer);
+        o.boxBalanceBefore = accountSummary(
+          store.orders.forCustomer(o.customer),
+          boxCustomer || {},
+        ).boxes;
         o.boxes = o.plan === "mayorista" ? boxes : 0;
         o.deliveredAt = now();
         o.deliveredBy =
@@ -795,6 +804,16 @@ export function createApi({
       });
       if (n > o.boxes - o.returned || o.status !== "entregado")
         fail(400, "La devolución supera los envases pendientes.");
+      const boxCustomer = store.customers.get(o.customer);
+      const otherOrders = store.orders
+        .forCustomer(o.customer)
+        .filter((x) => x.id !== o.id);
+      const available = accountSummary(
+        [...otherOrders, o],
+        boxCustomer || {},
+      ).boxes;
+      if (n > available)
+        fail(400, "La devolución supera el saldo de cajas del cliente.");
       o.returned += n;
       o.returns = [
         ...(o.returns || []),
@@ -807,6 +826,11 @@ export function createApi({
   /** Devolución de envases por cliente: se descuenta de los pedidos con envases pendientes, del más viejo al más nuevo. */
   function returnCustomerBoxes(customer, count, session) {
     return store.transaction(() => {
+      if (
+        count >
+        accountSummary(store.orders.forCustomer(customer.phone), customer).boxes
+      )
+        fail(400, "La devolución supera el saldo de cajas del cliente.");
       let remaining = count;
       const touched = [];
       const pending = store.orders
@@ -908,11 +932,27 @@ export function createApi({
   });
 
   const fleet = createFleet({ store, events, isStaff, actorOf, driverNames });
-  const receipts = createReceipts({ store, events, isStaff, actorOf, dataDir });
+  const documents = createDocuments({ store, dataDir, isStaff });
+  const receipts = createReceipts({
+    store,
+    events,
+    isStaff,
+    actorOf,
+    dataDir,
+    documents,
+  });
 
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
   return async function handle({ method, path, body, query, session, ip }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
+    const fromDocuments = await documents.handle({
+      method,
+      path,
+      body,
+      query,
+      session,
+    });
+    if (fromDocuments) return fromDocuments;
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });

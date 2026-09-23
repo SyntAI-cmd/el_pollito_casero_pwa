@@ -1,3 +1,4 @@
+import { archivePdf } from "./archive.js";
 import { createElement } from "react";
 import { remitoFileName } from "./remito.js";
 
@@ -37,7 +38,15 @@ export async function pedidosPdfBlob({ date, orders, shift }) {
     engine(),
     import("../pdf/PedidosPdf.jsx"),
   ]);
-  return pdf(createElement(PedidosDocument, { date, orders, shift })).toBlob();
+  const blob = await pdf(
+    createElement(PedidosDocument, { date, orders, shift }),
+  ).toBlob();
+  await archivePdf(blob, {
+    name: pedidosFileName({ date, shift }),
+    orders: orders.map((o) => o.id),
+    kind: "pedidos",
+  });
+  return blob;
 }
 export const pedidosFileName = ({ date, shift }) =>
   `Hoja_pedidos_${safe(date)}${shift ? "_" + safe(shift) : ""}.pdf`;
@@ -63,9 +72,15 @@ export async function hojaPdfBlob({
     engine(),
     import("../pdf/HojaPdf.jsx"),
   ]);
-  return pdf(
+  const blob = await pdf(
     createElement(HojaDocument, { date, drivers, vehicle, orders, customers }),
   ).toBlob();
+  await archivePdf(blob, {
+    name: `Hoja_ruta_${safe(date)}_${safe((drivers || []).join("_") || vehicle || "reparto")}.pdf`,
+    orders: orders.map((o) => o.id),
+    kind: "hojas-ruta",
+  });
+  return blob;
 }
 export async function hojaAction(
   action,
@@ -95,7 +110,7 @@ export async function remitoPdfBlob({
     engine(),
     import("../pdf/RemitoPdf.jsx"),
   ]);
-  return pdf(
+  const blob = await pdf(
     createElement(RemitoDocument, {
       orders,
       customers,
@@ -104,6 +119,12 @@ export async function remitoPdfBlob({
       hideBalance,
     }),
   ).toBlob();
+  await archivePdf(blob, {
+    name: remitoFileName(orders, {}),
+    orders: orders.map((o) => o.id),
+    kind: "remitos",
+  });
+  return blob;
 }
 
 /** Descarga el blob como archivo (o lo abre en una pestaña si el navegador no permite descargar). */

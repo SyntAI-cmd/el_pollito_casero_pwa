@@ -4,9 +4,9 @@
 .delivery-point {
   margin: 4px 0 16px;
   padding: 14px;
-  border: 1px dashed #d7d3c9;
+  border: 1px dashed #d0d0d0;
   border-radius: 12px;
-  background: #faf9f6;
+  background: #f8f8f8;
 }
 .delivery-point-actions {
   display: flex;
@@ -33,7 +33,7 @@
   overflow: hidden;
   z-index: 1;
   border: 1px solid var(--line);
-  background: #eeeee7;
+  background: #ebebeb;
 }
 .location-picker.loading {
   display: grid;
@@ -79,7 +79,7 @@ dialog form .delivery-point-status {
   font-weight: 600;
 }
 .push-card p {
-  color: #d4d1c7;
+  color: #cecece;
   font-size: 12px;
   margin-top: 2px;
 }
@@ -179,7 +179,7 @@ dialog form .delivery-point-status {
 .route-controls select,
 .route-controls input {
   min-height: 42px;
-  border: 1px solid #d7d3c9;
+  border: 1px solid #d0d0d0;
   border-radius: 9px;
   padding: 0 10px;
   background: #fff;
@@ -387,7 +387,7 @@ dialog form .delivery-point-status {
   height: min(78vh, 1100px);
   border: 1px solid #ddd;
   border-radius: 12px;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .pdf-preview-frame > p {
   padding: 24px;
@@ -494,7 +494,7 @@ dialog form .delivery-point-status {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #faf9f6;
+  background: #f8f8f8;
 }
 .weight-row > span:first-child {
   display: grid;
@@ -520,7 +520,7 @@ dialog form .delivery-point-status {
   font-variant-numeric: tabular-nums;
 }
 .op-items .weighed {
-  border-top: 1px dashed #d7d3c9;
+  border-top: 1px dashed #d0d0d0;
   margin-top: 4px;
   padding-top: 6px;
   color: #8a5312;
@@ -612,8 +612,8 @@ dialog form .delivery-point-status {
   gap: 1px;
   padding: 6px 10px;
   border-radius: 10px;
-  background: #f1efe9;
-  border: 1px solid #e3dfd4;
+  background: #ededed;
+  border: 1px solid #dcdcdc;
   min-width: 120px;
 }
 .qo-balance small {
@@ -664,7 +664,7 @@ dialog form .delivery-point-status {
   gap: 6px;
   padding: 8px 12px;
   border-radius: 999px;
-  border: 1px solid #d8d4ca;
+  border: 1px solid #d1d1d1;
   background: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -705,7 +705,7 @@ dialog form .delivery-point-status {
   align-items: center;
   gap: 10px;
   background: #fff;
-  border: 1px solid #e3dfd4;
+  border: 1px solid #dcdcdc;
   border-radius: 14px;
   padding: 12px 14px;
 }
@@ -794,7 +794,7 @@ dialog form .delivery-point-status {
   grid-template-columns: 72px 1fr auto;
   gap: 10px;
   align-items: center;
-  background: #f6f4ef;
+  background: #f3f3f3;
   border-radius: 12px;
   padding: 6px;
 }
@@ -838,7 +838,7 @@ dialog form .delivery-point-status {
   gap: 12px;
 }
 .receipts-groups article {
-  border: 1px solid #e3dfd4;
+  border: 1px solid #dcdcdc;
   border-radius: 12px;
   padding: 8px 10px;
   background: #fff;
@@ -1016,7 +1016,7 @@ dialog form .delivery-point-status {
 }
 .trip-table tfoot td {
   font-weight: 700;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .trip-foot {
   margin-top: 14px;
@@ -1076,7 +1076,7 @@ dialog form .delivery-point-status {
   gap: 6px;
   padding: 6px 10px;
   border-radius: 10px;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 /* Resumen de rendición (impresión compacta) */
 .settlement {
@@ -1139,7 +1139,7 @@ dialog form .delivery-point-status {
 }
 .settlement-table tfoot td {
   font-weight: 700;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .settlement-table tr.settle td {
   background: #fff1f1;
@@ -1163,7 +1163,7 @@ dialog form .delivery-point-status {
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: #ece9e1;
+  background: #e7e7e7;
 }
 .view-toggle button {
   border: 0;
@@ -1172,7 +1172,7 @@ dialog form .delivery-point-status {
   font-size: 13px;
   font-weight: 600;
   background: transparent;
-  color: #4a4842;
+  color: #464646;
   cursor: pointer;
 }
 .view-toggle button.active {
@@ -1196,7 +1196,7 @@ dialog form .delivery-point-status {
   accent-color: #1c6b34;
 }
 .orders-list-detail td {
-  background: #f7f5ef;
+  background: #f3f3f3;
   padding: 10px;
 }
 /* Tickets térmicos 80 mm */
@@ -1285,7 +1285,7 @@ dialog form .delivery-point-status {
   gap: 8px;
   padding: 8px 10px;
   border-radius: 10px;
-  background: #f4f2ec;
+  background: #f0f0f0;
 }
 .hub-route b {
   min-width: 110px;

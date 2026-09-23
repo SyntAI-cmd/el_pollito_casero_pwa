@@ -15,19 +15,19 @@
   --verde-claro: #e7f5ec;
 
   /* Superficies claras (trabajo al sol) */
-  --fondo: #f6f3ef;
+  --fondo: #f3f3f3;
   --tarjeta: #ffffff;
-  --tarjeta-2: #faf8f5;
-  --borde: #e7e2da;
-  --tinta: #1b1a18;
-  --tinta-2: #605c55;
+  --tarjeta-2: #f8f8f8;
+  --borde: #e1e1e1;
+  --tinta: #1a1a1a;
+  --tinta-2: #5a5a5a;
 
   /* Chrome oscuro (navegación y cabeceras) */
-  --oscuro: #1a1513;
-  --oscuro-2: #2a2320;
+  --oscuro: #161616;
+  --oscuro-2: #252525;
   --oscuro-borde: #ffffff1f;
-  --oscuro-texto: #f3efe9;
-  --oscuro-apagado: #a9a29a;
+  --oscuro-texto: #eeeeee;
+  --oscuro-apagado: #a2a2a2;
 
   /* Formas y profundidad */
   --r-sm: 10px;
@@ -67,13 +67,13 @@
     backdrop-filter: blur(14px) saturate(140%);
   }
   .glass-dark {
-    background: #1a1513e0;
+    background: #161616e0;
     -webkit-backdrop-filter: blur(16px) saturate(130%);
     backdrop-filter: blur(16px) saturate(130%);
   }
 }
 .glass-dark {
-  background: #1a1513;
+  background: #161616;
   border: 1px solid var(--oscuro-borde);
 }
 
@@ -165,7 +165,7 @@
   z-index: 80;
   display: flex;
   align-items: flex-end;
-  background: #1a1513a8;
+  background: #161616a8;
 }
 .more-sheet-box {
   width: 100%;
@@ -210,7 +210,7 @@
   margin: 0 0 var(--e4);
   padding: var(--e5);
   border-radius: var(--r-lg);
-  background: linear-gradient(135deg, var(--oscuro) 0%, #3a221c 100%);
+  background: linear-gradient(135deg, var(--oscuro) 0%, #2b2b2b 100%);
   color: var(--oscuro-texto);
   box-shadow: var(--sombra-2);
 }
@@ -859,8 +859,8 @@
   inset: 0;
   background: linear-gradient(
     180deg,
-    #1a151366 0%,
-    #1a151399 55%,
+    #16161666 0%,
+    #16161699 55%,
     var(--fondo) 100%
   );
 }
@@ -1021,12 +1021,12 @@ body.escribiendo-peso .chat-fab {
 
 /* ===== Cabecera del equipo: chrome oscuro con vidrio ===== */
 .staff-bar {
-  background: #1a1513f2 !important;
+  background: #161616f2 !important;
   border-bottom: 1px solid var(--oscuro-borde);
 }
 @supports (backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px)) {
   .staff-bar {
-    background: #1a1513d9 !important;
+    background: #161616d9 !important;
     -webkit-backdrop-filter: blur(14px) saturate(140%);
     backdrop-filter: blur(14px) saturate(140%);
   }

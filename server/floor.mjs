@@ -364,7 +364,16 @@ export function createFloor({
           }
         const noPricing =
           b.noPricing === undefined ? !!o.noPricing : bool(b.noPricing);
-        const items = Array.isArray(b.items) ? b.items : o.items;
+        // Sin renglones nuevos se reusan los del pedido. Ojo: lo pedido por kilo y todavía sin
+        // pesar guarda kg = 0 y los kilos pedidos en `ordered`; hay que devolverle esos kilos,
+        // si no el pedido no se puede editar (ni cambiarle el preventista o la fecha).
+        const items = Array.isArray(b.items)
+          ? b.items
+          : o.items.map((i) =>
+              i.boxes === undefined && !i.weighed && i.ordered !== undefined
+                ? { ...i, kg: i.ordered }
+                : i,
+            );
         const payment = b.payment
           ? oneOf(b.payment, ["cuenta", "entrega", "transferencia"], "medio")
           : o.payment;
@@ -483,6 +492,36 @@ export function createFloor({
       const c = customerByKey(decodeURIComponent(saldos[1]));
       const current = accountSummary(store.orders.forCustomer(c.phone), c);
       const changes = {};
+      // Reintento: si esta misma operación ya se aplicó, se devuelve el estado sin repetirla.
+      const opId = body.opId
+        ? str(body.opId, { max: 40, name: "la operación" })
+        : "";
+      const signature = JSON.stringify([
+        body.delta ?? null,
+        body.boxesDelta ?? null,
+        body.balance ?? null,
+        body.boxes ?? null,
+        body.note || "",
+      ]);
+      const existingOp = [
+        ...(c.balanceAdjustments || []),
+        ...(c.boxAdjustments || []),
+      ].find((a) => opId && a.opId === opId);
+      if (existingOp?.signature && existingOp.signature !== signature)
+        fail(
+          409,
+          "Esta operación ya se guardó con otros valores. Cerrá y volvé a abrir los saldos para comprobar el estado.",
+        );
+      if (
+        opId &&
+        [...(c.balanceAdjustments || []), ...(c.boxAdjustments || [])].some(
+          (a) => a.opId === opId,
+        )
+      )
+        return json(200, {
+          ...c,
+          summary: accountSummary(store.orders.forCustomer(c.phone), c),
+        });
       // `delta` suma al saldo actual (deuda +, a favor −); `balance` fija el saldo real.
       if (body.delta !== undefined && body.delta !== null && body.delta !== "")
         body.balance =
@@ -524,6 +563,8 @@ export function createFloor({
               at: now(),
               by: actorOf(session),
               amount: diff,
+              opId,
+              signature,
               note: str(body.note, {
                 max: 200,
                 name: "el motivo",
@@ -540,20 +581,57 @@ export function createFloor({
         body.boxes !== ""
       ) {
         const target = num(body.boxes, {
-          min: -10000,
+          min: 0,
           max: 10000,
           integer: true,
           name: "las cajas",
         });
         const diff = target - current.boxes;
         if (diff !== 0) {
-          c.boxesAdjust = (Number(c.boxesAdjust) || 0) + diff;
+          // Las cajas también dejan rastro: fecha, quién y motivo, para poder reconstruir el saldo.
+          const previos = c.boxAdjustments || [];
+          const suma = previos.reduce((n, a) => n + (a.boxes || 0), 0);
+          const base = Number(c.boxesAdjust) || 0;
+          // Fichas viejas: lo que ya estaba cargado a mano entra como un movimiento inicial.
+          if (suma !== base)
+            previos.push({
+              id: randomUUID().slice(0, 8),
+              at: now(),
+              by: "sistema",
+              boxes: base - suma,
+              note: "ajuste anterior a este registro",
+            });
+          c.boxAdjustments = [
+            ...previos,
+            {
+              id: randomUUID().slice(0, 8),
+              at: now(),
+              by: actorOf(session),
+              boxes: diff,
+              opId,
+              signature,
+              note: str(body.note, {
+                max: 200,
+                name: "el motivo",
+                optional: true,
+              }),
+            },
+          ];
+          c.boxesAdjust = base + diff;
           changes.boxes = diff;
         }
       }
       if (!Object.keys(changes).length) fail(400, "No hay nada que ajustar.");
-      store.customers.save(c);
-      store.audit.log(session, "customer.saldos", "customer", c.phone, changes);
+      store.transaction(() => {
+        store.customers.save(c);
+        store.audit.log(
+          session,
+          "customer.saldos",
+          "customer",
+          c.phone,
+          changes,
+        );
+      });
       events.customerChanged(c);
       return json(200, {
         ...c,
@@ -1398,7 +1476,7 @@ export function createFloor({
           crates,
           kilos,
           round2(sum.balance),
-          Math.max(0, sum.boxes),
+          sum.boxes,
           round2(o.total),
         ];
         values.forEach((v, j) => {

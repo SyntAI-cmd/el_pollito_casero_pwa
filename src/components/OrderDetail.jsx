@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  Store,
   MapPin,
   MessageCircle,
   Package,
@@ -11,7 +10,7 @@ import {
   ArrowRight,
   Clock,
   FileText,
-  Download,
+  Users,
   Trash2,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
@@ -29,13 +28,27 @@ import { StatusBadge } from "./ui.jsx";
 import RemitoActions from "./RemitoActions.jsx";
 import { ReceiptList } from "./Receipts.jsx";
 import { receiptsOf, methodNames } from "../lib/photo.js";
+import CajasBox from "./CajasBox.jsx";
 
 /**
- * Ficha completa de un pedido: qué lleva, cuánto pesó, cuánto se debe y qué papeles hay.
- * Abrirla no cambia nada del pedido: cobrar, pesar, envases y entrega son botones aparte.
+ * Ficha completa de un pedido, en tres niveles: resumen, detalle y acciones.
+ * Abrirla no cambia nada del pedido: cobrar, pesar, envases y entrega son botones aparte,
+ * y hay una sola acción principal según el estado.
  */
-export default function OrderDetail({ order: o, role }) {
-  const { customers, setModal, busy, update, deleteOrder } = useStore();
+export default function OrderDetail({ order: abierto, role }) {
+  const {
+    orders,
+    customers,
+    setModal,
+    busy,
+    update,
+    editOrder,
+    deleteOrder,
+    config,
+  } = useStore();
+  // Pedido fresco: si se cambia el preventista o se pesa mientras la ficha está abierta,
+  // lo que se ve es lo que quedó guardado, no la foto de cuando se abrió.
+  const o = orders.find((x) => x.id === abierto.id) || abierto;
   const customer = customers.find((x) => x.phone === o.customer);
   const admin = role === "admin";
   const [receipts, setReceipts] = useState(null);
@@ -56,18 +69,30 @@ export default function OrderDetail({ order: o, role }) {
   const owedTotal = Math.round((previous + onAccount) * 100) / 100;
   const priced = !o.noPricing && o.weighed;
   const canWeigh = !["cancelado", "entregado"].includes(o.status);
-  const boxesLeft = (o.boxes || 0) - (o.returned || 0);
+  const boxesLeft = Math.max(
+    0,
+    Math.min((o.boxes || 0) - (o.returned || 0), customer?.summary?.boxes || 0),
+  );
+  const cerrado = ["entregado", "cancelado"].includes(o.status);
+  const drivers = config?.drivers || [];
 
   return (
     <div className="od">
+      {/* ---- Nivel 1: resumen ---- */}
       <header className="od-head">
         <div>
           <span className="eyebrow">PEDIDO N° {orderNumber(o)}</span>
           <h2>{o.name}</h2>
+          {customer?.branch && (
+            <span className="ui-tag sucursal">
+              Sucursal · {customer.branch}
+            </span>
+          )}
         </div>
         <StatusBadge status={o.status} />
       </header>
 
+      {/* ---- Nivel 2: detalle ---- */}
       <section className="od-block">
         <p>
           <MapPin size={15} />
@@ -95,14 +120,62 @@ export default function OrderDetail({ order: o, role }) {
           <Clock size={15} />
           <span>
             {dateText(o.created)} {timeText(o.created)}
-            {o.driver ? ` · ${o.driver}` : ""}
-            {o.driver2 ? ` y ${o.driver2}` : ""}
             {o.shift
               ? ` · turno ${o.shift === "manana" ? "mañana" : "tarde"}`
               : ""}
           </span>
         </p>
         {o.notes && <p className="od-notes">“{o.notes}”</p>}
+      </section>
+
+      {/* Asignación: espacio propio, con "Sin asignar" bien visible */}
+      <section className="op-assign" aria-label="Asignación del reparto">
+        <label>
+          <span>
+            <Users size={13} /> Preventista
+          </span>
+          {admin && !cerrado ? (
+            <select
+              value={o.driver || ""}
+              disabled={busy}
+              aria-label="Preventista del pedido"
+              onChange={(e) => editOrder(o, { driver: e.target.value })}
+            >
+              <option value="">Sin asignar</option>
+              {drivers.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          ) : (
+            <strong className={o.driver ? "" : "sin-asignar"}>
+              {o.driver || "Sin asignar"}
+            </strong>
+          )}
+        </label>
+        <label>
+          <span>
+            <Users size={13} /> Segundo preventista
+          </span>
+          {admin && !cerrado ? (
+            <select
+              value={o.driver2 || ""}
+              disabled={busy}
+              aria-label="Segundo preventista del pedido"
+              onChange={(e) => editOrder(o, { driver2: e.target.value })}
+            >
+              <option value="">Va solo</option>
+              {drivers
+                .filter((d) => d !== o.driver)
+                .map((d) => (
+                  <option key={d}>{d}</option>
+                ))}
+            </select>
+          ) : (
+            <strong className={o.driver2 ? "" : "sin-asignar"}>
+              {o.driver2 || "Va solo"}
+            </strong>
+          )}
+        </label>
       </section>
 
       <section className="od-items" aria-label="Productos del pedido">
@@ -124,7 +197,7 @@ export default function OrderDetail({ order: o, role }) {
                   {!o.noPricing && <small>{money(p.lineTotal)}</small>}
                 </>
               ) : (
-                <em className="od-pending">A pesar</em>
+                <em className="od-pending">Pendiente de pesaje</em>
               )}
             </div>
           </div>
@@ -164,6 +237,9 @@ export default function OrderDetail({ order: o, role }) {
         )}
       </section>
 
+      {/* Las cajas van aparte del dinero, con las cuatro cifras a la vista */}
+      <CajasBox order={o} customer={customer} />
+
       <section className="od-block od-state">
         <p>
           <Wallet size={15} />
@@ -178,14 +254,6 @@ export default function OrderDetail({ order: o, role }) {
                   ? "A cuenta"
                   : "Pendiente de cobro"}
             </b>
-          </span>
-        </p>
-        <p>
-          <Package size={15} />
-          <span>
-            {o.boxes
-              ? `${boxesLeft} de ${o.boxes} envases a devolver`
-              : "Sin envases registrados"}
           </span>
         </p>
       </section>
@@ -213,115 +281,124 @@ export default function OrderDetail({ order: o, role }) {
         )}
       </section>
 
-      <div className="od-actions">
-        {canWeigh && (
+      {/* ---- Nivel 3: acciones. Una sola principal según el estado. ---- */}
+      <div className="od-actions op-level">
+        <div className="op-actions-main">
+          {o.status === "recibido" && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => update(o, { status: "preparando" })}
+            >
+              Preparar pedido <ArrowRight size={16} />
+            </button>
+          )}
+          {o.status === "preparando" && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || !o.driver}
+              title={o.driver ? "" : "Asigná un preventista primero"}
+              onClick={() => update(o, { status: "en_camino" })}
+            >
+              Iniciar reparto <ArrowRight size={16} />
+            </button>
+          )}
+          {o.status === "en_camino" && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => setModal({ type: "delivery", order: o })}
+            >
+              Confirmar entrega <ArrowRight size={16} />
+            </button>
+          )}
+          {o.status === "entregado" && boxesLeft > 0 && (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => setModal({ type: "return", order: o })}
+            >
+              <Package size={16} /> Recibir {boxesLeft} envases
+            </button>
+          )}
+        </div>
+
+        <div className="op-actions-more">
+          {canWeigh && (
+            <button
+              type="button"
+              className="secondary small"
+              disabled={busy}
+              onClick={() => setModal({ type: "weights", order: o })}
+            >
+              <Scale size={15} /> {o.weighed ? "Corregir peso" : "Pesar"}
+            </button>
+          )}
+          {!cerrado && (
+            <button
+              type="button"
+              className="secondary small"
+              disabled={busy}
+              onClick={() => setModal({ type: "edit-order", order: o })}
+            >
+              <Pencil size={15} /> Editar
+            </button>
+          )}
           <button
             type="button"
-            className="secondary"
+            className="secondary small"
             disabled={busy}
-            onClick={() => setModal({ type: "weights", order: o })}
+            onClick={() => setModal({ type: "receipts", order: o })}
           >
-            <Scale size={16} /> {o.weighed ? "Corregir peso" : "Pesar"}
+            <Camera size={15} /> Comprobantes
           </button>
-        )}
-        {!["entregado", "cancelado"].includes(o.status) && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => setModal({ type: "edit-order", order: o })}
-          >
-            <Pencil size={16} /> Editar pedido
-          </button>
-        )}
-        <button
-          type="button"
-          className="secondary"
-          disabled={busy}
-          onClick={() => setModal({ type: "receipts", order: o })}
-        >
-          <Camera size={16} /> Agregar comprobante
-        </button>
-        {!o.paid && o.payment !== "cuenta" && o.status !== "cancelado" && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => setModal({ type: "payment", order: o })}
-          >
-            <Wallet size={16} /> Registrar cobro
-          </button>
-        )}
-        {o.payment === "cuenta" && customer && owedTotal > 0 && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() =>
-              setModal({ type: "account-payment", customer, order: o })
-            }
-          >
-            <Wallet size={16} /> Cobrar cuenta corriente
-          </button>
-        )}
-        {o.status === "entregado" && boxesLeft > 0 && (
-          <button
-            type="button"
-            className="secondary"
-            disabled={busy}
-            onClick={() => setModal({ type: "return", order: o })}
-          >
-            <Package size={16} /> Devolver envases ({boxesLeft})
-          </button>
-        )}
+          {!o.paid && o.payment !== "cuenta" && o.status !== "cancelado" && (
+            <button
+              type="button"
+              className="secondary small"
+              disabled={busy}
+              onClick={() => setModal({ type: "payment", order: o })}
+            >
+              <Wallet size={15} /> Registrar cobro
+            </button>
+          )}
+          {o.payment === "cuenta" && customer && owedTotal > 0 && (
+            <button
+              type="button"
+              className="secondary small"
+              disabled={busy}
+              onClick={() =>
+                setModal({ type: "account-payment", customer, order: o })
+              }
+            >
+              <Wallet size={15} /> Cobrar cuenta
+            </button>
+          )}
+          {admin && o.status !== "cancelado" && (
+            <RemitoActions orders={[o]} actions={["download", "share"]} />
+          )}
+        </div>
+
         {admin && o.status !== "cancelado" && (
-          <RemitoActions orders={[o]} actions={["download", "share"]} />
-        )}
-        {o.status === "recibido" && (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={() => update(o, { status: "preparando" })}
-          >
-            Preparar pedido <ArrowRight size={16} />
-          </button>
-        )}
-        {o.status === "preparando" && (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy || !o.driver}
-            title={o.driver ? "" : "Asigná un preventista primero"}
-            onClick={() => update(o, { status: "en_camino" })}
-          >
-            Iniciar reparto <ArrowRight size={16} />
-          </button>
-        )}
-        {o.status === "en_camino" && (
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={() => setModal({ type: "delivery", order: o })}
-          >
-            Confirmar entrega <ArrowRight size={16} />
-          </button>
-        )}
-        {admin && o.status !== "cancelado" && (
-          <button
-            type="button"
-            className="link-button danger od-delete"
-            disabled={busy}
-            onClick={() => {
-              const reason = window.prompt(
-                `¿Eliminar el pedido N° ${orderNumber(o)} de ${o.name}? Se borra con sus cajones y no se puede recuperar.\nMotivo (opcional):`,
-              );
-              if (reason !== null) deleteOrder(o, reason);
-            }}
-          >
-            <Trash2 size={14} /> Eliminar pedido
-          </button>
+          <div className="op-actions-danger">
+            <button
+              type="button"
+              className="link-button danger"
+              disabled={busy}
+              onClick={() => {
+                const reason = window.prompt(
+                  `¿Eliminar el pedido N° ${orderNumber(o)} de ${o.name}? Se borra con sus cajones y no se puede recuperar.\nMotivo (opcional):`,
+                );
+                if (reason !== null) deleteOrder(o, reason);
+              }}
+            >
+              <Trash2 size={14} /> Eliminar pedido
+            </button>
+          </div>
         )}
       </div>
     </div>

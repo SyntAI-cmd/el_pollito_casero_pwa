@@ -17,7 +17,7 @@ import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
 import Customers from "./Customers.jsx";
 import News from "../components/News.jsx";
-import { money, normalize, orderNumber } from "../lib/format.js";
+import { money, normalize, orderNumber, orderShift } from "../lib/format.js";
 import { receivables } from "../lib/report.js";
 import { todayKey, dmy } from "../lib/day.js";
 import { PageHead, EmptyState } from "../components/ui.jsx";
@@ -140,8 +140,46 @@ export default function Operations() {
       ["recibido", "preparando", "en_camino"].includes(o.status),
     ).length,
     unpaid: receivables(orders, customers).total,
-    boxes: orders.reduce((s, o) => s + (o.boxes || 0) - (o.returned || 0), 0),
+    boxes: customers.reduce((s, c) => s + (c.summary?.boxes || 0), 0),
   };
+  const visibles = [...orders]
+    .filter((o) => matches(o) && (showAll || o.status !== "cancelado"))
+    .filter(
+      (o) =>
+        showAll || o.status !== "entregado" || recent([o], "entregado").length,
+    )
+    .sort(
+      (a, b) =>
+        (a.deliveryDate || "").localeCompare(b.deliveryDate || "") ||
+        (a.number || 0) - (b.number || 0),
+    );
+  const limpiar = () => {
+    setSearch("");
+    setDateFilter(todayKey());
+    setShiftFilter("");
+    setDriverFilter("");
+    setShowAll(false);
+  };
+  // Filtros puestos, cada uno con su "quitar": se ve qué está recortando la lista.
+  const puestos = [
+    dateFilter && dateFilter !== todayKey()
+      ? ["Fecha", dmy(dateFilter), () => setDateFilter(todayKey())]
+      : null,
+    !dateFilter ? ["Fecha", "todas", () => setDateFilter(todayKey())] : null,
+    shiftFilter
+      ? [
+          "Turno",
+          shiftFilter === "manana" ? "Mañana" : "Tarde",
+          () => setShiftFilter(""),
+        ]
+      : null,
+    driverFilter
+      ? ["Preventista", driverFilter, () => setDriverFilter("")]
+      : null,
+    showAll
+      ? ["Incluye", "entregados y anteriores", () => setShowAll(false)]
+      : null,
+  ].filter(Boolean);
   const heads = {
     pedidos: [
       "Pedidos.",
@@ -277,8 +315,48 @@ export default function Operations() {
                 />{" "}
                 Ver entregados y anteriores
               </label>
+              <div className="ui-panel-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() => {
+                    setDateFilter("");
+                    setShiftFilter("");
+                    setDriverFilter("");
+                    setShowAll(false);
+                  }}
+                >
+                  Limpiar filtros
+                </button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setShowFilters(false)}
+                >
+                  Aplicar filtros
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      )}
+      {tab === "pedidos" && (
+        <div className="active-filter-list" aria-label="Filtros activos">
+          {puestos.map(([nombre, valor, quitar]) => (
+            <button
+              type="button"
+              className="filter-chip"
+              key={nombre + valor}
+              onClick={quitar}
+              aria-label={`Quitar el filtro ${nombre}: ${valor}`}
+            >
+              {nombre}: {valor} ×
+            </button>
+          ))}
+          <span role="status">
+            {visibles.length} de {orders.length} pedidos
+            {search.trim() ? ` con “${search.trim()}”` : ""}
+          </span>
         </div>
       )}
       {tab === "pedidos" && dateFilter && otherDates.length > 0 && (
@@ -309,24 +387,23 @@ export default function Operations() {
       )}
       {tab === "pedidos" && (
         <section className="panel">
-          <OrdersList
-            orders={[...orders]
-              .filter(
-                (o) => matches(o) && (showAll || o.status !== "cancelado"),
-              )
-              .filter(
-                (o) =>
-                  showAll ||
-                  o.status !== "entregado" ||
-                  recent([o], "entregado").length,
-              )
-              .sort(
-                (a, b) =>
-                  (a.deliveryDate || "").localeCompare(b.deliveryDate || "") ||
-                  (a.number || 0) - (b.number || 0),
+          {visibles.length === 0 ? (
+            <div className="ui-empty">
+              <ClipboardList size={26} />
+              <strong>Ningún pedido coincide</strong>
+              <p>
+                Probá con otra fecha, otro turno o limpiá los filtros para ver
+                todo.
+              </p>
+              {(activeFilters > 0 || search.trim()) && (
+                <button type="button" className="secondary" onClick={limpiar}>
+                  Limpiar búsqueda y filtros
+                </button>
               )}
-            role="admin"
-          />
+            </div>
+          ) : (
+            <OrdersList orders={visibles} role="admin" />
+          )}
         </section>
       )}
       {tab === "clientes" && <Customers />}

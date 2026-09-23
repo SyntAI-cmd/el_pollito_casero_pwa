@@ -25,6 +25,8 @@ import {
   Camera,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import { puedeCerrar } from "../lib/guard.js";
+import { useBodyClass } from "../lib/media.js";
 import { Link, useRoute } from "../lib/router.jsx";
 import {
   money,
@@ -985,9 +987,15 @@ function Payment({ order }) {
 
 /** Entrega: envases que quedan y, en la calle, foto del remito firmado si el pedido no tiene comprobante. */
 function Boxes({ order, kind }) {
-  const { busy, update, setModal, formError, session } = useStore();
+  const { busy, update, setModal, formError, session, customers } = useStore();
   const returning = kind === "return";
-  const pending = order.boxes - order.returned;
+  const customer = customers.find((c) => c.phone === order.customer);
+  const pending = Math.max(
+    0,
+    Math.min(order.boxes - order.returned, customer?.summary?.boxes || 0),
+  );
+  const [outgoing, setOutgoing] = useState(0);
+  const [returned, setReturned] = useState(0);
   const wholesale = order.plan === "mayorista";
   const driver = session?.role === "repartidor";
   const [receipts, setReceipts] = useState(null);
@@ -1026,7 +1034,11 @@ function Boxes({ order, kind }) {
           order,
           returning
             ? { returnBoxes: count }
-            : { status: "entregado", boxes: wholesale ? count : 0 },
+            : {
+                status: "entregado",
+                boxes: wholesale ? count : 0,
+                ...(returned > 0 ? { returnBoxes: returned } : {}),
+              },
         );
         if (ok) setModal(null);
       }}
@@ -1048,6 +1060,7 @@ function Boxes({ order, kind }) {
             type="number"
             inputMode="numeric"
             defaultValue={returning ? pending : 0}
+            onChange={(e) => setOutgoing(Number(e.target.value) || 0)}
             min={returning ? 1 : 0}
             max={returning ? pending : 100}
             step="1"
@@ -1056,6 +1069,31 @@ function Boxes({ order, kind }) {
         </label>
       ) : (
         <p>Pedido minorista: sin envases retornables.</p>
+      )}
+      {!returning && wholesale && (
+        <>
+          <label>
+            Cajas devueltas en esta entrega
+            <input
+              name="returned"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max={outgoing}
+              step="1"
+              value={returned}
+              onChange={(e) => setReturned(Number(e.target.value) || 0)}
+            />
+          </label>
+          <p className="notice">
+            {customer?.summary?.boxes || 0} anteriores + {outgoing} salientes −{" "}
+            {returned} devueltas ={" "}
+            <strong>
+              {(customer?.summary?.boxes || 0) + outgoing - returned} cajas
+              pendientes
+            </strong>
+          </p>
+        </>
       )}
       {!returning && receipts !== null && (
         <p className="muted small">
@@ -1409,13 +1447,19 @@ function Cancel({ order }) {
 }
 
 export default function Modals() {
-  const { modal, setModal, formError, session } = useStore();
+  const { modal, setModal, formError, session, orders } = useStore();
   const dialog = useRef();
   useEffect(() => {
     if (modal) {
       if (!dialog.current.open) dialog.current.showModal();
     } else dialog.current?.close();
   }, [modal]);
+  // Con una ventana encima, la barra inferior estorba y tapa los botones de la ventana.
+  useBodyClass("hoja-abierta", !!modal);
+  // Una ventana con cambios sin guardar decide si se puede cerrar.
+  const cerrar = () => {
+    if (puedeCerrar()) setModal(null);
+  };
   const type = modal?.type;
   const showError =
     formError &&
@@ -1437,20 +1481,21 @@ export default function Modals() {
       ref={dialog}
       onCancel={(e) => {
         e.preventDefault();
-        setModal(null);
+        cerrar();
       }}
       onClick={(e) => {
-        // El checkout y el perfil se cierran con la X o Esc: tocar el borde en móvil no debe borrar lo tipeado.
+        // El checkout, el perfil y los saldos se cierran con la X o Esc: tocar el borde en móvil
+        // no debe borrar lo tipeado.
         if (
           e.target === dialog.current &&
-          !["checkout", "profile"].includes(type)
+          !["checkout", "profile", "saldos"].includes(type)
         )
-          setModal(null);
+          cerrar();
       }}
     >
       <button
         className="modal-close icon-button"
-        onClick={() => setModal(null)}
+        onClick={cerrar}
         aria-label="Cerrar ventana"
       >
         <X size={20} />
@@ -1473,17 +1518,31 @@ export default function Modals() {
       ) : type === "notifications" ? (
         <Notifications />
       ) : type === "payment" ? (
-        <Payment order={modal.order} />
+        <Payment
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "delivery" || type === "return" ? (
-        <Boxes order={modal.order} kind={type} />
+        <Boxes
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+          kind={type}
+        />
       ) : type === "weights" ? (
-        <Weights order={modal.order} />
+        <Weights
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "order-prices" ? (
-        <OrderPrices order={modal.order} />
+        <OrderPrices
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "order-detail" ? (
-        <OrderDetail order={modal.order} role={session?.role} />
+        <OrderDetail
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+          role={session?.role}
+        />
       ) : type === "edit-order" ? (
-        <OrderEdit order={modal.order} />
+        <OrderEdit
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "saldos" ? (
         <Saldos customer={modal.customer} />
       ) : type === "boxes-return" ? (
@@ -1491,9 +1550,13 @@ export default function Modals() {
       ) : type === "account-payment" ? (
         <AccountPayment customer={modal.customer} />
       ) : type === "receipts" ? (
-        <Receipts order={modal.order} />
+        <Receipts
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "cancel" ? (
-        <Cancel order={modal.order} />
+        <Cancel
+          order={orders.find((o) => o.id === modal.order?.id) || modal.order}
+        />
       ) : type === "statement" ? (
         <Statement customer={modal.customer} />
       ) : type === "ficha" ? (

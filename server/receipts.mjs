@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { fail } from "./errors.mjs";
 import { str, num, oneOf } from "./validate.mjs";
@@ -20,7 +20,14 @@ export const RECEIPT_KINDS = [
 ];
 export const MAX_IMAGE_BYTES = 2_500_000; // JPEG ya reducido en el celular (≤ 1600 px)
 
-export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
+export function createReceipts({
+  store,
+  events,
+  isStaff,
+  actorOf,
+  dataDir,
+  documents,
+}) {
   const dir = `${dataDir}/receipts`;
   const staffOnly = (session) => {
     if (!isStaff(session)) fail(403, "Solo el equipo.");
@@ -56,7 +63,30 @@ export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
       if (bytes.length > MAX_IMAGE_BYTES)
         fail(413, "La foto es muy grande: sacala de nuevo o achicala.");
       const ext = m[1] === "jpg" ? "jpeg" : m[1];
-      const id = "CB-" + randomUUID().slice(0, 8).toUpperCase();
+      const id =
+        "CB-" +
+        createHash("sha256")
+          .update(o.id + ":" + kind + ":")
+          .update(bytes)
+          .digest("hex")
+          .slice(0, 24);
+      const existing = store.receipts.get(id);
+      if (existing) {
+        if (existing.voided)
+          fail(
+            409,
+            "Este comprobante fue anulado. Revisalo con administración.",
+          );
+        await documents?.enqueue({
+          name: existing.file,
+          mime: existing.mime,
+          bytes,
+          kind: "comprobantes",
+          orders: [o.id],
+          at: existing.at,
+        });
+        return json(200, existing);
+      }
       const file = `${o.id}-${id}.${ext}`;
       await mkdir(dir, { recursive: true });
       await writeFile(`${dir}/${file}`, bytes);
@@ -84,6 +114,15 @@ export function createReceipts({ store, events, isStaff, actorOf, dataDir }) {
         kind,
         bytes: bytes.length,
       });
+      await documents?.enqueue({
+        name: file,
+        mime: `image/${ext}`,
+        bytes,
+        kind: "comprobantes",
+        orders: [o.id],
+        at: receipt.at,
+      });
+      void documents?.sync();
       events.orderChanged(o);
       return json(201, receipt);
     }

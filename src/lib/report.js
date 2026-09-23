@@ -130,6 +130,7 @@ export function routeSheet(orders, customers, { driver, date }) {
     const rows = ledger(
       orders.filter((o) => o.customer === s.customer.phone),
       s.customer.payments || [],
+      s.customer.balanceAdjustments || [],
     );
     previousByCustomer.set(s.customer.phone, round(balanceBefore(rows, date)));
   }
