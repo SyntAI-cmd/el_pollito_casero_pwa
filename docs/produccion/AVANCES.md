@@ -63,3 +63,9 @@ PC-019 (offline y cambio de usuario), PC-017 (reducir recargas), PC-006 (unidade
 
 Ticket activo: ninguno. Próximos: PC-017 (recargas y tamaño de respuestas), PC-006 (unidades),
 PC-013 (retirar el chat), PC-009/PC-010/PC-011 (pantallas).
+
+## Prioridad solicitada — fecha, resumen y casillas de rendición
+
+Se interrumpe el orden ordinario para PC-022 (fecha correcta de Mendoza y confirmación numérica) y ajuste pequeño PC-016 según fotografía. Implementación y verificación detalladas en tickets/PC-022.md. 74 pruebas unitarias y circuito de navegador aislado aprobados; PDF generado/renderizado/inspeccionado. Publicación pendiente de verificar.
+
+El trabajo local incompleto de retirada del chat tenía una referencia a UnreadBanner y había quitado también el objeto del contexto y funciones ajenas al chat. Se recuperaron estas funciones desde HEAD y se terminaron las referencias de UI/SSE para que la app vuelva a cargar. PC-013 sigue en revisión hasta completar limpieza de esquema/estilos y regresión específica.

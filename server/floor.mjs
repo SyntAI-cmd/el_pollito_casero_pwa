@@ -133,6 +133,15 @@ export function createFloor({
     const key = `${customer.phone}:${str(b.key, { min: 1, max: 80, name: "identificador" })}`;
     const previous = store.orders.byKey(key);
     if (previous) return { order: previous, created: false };
+    // El saldo visto en la confirmación puede cambiar mientras viaja la petición.
+    // La lectura y la creación son síncronas, sin ceder a otra escritura.
+    if (b.expectedSummary !== undefined) {
+      const current = accountSummary(store.orders.forCustomer(customer.phone), customer);
+      if (!Number.isFinite(b.expectedSummary?.balance) || !Number.isFinite(b.expectedSummary?.boxes) ||
+          Math.round(current.balance * 100) !== Math.round(b.expectedSummary.balance * 100) ||
+          current.boxes !== b.expectedSummary.boxes)
+        fail(409, "El saldo del cliente cambió. Volvé a editar y revisar el resumen antes de cargar el pedido.");
+    }
     const prices = Object.fromEntries(
       store.prices
         .forCustomer(customer.phone)

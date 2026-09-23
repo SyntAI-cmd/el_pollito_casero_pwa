@@ -27,3 +27,4 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | PC-019 | Offline, cambios de usuario y actualización PWA sin pérdida | P0 | En revisión (falta teléfono físico) | PC-000. Coordinar versión de datos con PC-004, PC-006 y PC-008. |
 | PC-020 | Integración, regresión y entrega revisable | P1 | Pendiente | tickets de implementación incluidos en cada entrega. Repetir la verificación pertinente por lote; no esperar a terminar todo para comprobar integración. |
 | PC-021 | Decisión de rendimiento: código, servidor o nativo | P2 | Recomendación emitida | PC-000 y mediciones de PC-001, PC-017, PC-018, PC-019. No bloquear arreglos operativos por esta decisión. |
+| PC-022 | Fecha Mendoza y confirmación numérica del pedido | P0 | En revisión de despliegue | Prioridad expresa del usuario; PC-003/PC-005. |

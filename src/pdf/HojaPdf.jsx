@@ -398,7 +398,7 @@ function Rendicion({ filas }) {
     ],
     ["Cheques", cobrado("cheque") ? money(cobrado("cheque")) : "-"],
     ["Gastos con comprobante", "-"],
-    ["Efectivo entregado", ""],
+    ["Total saldos (completar al rendir)", ""],
     ["Pendiente de cobro (cta. cte.)", money(pendienteCuenta)],
   ];
   return (
@@ -411,7 +411,7 @@ function Rendicion({ filas }) {
         </View>
       ))}
       <View style={s.lineaFuerte}>
-        <Text style={{ fontFamily: "Helvetica-Bold" }}>DIFERENCIA DE CAJA</Text>
+        <Text style={{ fontFamily: "Helvetica-Bold" }}>TOTAL PARA COMPROBAR</Text>
         <Text style={{ fontFamily: "Helvetica-Bold" }}>-</Text>
       </View>
     </View>
@@ -496,9 +496,9 @@ export function HojaDocument({
             <Gastos />
           </View>
           <Text style={s.nota}>
-            Diferencia = efectivo cobrado - gastos con comprobante - efectivo
-            entregado. Debe dar $ 0. Los gastos no aumentan la deuda del
-            cliente.
+            Total saldos: sumar los saldos finales de la planilla. Total para comprobar:
+            efectivo + transferencias + cheques + gastos + total saldos.
+            Comparar con el total a cobrar y las correcciones anotadas.
           </Text>
           <View style={s.firmas}>
             <Text style={s.firma}>FIRMA REPARTIDOR</Text>

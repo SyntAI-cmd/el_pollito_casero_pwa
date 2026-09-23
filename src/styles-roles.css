@@ -2646,6 +2646,20 @@ dialog.wallet-dialog {
 }
 
 /* Cargar pedido: confirmación con precio y saldo / sin precio ni saldo */
+.qo-review-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: calc(var(--alto-visible, 100dvh) - 24px);
+  overflow-y: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+}
+.qo-review-dialog::backdrop { background: rgba(20, 18, 14, 0.55); }
+.qo-review-dialog .qo-confirm-box { width: 100%; box-sizing: border-box; }
+.qo-review-lines { display: grid; gap: 10px; }
+.qo-review-account { display: block; padding: 12px; border-radius: 8px; background: #f5f5f5; line-height: 1.65; }
+.qo-review-dialog .qo-confirm-options button { flex-direction: column; align-items: flex-start; }
+.qo-review-lines > div { display: grid; gap: 4px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; overflow-wrap: anywhere; }
 .qo-confirm-backdrop {
   position: fixed;
   inset: 0;

@@ -28,15 +28,7 @@ import {
 } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import { shiftNames } from "./Customers.jsx";
-
-const todayKey = (d = new Date()) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-/** Los pedidos se cargan a la noche para el reparto de la mañana siguiente. */
-const defaultDelivery = () => {
-  const d = new Date();
-  if (d.getHours() >= 13) d.setDate(d.getDate() + 1);
-  return todayKey(d);
-};
+import { businessDate as todayKey } from "../lib/businessDate.js";
 
 /**
  * Carga de pedidos para el reparto (administración y preventistas): se elige el cliente de la
@@ -60,7 +52,7 @@ export default function QuickOrder() {
   const [lines, setLines] = useState({}); // productId → { boxes, kg }
   const [priceEdits, setPriceEdits] = useState({}); // productId → "5500" (solo administración)
   const [editingPrice, setEditingPrice] = useState(null);
-  const [deliveryDate, setDeliveryDate] = useState(defaultDelivery());
+  const [deliveryDate, setDeliveryDate] = useState(todayKey);
   const [shift, setShift] = useState("");
   const [driver, setDriver] = useState("");
   const [driver2, setDriver2] = useState("");
@@ -85,6 +77,19 @@ export default function QuickOrder() {
   // Antes de cargar se confirma cómo va el pedido: con precio y saldo, o sin precio ni saldo
   // (cliente exclusivo: familiares, facturación propia). La ficha sugiere la opción.
   const [confirming, setConfirming] = useState(false);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState("");
+  const reviewLock = useRef(false);
+  const confirmRef = useRef(null);
+  useEffect(() => {
+    if (!confirming) return;
+    const origin = document.activeElement;
+    confirmRef.current?.showModal();
+    return () => {
+      confirmRef.current?.close();
+      origin?.focus?.();
+    };
+  }, [confirming]);
   const searchRef = useRef();
   const products = config?.products || [];
   const drivers = config?.drivers || [];
@@ -109,6 +114,9 @@ export default function QuickOrder() {
   }, [query, customers]);
 
   function pick(c) {
+    setPriceEdits({});
+    setEditingPrice(null);
+    setReviewError("");
     setPicked(c);
     setQuery("");
     setShift(c.shift || "");
@@ -120,6 +128,10 @@ export default function QuickOrder() {
     setTimeout(() => document.querySelector(".qo-box input")?.focus(), 0);
   }
   function reset() {
+    setPriceEdits({});
+    setEditingPrice(null);
+    setDeliveryDate(todayKey());
+    setReviewError("");
     setPicked(null);
     setLines({});
     setNotes("");
@@ -194,51 +206,113 @@ export default function QuickOrder() {
   const canSubmit =
     picked && items.length > 0 && !invalid.length && !otroSinNombre && !busy;
 
-  function submit(e) {
+  async function refreshCustomer() {
+    const list = await api("/customers");
+    const fresh = list.find((c) => c.phone === picked.phone);
+    if (!fresh || fresh.status === "inactivo")
+      throw Error("El cliente ya no está disponible. Revisá su ficha.");
+    if (
+      !Number.isFinite(fresh.summary?.balance) ||
+      !Number.isFinite(fresh.summary?.boxes)
+    )
+      throw Error(
+        "No se pudieron verificar los saldos del cliente. Volvé a intentar antes de cargar.",
+      );
+    return fresh;
+  }
+  const reviewSignature = (c) =>
+    JSON.stringify([
+      c.summary?.balance,
+      c.summary?.boxes,
+      c.prices,
+      c.credit,
+      c.noPricing,
+    ]);
+  async function submit(e) {
     e?.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit || reviewLock.current) return;
+    reviewLock.current = true;
     setConfirming(true);
+    setReviewLoading(true);
+    setReviewError("");
+    try {
+      setPicked(await refreshCustomer());
+    } catch (error) {
+      setReviewError(error.message);
+    } finally {
+      setReviewLoading(false);
+      reviewLock.current = false;
+    }
   }
   async function confirmAndSubmit(withoutPricing) {
-    setConfirming(false);
-    setNoPricing(withoutPricing);
-    if (!picked || !items.length || invalid.length || otroSinNombre) return;
+    if (
+      reviewLock.current ||
+      reviewError ||
+      !picked ||
+      !items.length ||
+      invalid.length ||
+      otroSinNombre
+    )
+      return;
     if (!withoutPricing && missingPrice.length) return;
-    const noPricing = withoutPricing;
-    // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
-    const editedPrices = noPricing
-      ? {}
-      : Object.fromEntries(
-          items
-            .map((r) => [r.p.id, r.price])
-            .filter(([, v]) => Number.isFinite(v) && v > 0),
+    reviewLock.current = true;
+    setReviewLoading(true);
+    try {
+      const fresh = await refreshCustomer();
+      if (reviewSignature(fresh) !== reviewSignature(picked)) {
+        setPicked(fresh);
+        setReviewError(
+          "Cambió el saldo o la ficha del cliente. Volvé a editar y revisá el resumen actualizado antes de confirmar.",
         );
-    const order = await createStaffOrder({
-      customer: picked.phone,
-      prices: editedPrices,
-      noPricing,
-      items: items.map((r) => ({
-        id: r.p.id,
-        ...(r.boxes !== null ? { boxes: r.boxes } : {}),
-        ...(r.kg !== null ? { kg: r.kg } : {}),
-        ...(r.p.id === "otro" ? { label: otherLabel.trim() } : {}),
-      })),
-      deliveryDate,
-      shift: shift || undefined,
-      driver: driver || undefined,
-      driver2: driver2 || undefined,
-      vehicleId: vehicleId || undefined,
-      zone: zone || undefined,
-      payment: payment || undefined,
-      plan: picked.plan || "mayorista",
-      notes,
-    });
-    if (order) {
-      setCreated(order);
-      setLines({});
-      setPriceEdits({});
-      setNotes("");
-      setOtherLabel("");
+        return;
+      }
+      setNoPricing(withoutPricing);
+      const noPricing = withoutPricing;
+      // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
+      const editedPrices = noPricing
+        ? {}
+        : Object.fromEntries(
+            items
+              .map((r) => [r.p.id, r.price])
+              .filter(([, v]) => Number.isFinite(v) && v > 0),
+          );
+      const order = await createStaffOrder({
+        customer: picked.phone,
+        expectedSummary: {
+          balance: picked.summary.balance,
+          boxes: picked.summary.boxes,
+        },
+        prices: editedPrices,
+        noPricing,
+        items: items.map((r) => ({
+          id: r.p.id,
+          ...(r.boxes !== null ? { boxes: r.boxes } : {}),
+          ...(r.kg !== null ? { kg: r.kg } : {}),
+          ...(r.p.id === "otro" ? { label: otherLabel.trim() } : {}),
+        })),
+        deliveryDate,
+        shift: shift || undefined,
+        driver: driver || undefined,
+        driver2: driver2 || undefined,
+        vehicleId: vehicleId || undefined,
+        zone: zone || undefined,
+        payment: payment || undefined,
+        plan: picked.plan || "mayorista",
+        notes,
+      });
+      if (order) {
+        setConfirming(false);
+        setCreated(order);
+        setLines({});
+        setPriceEdits({});
+        setNotes("");
+        setOtherLabel("");
+      }
+    } catch (error) {
+      setReviewError(error.message);
+    } finally {
+      reviewLock.current = false;
+      setReviewLoading(false);
     }
   }
 
@@ -278,15 +352,18 @@ export default function QuickOrder() {
         </div>
       )}
       {confirming && picked && (
-        <div
-          className="qo-confirm-backdrop"
-          role="dialog"
-          aria-modal="true"
+        <dialog
+          ref={confirmRef}
+          className="qo-review-dialog"
           aria-labelledby="qo-confirm-title"
+          onCancel={(e) => {
+            if (reviewLoading || busy) e.preventDefault();
+            else setConfirming(false);
+          }}
         >
           <div className="qo-confirm-box">
             <span className="eyebrow">ANTES DE CARGAR</span>
-            <h2 id="qo-confirm-title">¿Cómo va el pedido de {picked.name}?</h2>
+            <h2 id="qo-confirm-title">Revisar pedido de {picked.name}</h2>
             <p className="muted">
               {items.length} {items.length === 1 ? "renglón" : "renglones"} ·{" "}
               {deliveryDate.split("-").reverse().join("/")}
@@ -294,11 +371,77 @@ export default function QuickOrder() {
                 ? " · en la ficha figura como cliente exclusivo (sin precio ni saldo)"
                 : ""}
             </p>
+            <p>
+              {picked.branch ? `Sucursal: ${picked.branch} · ` : ""}
+              {zone || picked.zone || "Sin zona"}
+              <br />
+              {shiftNames[shift] || "Sin turno"} · {driver || "Sin preventista"}
+              {driver2 ? ` / ${driver2}` : ""}
+              <br />
+              {paymentNames[payment] || payment} ·{" "}
+              {picked.address || "Sin dirección"}
+            </p>
+            {reviewLoading && (
+              <p role="status">Verificando datos actuales del cliente…</p>
+            )}
+            {(reviewError || formError) && (
+              <p className="notice error" role="alert">
+                {reviewError || formError}
+              </p>
+            )}
+            <div className="qo-review-lines">
+              {items.map((r) => (
+                <div key={r.p.id}>
+                  <strong>{r.p.id === "otro" ? otherLabel : r.p.name}</strong>
+                  <span>
+                    {r.boxes > 0
+                      ? `${r.boxes} cajas`
+                      : `${kgText(r.kg)} kg solicitados`}
+                  </span>
+                  <b>
+                    {Number.isFinite(r.price) && r.price > 0
+                      ? `${money(r.price)} / kg`
+                      : "SIN PRECIO"}
+                  </b>
+                  {priceEdits[r.p.id] !== undefined && (
+                    <small>
+                      Precio editado: se guardará en la ficha del cliente.
+                    </small>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="qo-review-account">
+              <strong>
+                Saldo actual de dinero:{" "}
+                {Number.isFinite(picked.summary?.balance)
+                  ? money(picked.summary.balance)
+                  : "No disponible"}
+              </strong>
+              <br />
+              {picked.summary?.balance < 0
+                ? "Saldo a favor del cliente"
+                : "Deuda del cliente antes de este pedido"}
+              <br />
+              <strong>
+                Saldo actual de cajas:{" "}
+                {picked.summary?.boxes ?? "No disponible"}
+              </strong>
+              <br />
+              Pedido nuevo: importe pendiente de pesaje. No se suma todavía al
+              saldo.
+            </div>
+            {notes && <p>Observaciones: {notes}</p>}
             <div className="qo-confirm-options">
               <button
                 type="button"
                 className={picked.noPricing ? "secondary" : "primary"}
-                disabled={busy || missingPrice.length > 0}
+                disabled={
+                  busy ||
+                  reviewLoading ||
+                  !!reviewError ||
+                  missingPrice.length > 0
+                }
                 title={
                   missingPrice.length
                     ? "Falta el precio de algún producto"
@@ -306,7 +449,7 @@ export default function QuickOrder() {
                 }
                 onClick={() => confirmAndSubmit(false)}
               >
-                Con precio y saldo
+                Confirmar y cargar con precio y saldo
                 <small>
                   {missingPrice.length
                     ? "Falta precio de " +
@@ -317,10 +460,10 @@ export default function QuickOrder() {
               <button
                 type="button"
                 className={picked.noPricing ? "primary" : "secondary"}
-                disabled={busy}
+                disabled={busy || reviewLoading || !!reviewError}
                 onClick={() => confirmAndSubmit(true)}
               >
-                Sin precio ni saldo
+                Confirmar sin precio ni saldo
                 <small>
                   Cliente exclusivo: remito solo con kilos y detalle
                 </small>
@@ -329,12 +472,13 @@ export default function QuickOrder() {
             <button
               type="button"
               className="link-button"
+              disabled={busy || reviewLoading}
               onClick={() => setConfirming(false)}
             >
-              Volver
+              Volver a editar
             </button>
           </div>
-        </div>
+        </dialog>
       )}
       <form
         className="quick-order"
