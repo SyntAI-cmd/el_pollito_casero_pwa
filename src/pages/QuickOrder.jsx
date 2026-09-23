@@ -17,6 +17,7 @@ import { useStore } from "../lib/store.jsx";
 import { vehicleLabel } from "../components/Vehicles.jsx";
 import { api } from "../lib/api.js";
 import { Link } from "../lib/router.jsx";
+import { useFieldVisibility } from "../lib/media.js";
 import {
   money,
   kgText,
@@ -43,6 +44,7 @@ const defaultDelivery = () => {
  * fecha y turno de reparto, y listo. Los kilos definitivos los pone la balanza.
  */
 export default function QuickOrder() {
+  const ensureFieldVisible = useFieldVisibility();
   const {
     config,
     customers,
@@ -357,19 +359,7 @@ export default function QuickOrder() {
                 autoComplete="off"
                 enterKeyHint="search"
                 aria-label="Buscar cliente por nombre, zona o CUIT"
-                onFocus={(e) => {
-                  // Con el teclado abierto queda poca pantalla: el campo sube arriba de todo
-                  // y la lista de resultados se desplaza sola, sin mover la página entera.
-                  const campo = e.target.closest(".qo-search") || e.target;
-                  setTimeout(
-                    () =>
-                      campo.scrollIntoView({
-                        block: "start",
-                        behavior: "smooth",
-                      }),
-                    300,
-                  );
-                }}
+                onFocus={ensureFieldVisible}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

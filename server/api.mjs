@@ -338,11 +338,17 @@ export function createApi({
       ? { lat: o.location.lat, lng: o.location.lng }
       : origin;
     const eta = await estimate(from, o.destination);
-    const current = store.orders.get(o.id);
-    if (!current || current.status !== "en_camino") return eta;
-    current.eta = eta;
-    store.orders.save(current);
-    events.orderChanged(current);
+    await withOrderLock(o.id, () => {
+      const current = store.orders.get(o.id);
+      if (!current || current.status !== "en_camino" ||
+          current.departedAt !== o.departedAt ||
+          JSON.stringify(current.location) !== JSON.stringify(o.location) ||
+          JSON.stringify(current.destination) !== JSON.stringify(o.destination) ||
+          JSON.stringify(current.eta) !== JSON.stringify(o.eta)) return;
+      current.eta = eta;
+      store.orders.save(current);
+      events.orderChanged(current);
+    });
     return eta;
   }
 
@@ -669,11 +675,8 @@ export function createApi({
         );
       if (next === "en_camino") {
         o.departedAt = now();
-        if (o.destination)
-          o.eta = await estimate(
-            o.location ? { lat: o.location.lat, lng: o.location.lng } : origin,
-            o.destination,
-          );
+        // La salida es válida aunque OSRM no esté disponible. ETA es auxiliar.
+        if (o.destination) after.push(() => refreshEta(o));
         after.push(() =>
           notifyCustomer(o, {
             title: `${o.driver} salió con tu pedido`,
@@ -1518,6 +1521,11 @@ export function createApi({
       );
     }
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
+    if (orderMatch && method === "GET" && !orderMatch[2]) {
+      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
+      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+      return json(200, view(o, session));
+    }
     if (orderMatch && method === "DELETE" && !orderMatch[2]) {
       if (session?.role !== "admin")
         fail(403, "Solo administración elimina pedidos.");
@@ -1565,6 +1573,19 @@ export function createApi({
       return withOrderLock(id, async () => {
         const o = store.orders.get(id);
         if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+        // Una salida es una transición única. Clientes viejos sin opId también
+        // pueden reconciliar una respuesta perdida sin repetir historial/push.
+        const startOnly = body.status === "en_camino" &&
+          Object.keys(body).every((k) => k === "status" || k === "opId");
+        if (startOnly) {
+          if (!isStaff(session)) fail(403, "Solo el equipo inicia el reparto.");
+          if (session.role === "repartidor" && !mine(session, o))
+            fail(403, "Ese pedido no es tuyo.");
+          if (body.opId !== undefined)
+            str(body.opId, { min: 1, max: 80, name: "la operación" });
+          if (["en_camino", "entregado"].includes(o.status) && o.departedAt)
+            return json(200, view(o, session));
+        }
         const before = {
           status: o.status,
           paid: o.paid,

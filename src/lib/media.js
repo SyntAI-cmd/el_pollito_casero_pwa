@@ -1,5 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 
+/** Mantiene visible el campo activo al cambiar el área visible del teclado.
+ * Sin temporizadores ni animación: cambiar de campo cancela el ajuste anterior.
+ * El desplazamiento instantáneo también respeta movimiento reducido.
+ */
+export function useFieldVisibility() {
+  const cleanup = useRef(() => {});
+  useEffect(() => () => cleanup.current(), []);
+  return (event) => {
+    cleanup.current();
+    const field = event.currentTarget;
+    const viewport = window.visualViewport;
+    let frame;
+    const adjust = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!field.isConnected || document.activeElement !== field) return;
+        const bounds = field.getBoundingClientRect();
+        const top = (viewport?.offsetTop || 0) + 12;
+        const bottom = (viewport?.offsetTop || 0) +
+          (viewport?.height || window.innerHeight) - 12;
+        const delta = bounds.top < top ? bounds.top - top :
+          bounds.bottom > bottom ? bounds.bottom - bottom : 0;
+        if (delta) window.scrollBy({ top: delta, behavior: "instant" });
+      });
+    };
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", adjust);
+      field.removeEventListener("blur", stop);
+    };
+    cleanup.current = stop;
+    viewport?.addEventListener("resize", adjust);
+    field.addEventListener("blur", stop);
+    adjust();
+  };
+}
+
 /**
  * ¿Estamos en pantalla de celular? Las tablas operativas se muestran como tarjetas debajo de
  * 760 px; arriba de eso conviene la tabla, que entra entera y se lee de un vistazo.

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useRoute } from "../lib/router.jsx";
+import { useFieldVisibility } from "../lib/media.js";
 import {
   kgText,
   money,
@@ -50,6 +51,7 @@ const fmt = (n) =>
  */
 const batchOf = (crate) => String(crate.id).split(":")[0];
 export default function Weighing() {
+  const ensureFieldVisible = useFieldVisibility();
   const { session, notify, customers } = useStore();
   const { query, navigate } = useRoute();
   const [date, setDate] = useState(query.get("fecha") || todayKey());
@@ -481,7 +483,8 @@ export default function Weighing() {
                       </button>
                       <input
                         inputMode="numeric"
-                        value={boxes === "" ? nBoxes : boxes}
+                        value={boxes}
+                        placeholder={String(nBoxes)}
                         onChange={(e) =>
                           setBoxes(e.target.value.replace(/[^\d]/g, ""))
                         }
@@ -515,15 +518,7 @@ export default function Weighing() {
                     }
                     onFocus={(e) => {
                       setGrossFocus(true);
-                      if (!tecladoApp)
-                        setTimeout(
-                          () =>
-                            e.target.scrollIntoView({
-                              block: "center",
-                              behavior: "smooth",
-                            }),
-                          250,
-                        );
+                      if (!tecladoApp) ensureFieldVisible(e);
                     }}
                     onBlur={() => setTimeout(() => setGrossFocus(false), 150)}
                     onKeyDown={(e) => {
