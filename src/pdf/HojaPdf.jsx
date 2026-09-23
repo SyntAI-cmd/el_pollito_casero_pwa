@@ -248,12 +248,25 @@ function Tabla({ filas }) {
       {filas.map((r) => {
         const o = r.order;
         // Lo ya registrado se imprime; lo que se completa en la calle va vacío.
+        // IMPORTE TOTAL = lo del pedido + lo que el cliente ya debía: es lo que hay que cobrar
+        // en esa parada. La deuda previa se suma UNA sola vez por cliente, así que si el cliente
+        // tiene dos pedidos, el segundo lleva solo lo suyo.
+        const deudaPrevia = r.firstCustomer ? r.moneyBefore || 0 : 0;
+        const aCobrar = (o.noPricing ? 0 : o.total || 0) + deudaPrevia;
         const valores = [
           orderNumber(o),
           `${r.customer?.alias || o.name}${o.zone ? " · " + o.zone : ""}`,
-          o.noPricing ? "Sin precio" : o.weighed ? money(o.total) : "Sin pesar",
-          // La deuda previa del cliente se arrastra una sola vez.
-          r.firstCustomer ? money(r.moneyBefore) : "Incl. anterior",
+          o.noPricing
+            ? deudaPrevia
+              ? money(deudaPrevia)
+              : "Sin precio"
+            : o.weighed
+              ? money(aCobrar)
+              : deudaPrevia
+                ? `Sin pesar + ${money(deudaPrevia)}`
+                : "Sin pesar",
+          // De ese importe, esto es deuda anterior.
+          r.firstCustomer ? money(deudaPrevia) : "Incl. anterior",
           "",
           r.before === null || r.before === undefined ? "" : String(r.before),
           String(r.out),
@@ -291,7 +304,10 @@ function Tabla({ filas }) {
             i === 2
               ? money(
                   filas.reduce(
-                    (n, r) => n + (r.order.noPricing ? 0 : r.order.total || 0),
+                    (n, r) =>
+                      n +
+                      (r.order.noPricing ? 0 : r.order.total || 0) +
+                      (r.firstCustomer ? r.moneyBefore || 0 : 0),
                     0,
                   ),
                 )
@@ -333,9 +349,11 @@ function Tabla({ filas }) {
         })}
       </View>
       <Text style={s.nota}>
-        Cajas: previas + salientes - devueltas = saldo. Saldo final = importe
-        del pedido + saldo del cliente + corrección - efectivo - transferencia -
-        cheque. Saldo cliente: deuda previa, una sola vez por cliente.
+        Cajas: previas + salientes - devueltas = saldo. Importe total = pedido
+        del día + saldo del cliente: es lo que hay que cobrar en esa parada.
+        Saldo final = importe total + corrección - efectivo - transferencia -
+        cheque. La columna Saldo cliente muestra cuánto de ese importe es deuda
+        anterior, y se cuenta una sola vez por cliente.
       </Text>
     </View>
   );
@@ -367,8 +385,9 @@ function Rendicion({ filas }) {
     0,
   );
   const lineas = [
-    ["Total de pedidos", money(totalPedidos)],
+    ["Total de pedidos del día", money(totalPedidos)],
     ["Saldo anterior de clientes", money(saldoAnterior)],
+    ["Total a cobrar (pedidos + saldos)", money(totalPedidos + saldoAnterior)],
     [
       "Efectivo cobrado",
       cobrado("efectivo") ? money(cobrado("efectivo")) : "-",
