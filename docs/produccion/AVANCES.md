@@ -56,5 +56,10 @@ PC-019 (offline y cambio de usuario), PC-017 (reducir recargas), PC-006 (unidade
   de envíos lleva dueño. Dos filtraciones reales corregidas.
 - Pruebas: 66 unitarias y 27 comprobaciones en navegador, en verde.
 
-Ticket activo: ninguno. Próximos: PC-017 (recargas y tamaño de respuestas), PC-014 (Movimientos,
-ya hay datos desde PC-003), PC-006 (unidades), PC-013 (retirar el chat).
+- **PC-014 cerrado:** pantalla de Movimientos, con el día de hoy por defecto, filtros de
+  categoría y usuario, resumen "de cuánto a cuánto", detalle desplegable, hora de Mendoza y
+  paginado de a 50. Solo administración: el servidor le devuelve 403 a un preventista.
+- Pruebas: 66 unitarias y 34 comprobaciones en navegador, en verde.
+
+Ticket activo: ninguno. Próximos: PC-017 (recargas y tamaño de respuestas), PC-006 (unidades),
+PC-013 (retirar el chat), PC-009/PC-010/PC-011 (pantallas).
