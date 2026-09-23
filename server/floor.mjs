@@ -492,6 +492,36 @@ export function createFloor({
       const c = customerByKey(decodeURIComponent(saldos[1]));
       const current = accountSummary(store.orders.forCustomer(c.phone), c);
       const changes = {};
+      // Dos personas corrigiendo el mismo saldo: el que llega segundo no pisa al primero.
+      // El navegador manda el estado que tenía a la vista; si ya no es el real, se avisa.
+      if (body.esperado && typeof body.esperado === "object") {
+        const esperadoSaldo = Number(body.esperado.balance);
+        const esperadoCajas = Number(body.esperado.boxes);
+        const distintoSaldo =
+          Number.isFinite(esperadoSaldo) &&
+          Math.round(esperadoSaldo * 100) !== Math.round(current.balance * 100);
+        const distintoCajas =
+          Number.isFinite(esperadoCajas) && esperadoCajas !== current.boxes;
+        if (distintoSaldo || distintoCajas) {
+          store.audit.log(
+            session,
+            "customer.saldos",
+            "customer",
+            c.phone,
+            { cliente: c.name },
+            {
+              resultado: "rechazado",
+              motivo: "otro usuario cambió el saldo mientras se editaba",
+              antes: { balance: esperadoSaldo, boxes: esperadoCajas },
+              despues: { balance: current.balance, boxes: current.boxes },
+            },
+          );
+          fail(
+            409,
+            `Otra persona cambió este saldo mientras lo editabas. Ahora es ${current.balance} y ${current.boxes} cajas. Revisá el estado y volvé a cargar tu corrección.`,
+          );
+        }
+      }
       // Reintento: si esta misma operación ya se aplicó, se devuelve el estado sin repetirla.
       const opId = body.opId
         ? str(body.opId, { max: 40, name: "la operación" })
@@ -523,33 +553,28 @@ export function createFloor({
           summary: accountSummary(store.orders.forCustomer(c.phone), c),
         });
       // `delta` suma al saldo actual (deuda +, a favor −); `balance` fija el saldo real.
-      if (body.delta !== undefined && body.delta !== null && body.delta !== "")
-        body.balance =
-          current.balance +
+      // Se calcula en variables propias: modificar el cuerpo recibido rompía la firma de
+      // idempotencia cuando se reintentaba con el mismo objeto.
+      const puesto = (v) => v !== undefined && v !== null && v !== "";
+      const saldoDestino = puesto(body.delta)
+        ? current.balance +
           num(body.delta, {
             min: -100000000,
             max: 100000000,
             name: "el importe",
-          });
-      if (
-        body.boxesDelta !== undefined &&
-        body.boxesDelta !== null &&
-        body.boxesDelta !== ""
-      )
-        body.boxes =
-          current.boxes +
+          })
+        : body.balance;
+      const cajasDestino = puesto(body.boxesDelta)
+        ? current.boxes +
           num(body.boxesDelta, {
             min: -10000,
             max: 10000,
             integer: true,
             name: "las cajas",
-          });
-      if (
-        body.balance !== undefined &&
-        body.balance !== null &&
-        body.balance !== ""
-      ) {
-        const target = num(body.balance, {
+          })
+        : body.boxes;
+      if (puesto(saldoDestino)) {
+        const target = num(saldoDestino, {
           min: -100000000,
           max: 100000000,
           name: "el saldo",
@@ -575,12 +600,8 @@ export function createFloor({
           changes.balance = diff;
         }
       }
-      if (
-        body.boxes !== undefined &&
-        body.boxes !== null &&
-        body.boxes !== ""
-      ) {
-        const target = num(body.boxes, {
+      if (puesto(cajasDestino)) {
+        const target = num(cajasDestino, {
           min: 0,
           max: 10000,
           integer: true,

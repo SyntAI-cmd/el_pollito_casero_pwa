@@ -131,7 +131,12 @@ export default function Saldos({ customer }) {
     }
     setSaveError("");
     const notas = [...new Set(pendientes.map((p) => p.note).filter(Boolean))];
-    const data = { opId: opId.current };
+    // Se manda el estado que el usuario tenía a la vista: si otro lo cambió, el servidor avisa
+    // en vez de pisarlo.
+    const data = {
+      opId: opId.current,
+      esperado: { balance: actual.balance || 0, boxes: actual.boxes || 0 },
+    };
     if (deltaDinero !== 0) data.delta = deltaDinero;
     if (deltaCajas !== 0) data.boxesDelta = deltaCajas;
     if (notas.length) data.note = notas.join(" · ").slice(0, 200);
@@ -145,7 +150,7 @@ export default function Saldos({ customer }) {
     saving.current = false;
     if (!ok)
       setSaveError(
-        "No se pudo confirmar el guardado. Tus cambios siguen acá; podés reintentar.",
+        "No se pudo guardar. Tus cambios siguen acá: mirá el aviso de arriba, revisá el estado y reintentá.",
       );
     // Si falla, lo escrito no se pierde: los cambios pendientes quedan como estaban.
     if (ok) {
