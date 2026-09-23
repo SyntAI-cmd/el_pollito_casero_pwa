@@ -40,7 +40,8 @@ const CON_TECLADO = { ...TELEFONO, viewport: { width: 393, height: 400 } };
 // PC-002 · Formularios móviles, teclado y desplazamiento
 // ============================================================
 {
-  const ctx = await browser.newContext(CON_TECLADO);
+  // Con el teclado de la app, el del teléfono NO se abre: la pantalla queda entera.
+  const ctx = await browser.newContext(TELEFONO);
   const page = await ctx.newPage();
   await entrar(page);
   await page.goto(BASE + "/operacion/clientes");
@@ -57,11 +58,22 @@ const CON_TECLADO = { ...TELEFONO, viewport: { width: 393, height: 400 } };
     "PC-002 · se abre la ventana de saldos en el celular",
   );
 
-  // Escribir en el importe: el campo tiene que quedar dentro del área visible.
+  // En el celular el importe se carga con el teclado de la app: el del teléfono no se abre.
+  const modoTeclado = await page.evaluate(() =>
+    document.querySelector(".saldos-entry input")?.getAttribute("inputmode"),
+  );
+  check(
+    modoTeclado === "none",
+    "PC-005 · cargar saldo no abre el teclado del teléfono",
+    `inputmode=${modoTeclado}`,
+  );
   const importe = page.locator(".saldos-entry input").first();
   await importe.click();
-  await importe.type("12345", { delay: 40 });
-  await page.waitForTimeout(500);
+  for (const t of ["1", "2", "3", "4", "5"])
+    await page
+      .locator(`.saldos-edit .keypad button[aria-label="${t}"]`)
+      .click();
+  await page.waitForTimeout(400);
   const estado = await page.evaluate(() => {
     const campo = document.querySelector(".saldos-entry input");
     const dlg = document.querySelector("dialog[open]");
@@ -106,6 +118,34 @@ const CON_TECLADO = { ...TELEFONO, viewport: { width: 393, height: 400 } };
     estado.desborde <= 1,
     "PC-002 · sin desplazamiento horizontal",
     `${estado.desborde}px`,
+  );
+  // Lo que importa: trabajando sobre el teclado, se sigue viendo el importe y el botón de
+  // guardar queda al alcance (está fijo abajo). El resto de la ventana se desplaza normalmente.
+  const convive = await page.evaluate(() => {
+    const tec = document.querySelector(".saldos-edit .keypad");
+    tec?.scrollIntoView({ block: "center", behavior: "instant" });
+    const campo = document.querySelector(".saldos-entry input");
+    const guardar = [...document.querySelectorAll("dialog[open] button")].find(
+      (b) => b.textContent.includes("Guardar estado"),
+    );
+    if (!tec || !guardar || !campo) return null;
+    const t = tec.getBoundingClientRect();
+    const c = campo.getBoundingClientRect();
+    const g = guardar.getBoundingClientRect();
+    const dentro = (r) => r.top >= 0 && r.bottom <= window.innerHeight + 1;
+    return {
+      tecladoVisible: dentro(t),
+      importeVisible: dentro(c),
+      guardarVisible: g.bottom <= window.innerHeight + 1,
+    };
+  });
+  check(
+    convive &&
+      convive.tecladoVisible &&
+      convive.importeVisible &&
+      convive.guardarVisible,
+    "PC-005 · importe, teclado y “Guardar estado” se ven a la vez al cargar",
+    convive ? JSON.stringify(convive) : "no se encontraron",
   );
 
   // Con algo escrito sin guardar, Escape tiene que preguntar antes de cerrar.

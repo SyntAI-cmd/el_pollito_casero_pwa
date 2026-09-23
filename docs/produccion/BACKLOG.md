@@ -10,7 +10,7 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | PC-002 | Formularios móviles, teclado y desplazamiento estable | P0 | En revisión (falta teléfono físico) | PC-000. |
 | PC-003 | Auditoría consistente para todas las mutaciones | P0 | Hecho | PC-000. Esta base debe estar antes de los cambios de saldos, cantidades y documentos. |
 | PC-004 | Pesaje con cero cajas, cantidad escrita y tara correcta | P0 | Hecho | PC-000, PC-003. |
-| PC-005 | Corregir saldos ya guardados sin perder historial | P0 | Pendiente | PC-003; incorporar la solución de teclado PC-002. |
+| PC-005 | Corregir saldos ya guardados sin perder historial | P0 | En curso (teclado resuelto) | PC-003; incorporar la solución de teclado PC-002. |
 | PC-006 | Pedir por unidades en administración y reparto | P1 | Pendiente | PC-003 y contrato de peso/envases de PC-004. |
 | PC-007 | Pesada filtrable por preventista | P1 | Pendiente | PC-004. |
 | PC-008 | Eliminar checklist de carga al camión | P1 | Pendiente | PC-001, PC-004; integrar el contrato de PC-006. |

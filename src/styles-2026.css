@@ -1456,3 +1456,43 @@ dialog[open] {
     background: #fff;
   }
 }
+
+/* ===================================================================
+   17. Cargar saldo en el celular: un solo teclado y el importe bien grande
+   =================================================================== */
+.saldos-entry label {
+  display: grid;
+  gap: 6px;
+  color: var(--tinta-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+.saldos-entry input {
+  min-height: 60px;
+  font-size: 30px;
+  font-weight: 700;
+  text-align: right;
+  color: var(--tinta);
+  font-variant-numeric: tabular-nums;
+}
+.saldos-entry .wallet-note {
+  min-height: 48px;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: left;
+}
+.saldos-edit .teclado-modo {
+  margin-top: -4px;
+}
+@media (max-width: 760px) {
+  /* Con el teclado de la app el alto es previsible: la ventana entra sin pelear con el
+     teclado del teléfono y "Guardar estado" queda siempre a la vista. */
+  .saldos-edit .keypad button {
+    min-height: 48px;
+    font-size: 20px;
+  }
+  .saldos-entry input {
+    min-height: 56px;
+    font-size: 27px;
+  }
+}

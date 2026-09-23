@@ -14,6 +14,11 @@ import { money, dateText } from "../lib/format.js";
 import { ledger } from "../lib/ledger.js";
 import { modalGuard } from "../lib/guard.js";
 import { useFieldVisibility } from "../lib/media.js";
+import Teclado, {
+  useTecladoApp,
+  CambiarTeclado,
+  aplicarTecla,
+} from "./Teclado.jsx";
 
 const parse = (v) =>
   Number(
@@ -41,6 +46,9 @@ export default function Saldos({ customer }) {
 
   const [saveError, setSaveError] = useState("");
   const saving = useRef(false);
+  // Un solo teclado a la vista: con el de la app, el del teléfono no se abre y los botones
+  // de guardar quedan siempre visibles.
+  const { tecladoApp, cambiar } = useTecladoApp("teclado-saldos");
   const [tab, setTab] = useState("dinero");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
@@ -225,12 +233,13 @@ export default function Saldos({ customer }) {
           {esDinero ? "Importe" : "Cantidad de cajas"}
           <input
             type="text"
-            inputMode={esDinero ? "decimal" : "numeric"}
+            /* Con el teclado de la app, el del teléfono no aparece: se ve lo que se escribe. */
+            inputMode={tecladoApp ? "none" : esDinero ? "decimal" : "numeric"}
             enterKeyHint="done"
             autoFocus
             placeholder="0"
             disabled={busy}
-            onFocus={ensureFieldVisible}
+            onFocus={tecladoApp ? undefined : ensureFieldVisible}
             value={amount}
             onChange={(e) =>
               setAmount(
@@ -246,15 +255,6 @@ export default function Saldos({ customer }) {
             aria-label={esDinero ? "Importe" : "Cantidad de cajas"}
           />
         </label>
-        <input
-          className="wallet-note"
-          disabled={busy}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength="200"
-          placeholder="Motivo (opcional): saldo inicial, arreglo, conteo…"
-          aria-label="Motivo"
-        />
         <div className="saldos-entry-row">
           <button
             type="button"
@@ -273,6 +273,33 @@ export default function Saldos({ customer }) {
             <Minus size={16} /> {esDinero ? "Resta deuda" : "Devolvió cajas"}
           </button>
         </div>
+        <CambiarTeclado tecladoApp={tecladoApp} cambiar={cambiar} />
+        {tecladoApp && (
+          <Teclado
+            decimales={esDinero}
+            vacio={amount === ""}
+            etiqueta={
+              esDinero ? "Teclado para el importe" : "Teclado para las cajas"
+            }
+            onTecla={(k) =>
+              setAmount((v) =>
+                aplicarTecla(v, k, {
+                  maxDecimales: esDinero ? 2 : 0,
+                  maxLargo: esDinero ? 11 : 5,
+                }),
+              )
+            }
+          />
+        )}
+        <input
+          className="wallet-note"
+          disabled={busy}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          maxLength="200"
+          placeholder="Motivo (opcional): saldo inicial, arreglo, conteo…"
+          aria-label="Motivo"
+        />
         <p className="muted small">
           {esDinero
             ? "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
