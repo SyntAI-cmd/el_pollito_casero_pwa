@@ -10,7 +10,13 @@ export const liveCrates = (o) => (o.crates || []).filter((c) => !c.voided);
 /** Cajones esperados: la suma de cajas pedidas (lo pedido por kilo va aparte, como bultos). */
 export const expectedCrates = (o) =>
   o.items.reduce((n, i) => n + (i.boxes || 0), 0);
-/** Cajones pesados de los ítems pedidos por cajas (para comparar con expectedCrates). */
+/**
+ * Cuántas cajas retornables representan estas pesadas. Una pesada en bolsa vale 0, aunque
+ * ocupe una fila: guarda el peso pero no agrega envases.
+ */
+export const cajasDe = (crates) =>
+  crates.reduce((n, c) => n + (c.boxes === undefined ? 1 : c.boxes), 0);
+/** Pesadas de los ítems pedidos por cajas (para comparar con expectedCrates). */
 export const boxCrates = (o) => {
   const boxed = new Set(o.items.filter((i) => i.boxes).map((i) => i.id));
   return liveCrates(o).filter((c) => boxed.has(c.productId));
@@ -32,7 +38,7 @@ export function floorStatus(o) {
   const kgItemsDone = o.items
     .filter((i) => !i.boxes)
     .every((i) => crates.some((c) => c.productId === i.id));
-  const complete = crates.length >= expected && kgItemsDone;
+  const complete = cajasDe(crates) >= expected && kgItemsDone;
   if (!complete) return "pesando";
   if (crates.every((c) => c.loadedAt)) return "cargado";
   return "pesado";

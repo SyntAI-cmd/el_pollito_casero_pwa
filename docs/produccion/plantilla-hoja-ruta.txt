@@ -1,0 +1,69 @@
+EL POLLITO CASERO
+HOJA DE RUTA · RENDICIÓN DE CAJA
+VENTA POR MAYOR Y MENOR
+N° pedido = N° remito · Documento interno de control
+Carril Norte S/N° - El Ramblón, Mza. · WhatsApp: +54 9 2634 56-9139
+Preventista:
+Vehículo:
+Fecha:
+N° pedidos:
+0
+Turno: 
+REMITO
+CAJAS
+PAGOS
+Cliente / zona
+Importe total $
+Saldo cliente $
+Corrección $
+Previas
+Salientes
+Devueltas
+Saldo
+Efectivo $
+Transfer. $
+Cheque $
+Saldo final $
+TOTALES
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+-
+Cajas: previas + salientes − devueltas = saldo.   Saldo final = importe del pedido + saldo del cliente + corrección − efectivo − transferencia − cheque.   Saldo cliente: deuda previa, una sola vez por cliente.
+RENDICIÓN
+GASTOS
+Total de pedidos
+-
+Concepto
+Importe $
+Comprobante (N° / tipo)
+Saldo anterior de clientes
+-
+Efectivo cobrado
+-
+Transferencias
+-
+Cheques
+-
+Gastos con comprobante
+-
+Efectivo entregado
+Pendiente de cobro (cta. cte.)
+-
+DIFERENCIA DE CAJA
+-
+Total gastos
+-
+Diferencia = efectivo cobrado − gastos con comprobante − efectivo entregado. Debe dar $ 0. Los gastos no aumentan la deuda del cliente.
+FIRMA REPARTIDOR
+FIRMA CONTROL / ADMINISTRACIÓN
+El Pollito Casero · Documento no válido como factura · Uso interno
+Pedido /
+remito

@@ -217,6 +217,15 @@ export async function openStore(path, { log = console } = {}) {
     .map((c) => c.name);
   if (!itemCols.includes("boxes"))
     db.exec("ALTER TABLE order_items ADD COLUMN boxes REAL");
+  // PC-004: cada pesada dice cuántas cajas representa. Las filas anteriores valían una caja
+  // cada una, así que el valor por omisión es 1: no se reinterpreta nada histórico.
+  const crateCols = db
+    .prepare("PRAGMA table_info(crates)")
+    .all()
+    .map((c) => c.name);
+  if (!crateCols.includes("boxes"))
+    db.exec("ALTER TABLE crates ADD COLUMN boxes INTEGER NOT NULL DEFAULT 1");
+
   // PC-003: el historial guarda actor estable, categoría, antes/después, motivo y operación.
   // Aditivo: las filas viejas conservan su autor de texto y quedan con las columnas nuevas en NULL.
   const auditCols = db
@@ -333,7 +342,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     ),
     crate: db.prepare("SELECT * FROM crates WHERE id = ?"),
     insertCrate: db.prepare(
-      "INSERT OR IGNORE INTO crates(id, order_id, product_id, gross, tare, net, by_actor, at) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT OR IGNORE INTO crates(id, order_id, product_id, gross, tare, net, by_actor, at, boxes) VALUES(?,?,?,?,?,?,?,?,?)",
     ),
     voidCrate: db.prepare(
       "UPDATE crates SET voided = 1, void_reason = ? WHERE id = ? AND voided = 0",
@@ -898,6 +907,8 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           gross: r.gross,
           tare: r.tare,
           net: r.net,
+          // Cuántas cajas retornables representa esta pesada: 0 es una bolsa.
+          boxes: r.boxes === null || r.boxes === undefined ? 1 : r.boxes,
           by: r.by_actor,
           at: r.at,
           loadedAt: r.loaded_at || null,
@@ -1202,6 +1213,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           c.net,
           c.by,
           c.at || now(),
+          c.boxes === undefined ? 1 : c.boxes,
         ).changes,
       void: (id, reason) => q.voidCrate.run(reason || null, id).changes,
       load: (id, by) => q.loadCrate.run(now(), by, id).changes,

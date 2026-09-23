@@ -28,6 +28,7 @@ import {
   dmy,
   liveCrates,
   boxCrates,
+  cajasDe,
   expectedCrates,
   weighedKg,
   floorStatus,
@@ -132,7 +133,7 @@ export default function Weighing() {
     if (order && !product) {
       const next = order.items.find((i) =>
         i.boxes
-          ? liveCrates(order).filter((c) => c.productId === i.id).length <
+          ? cajasDe(liveCrates(order).filter((c) => c.productId === i.id)) <
             i.boxes
           : !liveCrates(order).some((c) => c.productId === i.id),
       );
@@ -147,12 +148,15 @@ export default function Weighing() {
       ? liveCrates(order).filter((c) => c.productId === product)
       : [];
   const kgDone = weighedKg(order || { crates: [] }, product);
-  const remaining = item?.boxes ? Math.max(1, item.boxes - done.length) : 1;
-  const nBoxes = Math.max(
-    1,
-    Math.min(500, Math.round(Number(boxes) || remaining)),
-  );
-  // Neto de la pesada: bruto total − tara por cada caja del lote.
+  const remaining = item?.boxes ? Math.max(1, item.boxes - cajasDe(done)) : 1;
+  // Cajas REALES del bulto. El campo vacío usa la sugerencia; un 0 escrito vale 0 (bolsa) y
+  // no se convierte en 1. Se valida al confirmar, no mientras se escribe.
+  const escribioCajas = boxes !== "";
+  const nBoxes = escribioCajas
+    ? Math.max(0, Math.min(500, Math.round(Number(boxes) || 0)))
+    : remaining;
+  const enBolsa = nBoxes === 0;
+  // tara_total = cajas_reales × tara_por_caja. En bolsa no hay tara.
   const tareTotal = Math.round(tare * nBoxes * 100) / 100;
   const net = !Number.isFinite(g)
     ? null
@@ -177,20 +181,24 @@ export default function Weighing() {
     setTimeout(() => (saving.current = false), 600);
     const id = crypto.randomUUID();
     const count = nBoxes;
-    const each = Math.round((net / count) * 100) / 100;
+    // En bolsa va una sola fila que representa 0 envases: nunca se divide por cero.
+    const filas = Math.max(1, count);
+    const each = Math.round((net / filas) * 100) / 100;
+    const taraFila = count === 0 ? 0 : tare;
     const at = new Date().toISOString();
-    // Optimista: se ven los cajones al instante, aunque no haya señal.
-    const optimistic = Array.from({ length: count }, (_, i) => {
+    // Optimista: se ve la pesada al instante, aunque no haya señal.
+    const optimistic = Array.from({ length: filas }, (_, i) => {
       const n =
-        i === count - 1
-          ? Math.round((net - each * (count - 1)) * 100) / 100
+        i === filas - 1
+          ? Math.round((net - each * (filas - 1)) * 100) / 100
           : each;
       return {
-        id: count === 1 ? id : `${id}:${i + 1}`,
+        id: filas === 1 ? id : `${id}:${i + 1}`,
         productId: product,
-        gross: Math.round((n + tare) * 100) / 100,
-        tare,
+        gross: Math.round((n + taraFila) * 100) / 100,
+        tare: taraFila,
         net: n,
+        boxes: count === 0 ? 0 : 1,
         at,
         pending: true,
       };
@@ -351,7 +359,7 @@ export default function Weighing() {
           ) : (
             list.map(({ o, st }) => {
               const crates = expectedCrates(o)
-                ? boxCrates(o).length
+                ? cajasDe(boxCrates(o))
                 : liveCrates(o).length;
               const expected = expectedCrates(o);
               return (
@@ -476,7 +484,7 @@ export default function Weighing() {
                         type="button"
                         aria-label="Una caja menos"
                         onClick={() =>
-                          setBoxes(String(Math.max(1, nBoxes - 1)))
+                          setBoxes(String(Math.max(0, nBoxes - 1)))
                         }
                       >
                         −
@@ -504,7 +512,9 @@ export default function Weighing() {
                   </label>
                 }
                 <label className="weigh-gross">
-                  {`Peso bruto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`}
+                  {enBolsa
+                    ? "Peso de la bolsa (kg) · sin tara"
+                    : `Peso bruto total de ${nBoxes} ${nBoxes === 1 ? "caja" : "cajas"} (kg)`}
                   <input
                     /* Con el teclado de la app, el del teléfono no se abre: nunca hay dos. */
                     inputMode={tecladoApp ? "none" : "decimal"}
@@ -538,10 +548,13 @@ export default function Weighing() {
                   }
                 >
                   <span>
-                    − {fmt(tareTotal)} kg de tara ({nBoxes} × {fmt(tare)})
-                    {nBoxes > 1 && net > 0
-                      ? ` · ${fmt(net / nBoxes)} kg por caja · neto =`
-                      : " · neto ="}
+                    {enBolsa
+                      ? "Va en bolsa: sin tara y sin envases · neto ="
+                      : `− ${fmt(tareTotal)} kg de tara (${nBoxes} × ${fmt(tare)})`}
+                    {!enBolsa &&
+                      (nBoxes > 1 && net > 0
+                        ? ` · ${fmt(net / nBoxes)} kg por caja · neto =`
+                        : " · neto =")}
                   </span>
                   <strong>
                     {net !== null && gross !== "" ? fmt(net) : "–"} kg
@@ -618,7 +631,11 @@ export default function Weighing() {
                   onClick={confirm}
                 >
                   <Scale size={20} />{" "}
-                  {nBoxes > 1 ? `Confirmar ${nBoxes} cajas` : "Confirmar cajón"}
+                  {enBolsa
+                    ? "Confirmar bolsa"
+                    : nBoxes > 1
+                      ? `Confirmar ${nBoxes} cajas`
+                      : "Confirmar cajón"}
                 </button>
                 {/* Botón flotante sobre el teclado del celular: confirma sin cerrar el teclado ni hacer scroll. */}
                 {grossFocus && !tecladoApp && net > 0 && (
