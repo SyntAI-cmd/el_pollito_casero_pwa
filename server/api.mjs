@@ -916,16 +916,6 @@ export function createApi({
     });
   }
 
-  const threadFor = (session, requested) => {
-    if (session.role === "repartidor") return `repartidor:${session.driver}`;
-    if (session.role === "admin") {
-      const t = str(requested, { min: 1, max: 80, name: "conversación" });
-      if (!t.startsWith("repartidor:") || !config.drivers.includes(t.slice(11)))
-        fail(400, "Conversación inválida.");
-      return t;
-    }
-    fail(403, "El chat interno es del equipo.");
-  };
 
   const floor = createFloor({
     store,
@@ -1915,53 +1905,6 @@ export function createApi({
       });
     }
 
-    // ---- Chat interno administración ↔ repartidor ----
-    if (path === "/api/messages" && method === "GET") {
-      if (!isStaff(session)) fail(403, "El chat interno es del equipo.");
-      if (session.role === "admin" && !query.get("thread"))
-        return json(200, {
-          threads: config.drivers.map((d) => `repartidor:${d}`),
-          unread: store.messages.unreadFor("admin"),
-        });
-      const thread = threadFor(session, query.get("thread"));
-      if (query.get("read") === "1")
-        store.messages.markRead(thread, session.role);
-      return json(200, {
-        thread,
-        messages: store.messages.list(thread),
-        unread: store.messages.unreadFor(session.role),
-      });
-    }
-    if (path === "/api/messages" && method === "POST") {
-      if (!isStaff(session)) fail(403, "El chat interno es del equipo.");
-      const thread = threadFor(session, body.thread);
-      const text = str(body.text, { min: 1, max: 1000, name: "el mensaje" });
-      const message = store.messages.add(
-        thread,
-        {
-          role: session.role,
-          name:
-            session.role === "admin"
-              ? session.name || business.adminName
-              : session.driver,
-        },
-        text,
-      );
-      events.messageAdded(message, thread.slice(11));
-      if (session.role === "admin")
-        notifyDriver(thread.slice(11), {
-          title: `${session.name}: ${text.slice(0, 60)}`,
-          body: "Mensaje de administración",
-          tag: "chat",
-        });
-      else
-        notifyAdmins({
-          title: `${session.driver}: ${text.slice(0, 60)}`,
-          body: "Mensaje del reparto",
-          tag: "chat",
-        });
-      return json(201, message);
-    }
     return null;
   };
 }
@@ -2013,14 +1956,6 @@ export function createEvents() {
       for (const c of clients)
         if (c.session.role === "admin" || c.session.role === "repartidor")
           send(c, "fleet", { id: trip.id, date: trip.date });
-    },
-    messageAdded(message, driver) {
-      for (const c of clients)
-        if (
-          c.session.role === "admin" ||
-          (c.session.role === "repartidor" && c.session.driver === driver)
-        )
-          send(c, "message", { thread: message.thread, id: message.id });
     },
   };
 }

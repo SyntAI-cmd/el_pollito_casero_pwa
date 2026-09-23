@@ -13,7 +13,6 @@ import { kgText, totalKg, money, orderNumber, labels } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
 import { PageHead, EmptyState, StatusBadge } from "../components/ui.jsx";
 import News from "../components/News.jsx";
-import UnreadBanner from "../components/UnreadBanner.jsx";
 
 /** Cajas pedidas y kilos pesados de un pedido, para el resumen de la tarjeta. */
 const boxesOf = (o) => o.items.reduce((s, i) => s + (i.boxes || 0), 0);
@@ -91,7 +90,6 @@ export default function Delivery() {
           </span>
         </div>
       </PageHead>
-      <UnreadBanner />
 
       <section className="hero-card" aria-label="Resumen del día">
         <div className="hero-metric">

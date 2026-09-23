@@ -48,9 +48,6 @@ export function StoreProvider({ children }) {
   const [me, setMe] = useState(null);
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [chat, setChat] = useState({ thread: null, messages: [], unread: {} });
-  const chatThread = useRef(null);
-  const chatOpen = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [online, setOnline] = useState(navigator.onLine);
@@ -148,7 +145,6 @@ export function StoreProvider({ children }) {
         sessionRef.current = s;
         if (s?.plan) setPlanState(s.plan);
         await Promise.all([loadOrders(), loadMe(), loadCustomers()]);
-        loadChat().catch(() => {});
         if (s) syncPush(rest.pushKey).catch(() => {});
       })
       .catch(() => {
@@ -204,11 +200,6 @@ export function StoreProvider({ children }) {
     if (!session) return;
     const close = subscribe(
       (type, data) => {
-        if (type === "message") {
-          loadChat(data.thread).catch(() => {});
-          announceMessage(data);
-          return;
-        }
         if (type === "orders")
           loadOrders({ silent: true }).then(() =>
             Promise.all([loadMe(), loadCustomers()]),
@@ -522,7 +513,6 @@ export function StoreProvider({ children }) {
       setCart({});
       setProfile({});
       await Promise.all([loadOrders(), loadCustomers()]);
-      loadChat().catch(() => {});
       syncPush(config?.pushKey).catch(() => {});
       setModal(null);
       navigate(s.role === "admin" ? "/operacion" : "/reparto");
@@ -747,93 +737,6 @@ export function StoreProvider({ children }) {
       },
       { onError: (e) => notify(e.message) },
     );
-
-  /** Chat interno administración ↔ repartidor. */
-  async function loadChat(thread, { read = chatOpen.current } = {}) {
-    const role = sessionRef.current?.role;
-    if (role !== "admin" && role !== "repartidor") return;
-    const target = role === "admin" ? thread || chatThread.current : null;
-    if (role === "admin" && !target) {
-      const r = await api("/messages");
-      setChat((c) => ({ ...c, unread: r.unread || {} }));
-      return;
-    }
-    // Solo se marca como leída la conversación abierta.
-    if (
-      role === "admin" &&
-      thread &&
-      chatThread.current &&
-      thread !== chatThread.current
-    ) {
-      const r = await api("/messages");
-      setChat((c) => ({ ...c, unread: r.unread || {} }));
-      return;
-    }
-    const params = new URLSearchParams();
-    if (target) params.set("thread", target);
-    if (read) params.set("read", "1");
-    const r = await api("/messages" + (params.size ? "?" + params : ""));
-    chatThread.current = r.thread;
-    setChat({ thread: r.thread, messages: r.messages, unread: r.unread || {} });
-  }
-  const openChat = (thread) => {
-    chatThread.current = thread || chatThread.current;
-    chatOpen.current = true;
-    return loadChat(thread, { read: true }).catch((e) => notify(e.message));
-  };
-  const closeChat = () => {
-    chatOpen.current = false;
-  };
-  const sendMessage = (text, thread) =>
-    run(
-      async () => {
-        await post("/messages", { text, thread: thread || chatThread.current });
-        await loadChat(thread || chatThread.current);
-        return true;
-      },
-      { onError: (e) => notify(e.message) },
-    );
-  const unreadTotal = Object.values(chat.unread || {}).reduce(
-    (s, n) => s + n,
-    0,
-  );
-  /** Mensaje nuevo del chat: cartel en la app, sonido y aviso del sistema si la pestaña está atrás. */
-  function announceMessage(data) {
-    const role = sessionRef.current?.role;
-    if (!role || role === "cliente") return;
-    if (
-      chatOpen.current &&
-      (role === "repartidor" || chatThread.current === data.thread)
-    )
-      return;
-    const who =
-      role === "admin"
-        ? (data.thread || "").slice(11) || "reparto"
-        : "administración";
-    notify(`Mensaje nuevo de ${who}: tocá el chat para leerlo.`);
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = 880;
-      g.gain.value = 0.08;
-      o.connect(g).connect(ctx.destination);
-      o.start();
-      o.stop(ctx.currentTime + 0.18);
-    } catch {}
-    if (
-      document.hidden &&
-      "Notification" in window &&
-      Notification.permission === "granted"
-    )
-      try {
-        new Notification(`Pollito Casero · mensaje de ${who}`, {
-          body: "Abrí el chat interno.",
-          tag: "chat",
-        });
-      } catch {}
-  }
-
   const returnBoxes = (customer, boxes) =>
     run(
       async () => {
@@ -956,12 +859,6 @@ export function StoreProvider({ children }) {
     returnBoxes,
     reportTransfer,
     payOnline,
-    chat,
-    unreadTotal,
-    openChat,
-    closeChat,
-    loadChat,
-    sendMessage,
     contact,
     activeOrder,
     pushState,

@@ -33,7 +33,6 @@ import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
 import { isActive, planNames } from "./lib/format.js";
 import { MobileCartBar } from "./components/Cart.jsx";
 import Modals from "./components/Modals.jsx";
-import Chat from "./components/Chat.jsx";
 import PushToggle from "./components/PushToggle.jsx";
 import Documents from "./pages/Documents.jsx";
 import Movimientos from "./pages/Movimientos.jsx";
@@ -667,7 +666,6 @@ function StaffShell({ Page, path }) {
           </div>
         </div>
       )}
-      <Chat />
     </div>
   );
 }

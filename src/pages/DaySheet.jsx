@@ -14,7 +14,6 @@ import { Link, useRoute } from "../lib/router.jsx";
 import { kgText, money, orderNumber } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
 import RemitoActions from "../components/RemitoActions.jsx";
-import UnreadBanner from "../components/UnreadBanner.jsx";
 import HojaActions from "../components/HojaActions.jsx";
 import {
   useDay,
@@ -117,7 +116,6 @@ export default function DaySheet() {
         </div>
       </PageHead>
       {error && <p className="notice error">{error}</p>}
-      <UnreadBanner />
       <News compact />
       <section className="panel">
         <div className="section-line">
