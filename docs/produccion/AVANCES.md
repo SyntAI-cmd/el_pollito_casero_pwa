@@ -69,3 +69,13 @@ PC-013 (retirar el chat), PC-009/PC-010/PC-011 (pantallas).
 Se interrumpe el orden ordinario para PC-022 (fecha correcta de Mendoza y confirmación numérica) y ajuste pequeño PC-016 según fotografía. Implementación y verificación detalladas en tickets/PC-022.md. 74 pruebas unitarias y circuito de navegador aislado aprobados; PDF generado/renderizado/inspeccionado. Publicación pendiente de verificar.
 
 El trabajo local incompleto de retirada del chat tenía una referencia a UnreadBanner y había quitado también el objeto del contexto y funciones ajenas al chat. Se recuperaron estas funciones desde HEAD y se terminaron las referencias de UI/SSE para que la app vuelva a cargar. PC-013 sigue en revisión hasta completar limpieza de esquema/estilos y regresión específica.
+
+## Publicación comprobada — PC-022
+
+- Código: 7e9f463; rama codex/fecha-resumen-pedido y main publicadas en GitHub.
+- Railway: despliegue b1a9c1fe-8d90-4b4d-af68-4da120af64bf, estado SUCCESS.
+- Servicio production existente, región sfo, una réplica y volumen /data conservados; sin cambios de plan ni migraciones.
+- Verificación pública: /api/health HTTP 200; /admin carga /assets/index-CAOZcgKJ.js con resumen, fecha Mendoza y expectedSummary; HojaPdf-fm94KNZX.js contiene TOTAL PARA COMPROBAR.
+- No se crearon pedidos ni se tocaron saldos reales durante la verificación de producción. Datos sintéticos solo en pruebas locales.
+- Reversión operativa: redesplegar la versión previa 139da24a-2788-4dda-a54f-47bae8de44c4 si fuera necesario; este lote no cambia el esquema.
+- Próximo trabajo pendiente del backlog: completar limpieza/regresión PC-013 y PC-017 (recargas); luego PC-006 y sus dependientes. No se declaran cerrados los tickets aún pendientes.
