@@ -28,6 +28,8 @@ import {
   orderNumber,
 } from "./format.js";
 import { useRoute } from "./router.jsx";
+import { setDueño } from "./outbox.js";
+import { dueñoDe } from "./sesion.js";
 import { enablePush, disablePush, syncPush, pushPermission } from "./push.js";
 import {
   passkeyLogin,
@@ -69,6 +71,15 @@ export function StoreProvider({ children }) {
   const lastStatuses = useRef({});
   const sessionRef = useRef(null);
   sessionRef.current = session;
+  // Quién está usando la app: lo necesitan la cola de envíos (para no mandar lo de otro con esta
+  // sesión) y el service worker (para no servir la copia privada de otro). PC-019.
+  useEffect(() => {
+    setDueño(session);
+    const id = dueñoDe(session);
+    navigator.serviceWorker?.ready
+      ?.then((reg) => reg.active?.postMessage({ type: "sesion", id }))
+      .catch(() => {});
+  }, [session]);
 
   const notify = useCallback((text) => setToast(text), []);
 
@@ -652,7 +663,8 @@ export function StoreProvider({ children }) {
       let confirmed;
       try {
         confirmed = await patch("/orders/" + o.id, {
-          status: "en_camino", opId: `departure:${o.id}`,
+          status: "en_camino",
+          opId: `departure:${o.id}`,
         });
       } catch (error) {
         if (!error.network) throw error;
@@ -660,7 +672,9 @@ export function StoreProvider({ children }) {
         if (!["en_camino", "entregado"].includes(confirmed.status)) throw error;
       }
       if (sessionRef.current !== owner) return false;
-      setOrders((list) => list.map((item) => item.id === o.id ? confirmed : item));
+      setOrders((list) =>
+        list.map((item) => (item.id === o.id ? confirmed : item)),
+      );
       notify("Inicio de reparto confirmado.");
       return true;
     } catch (error) {
@@ -668,20 +682,24 @@ export function StoreProvider({ children }) {
       return false;
     } finally {
       startLocks.current.delete(o.id);
-      setStartingOrders((s) => { const next = { ...s }; delete next[o.id]; return next; });
+      setStartingOrders((s) => {
+        const next = { ...s };
+        delete next[o.id];
+        return next;
+      });
     }
   };
-  const update = (o, data) => data.status === "en_camino" && Object.keys(data).length === 1
-    ? startDelivery(o)
-    :
-    run(
-      async () => {
-        await patch("/orders/" + o.id, data);
-        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
-        return true;
-      },
-      { onError: (e) => notify(e.message) },
-    );
+  const update = (o, data) =>
+    data.status === "en_camino" && Object.keys(data).length === 1
+      ? startDelivery(o)
+      : run(
+          async () => {
+            await patch("/orders/" + o.id, data);
+            await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+            return true;
+          },
+          { onError: (e) => notify(e.message) },
+        );
   /** Edición del pedido cargado: renglones, precios, observaciones y datos del reparto. */
   const editOrder = (o, data) =>
     run(

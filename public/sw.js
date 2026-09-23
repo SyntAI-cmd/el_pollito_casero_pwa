@@ -11,7 +11,7 @@ self.addEventListener("activate", (event) =>
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k !== CACHE && k !== "pollito-datos")
+            .filter((k) => ![CACHE, API_CACHE, SESION_CACHE].includes(k))
             .map((k) => caches.delete(k)),
         ),
       )
@@ -20,34 +20,66 @@ self.addEventListener("activate", (event) =>
 );
 // Datos que se consultan a diario: se responde con la red y se guarda una copia; si no hay señal,
 // la app abre con lo último que se vio (pedidos, clientes, configuración y la nota del día).
+//
+// La copia es PRIVADA de quien inició sesión: un preventista no puede ver, ni estando sin señal,
+// los datos que quedaron de administración en el mismo teléfono. La app avisa quién entró y,
+// ante cualquier cambio de persona, la copia se borra entera (PC-019).
 const API_CACHE = "pollito-datos";
+const SESION_CACHE = "pollito-sesion";
+const SESION_URL = "/__sesion";
 const OFFLINE_API = /^\/api\/(config|orders|customers|dia|salidas)(\?|$)/;
+
+/** Quién tiene guardada la copia actual ("" si no hay). */
+async function dueñoDeLaCopia() {
+  const cache = await caches.open(SESION_CACHE);
+  const hit = await cache.match(SESION_URL);
+  return hit ? await hit.text() : "";
+}
+async function guardarDueño(id) {
+  const cache = await caches.open(SESION_CACHE);
+  await cache.put(SESION_URL, new Response(id));
+}
+/** Cambió la persona: se tira la copia para que nadie vea datos de otro. */
+async function cambiarSesion(id) {
+  const actual = await dueñoDeLaCopia();
+  if (actual === id) return;
+  await caches.delete(API_CACHE);
+  await guardarDueño(id || "");
+}
+self.addEventListener("message", (event) => {
+  const d = event.data || {};
+  if (d.type === "sesion") event.waitUntil(cambiarSesion(String(d.id || "")));
+});
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== location.origin) return;
   if (url.pathname.startsWith("/api/")) {
     if (!OFFLINE_API.test(url.pathname + url.search)) return;
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
+      (async () => {
+        // Sin saber de quién es la sesión no se guarda ni se sirve copia privada.
+        const dueño = await dueñoDeLaCopia();
+        try {
+          const response = await fetch(event.request);
+          if (response.ok && dueño) {
             const copy = response.clone();
-            caches.open(API_CACHE).then((cache) => cache.put(event.request, copy));
+            const cache = await caches.open(API_CACHE);
+            await cache.put(event.request, copy);
           }
           return response;
-        })
-        .catch(() =>
-          caches
-            .match(event.request)
-            .then(
-              (hit) =>
-                hit ||
-                new Response(JSON.stringify({ error: "Sin conexión." }), {
-                  status: 503,
-                  headers: { "Content-Type": "application/json" },
-                }),
-            ),
-        ),
+        } catch {
+          const hit = dueño
+            ? await caches.open(API_CACHE).then((c) => c.match(event.request))
+            : null;
+          return (
+            hit ||
+            new Response(JSON.stringify({ error: "Sin conexión." }), {
+              status: 503,
+              headers: { "Content-Type": "application/json" },
+            })
+          );
+        }
+      })(),
     );
     return;
   }

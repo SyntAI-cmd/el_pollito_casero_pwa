@@ -34,7 +34,7 @@ import {
   floorStatus,
   floorLabels,
 } from "../lib/day.js";
-import { send, pending, onOutbox } from "../lib/outbox.js";
+import { send, propias, ajenas, onOutbox } from "../lib/outbox.js";
 
 const fmt = (n) =>
   Number(n).toLocaleString("es-AR", {
@@ -108,8 +108,17 @@ export default function Weighing() {
   const [product, setProduct] = useState(null);
   const [gross, setGross] = useState("");
   const [boxes, setBoxes] = useState("");
-  const [queued, setQueued] = useState(pending().length);
-  useEffect(() => onOutbox((l) => setQueued(l.length)), []);
+  const [queued, setQueued] = useState(propias().length);
+  // Pendientes de OTRA persona en este mismo teléfono: se avisan, no se envían con esta sesión.
+  const [deOtros, setDeOtros] = useState(ajenas().length);
+  useEffect(
+    () =>
+      onOutbox((mias, otras) => {
+        setQueued(mias.length);
+        setDeOtros(otras.length);
+      }),
+    [],
+  );
   const order = day.orders.find((o) => o.id === selected) || null;
   const tare = day.tare || 1.7;
   const back = session?.role === "admin" ? "/operacion" : "/reparto";
@@ -501,6 +510,14 @@ export default function Weighing() {
               <strong>{item ? item.name : "Elegí uno"}</strong>
             </div>
           </div>
+          {deOtros > 0 && (
+            <p className="notice" role="status">
+              Hay {deOtros} pesada{deOtros === 1 ? "" : "s"} sin enviar cargada
+              {deOtros === 1 ? "" : "s"} por otra persona en este teléfono. No
+              se envían con tu usuario: tiene que volver a entrar quien las
+              cargó.
+            </p>
+          )}
           <p className="weigh-sync">
             {queued > 0 ? (
               <span className="sync pendiente">

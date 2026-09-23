@@ -44,3 +44,17 @@ Pruebas: 49 unitarias y 18 comprobaciones en navegador, todas en verde.
 
 Ticket activo: ninguno. Próximos por dependencias: PC-005 (corregir saldos guardados),
 PC-019 (offline y cambio de usuario), PC-017 (reducir recargas), PC-006 (unidades).
+
+## 2026-09-23 (tarde) — Hoja de ruta corregida, teclado de saldos, PC-005, PC-007 y PC-019
+
+- **Hoja de ruta:** el importe total ahora suma el saldo del cliente (pedido + deuda). La deuda
+  se cuenta una sola vez por cliente y el saldo a favor resta. Desplegado el mismo día.
+- **PC-005 cerrado (en revisión):** teclado propio de la app al cargar saldos, orden del
+  formulario corregido, y detección de conflicto cuando dos personas editan el mismo saldo.
+- **PC-007 cerrado:** el pesaje se filtra por preventista (Todos / Sin asignar) y por estado.
+- **PC-019 (en revisión):** la copia del service worker pasa a ser privada por sesión y la cola
+  de envíos lleva dueño. Dos filtraciones reales corregidas.
+- Pruebas: 66 unitarias y 27 comprobaciones en navegador, en verde.
+
+Ticket activo: ninguno. Próximos: PC-017 (recargas y tamaño de respuestas), PC-014 (Movimientos,
+ya hay datos desde PC-003), PC-006 (unidades), PC-013 (retirar el chat).
