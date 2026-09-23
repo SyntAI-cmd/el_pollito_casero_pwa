@@ -15,8 +15,7 @@ import { routeRows, routeParts } from "../lib/routeRows.js";
  * (`docs/produccion/plantilla-hoja-ruta.png`).
  *
  * Se imprimen los datos ya registrados; lo que se completa en la calle va como casillero vacío:
- * corrección, efectivo, transferencia, cheque y saldo final. Un guion en los totales significa
- * "se suma a mano", no cero.
+ * corrección, pagos, cajas devueltas, saldo de cajas y rendición.
  */
 const ROJO = "#c9262e";
 const money = (n) =>
@@ -270,8 +269,8 @@ function Tabla({ filas }) {
           "",
           r.before === null || r.before === undefined ? "" : String(r.before),
           String(r.out),
-          String(r.back),
-          r.after === null || r.after === undefined ? "" : String(r.after),
+          "",
+          "",
           "",
           "",
           "",
@@ -318,22 +317,14 @@ function Tabla({ filas }) {
                       0,
                     ),
                   )
-                : i >= 5 && i <= 8
+                : i === 5 || i === 6
                   ? String(
                       filas.reduce(
-                        (n, r) =>
-                          n +
-                          (i === 5
-                            ? r.before || 0
-                            : i === 6
-                              ? r.out || 0
-                              : i === 7
-                                ? r.back || 0
-                                : r.after || 0),
+                        (n, r) => n + (i === 5 ? r.before || 0 : r.out || 0),
                         0,
                       ),
                     )
-                  : "-";
+                  : "";
           return (
             <View key={rotulo} style={[s.celdaTotal, { width: w }]}>
               <Text
@@ -359,47 +350,16 @@ function Tabla({ filas }) {
   );
 }
 
-function Rendicion({ filas }) {
-  const totalPedidos = filas.reduce(
-    (n, r) => n + (r.order.noPricing ? 0 : r.order.total || 0),
-    0,
-  );
-  const saldoAnterior = filas.reduce(
-    (n, r) => n + (r.firstCustomer ? r.moneyBefore || 0 : 0),
-    0,
-  );
-  // Lo ya cobrado por el pedido, separado por medio: no se mezcla con lo que se cobra en la calle.
-  const cobrado = (metodo) =>
-    filas.reduce(
-      (n, r) =>
-        n +
-        (r.order.paid && (r.order.paidMethod || r.order.payment) === metodo
-          ? r.order.total || 0
-          : 0),
-      0,
-    );
-  const pendienteCuenta = filas.reduce(
-    (n, r) =>
-      n +
-      (r.order.payment === "cuenta" && !r.order.paid ? r.order.total || 0 : 0),
-    0,
-  );
+function Rendicion() {
   const lineas = [
-    ["Total de pedidos del día", money(totalPedidos)],
-    ["Saldo anterior de clientes", money(saldoAnterior)],
-    ["Total a cobrar (pedidos + saldos)", money(totalPedidos + saldoAnterior)],
-    [
-      "Efectivo cobrado",
-      cobrado("efectivo") ? money(cobrado("efectivo")) : "-",
-    ],
-    [
-      "Transferencias",
-      cobrado("transferencia") ? money(cobrado("transferencia")) : "-",
-    ],
-    ["Cheques", cobrado("cheque") ? money(cobrado("cheque")) : "-"],
-    ["Gastos con comprobante", "-"],
-    ["Total saldos (completar al rendir)", ""],
-    ["Pendiente de cobro (cta. cte.)", money(pendienteCuenta)],
+    ["Total de pedidos del día", ""],
+    ["Saldo anterior de clientes", ""],
+    ["Total a cobrar (pedidos + saldos)", ""],
+    ["Efectivo cobrado", ""],
+    ["Transferencias", ""],
+    ["Cheques", ""],
+    ["Gastos con comprobante", ""],
+    ["Saldos", ""],
   ];
   return (
     <View style={s.bloque}>
@@ -411,8 +371,8 @@ function Rendicion({ filas }) {
         </View>
       ))}
       <View style={s.lineaFuerte}>
-        <Text style={{ fontFamily: "Helvetica-Bold" }}>TOTAL PARA COMPROBAR</Text>
-        <Text style={{ fontFamily: "Helvetica-Bold" }}>-</Text>
+        <Text style={{ fontFamily: "Helvetica-Bold" }}>Total</Text>
+        <Text style={{ fontFamily: "Helvetica-Bold" }}>{""}</Text>
       </View>
     </View>
   );
@@ -440,7 +400,7 @@ function Gastos() {
       ))}
       <View style={s.lineaFuerte}>
         <Text style={{ fontFamily: "Helvetica-Bold" }}>Total gastos</Text>
-        <Text style={{ fontFamily: "Helvetica-Bold" }}>-</Text>
+        <Text style={{ fontFamily: "Helvetica-Bold" }}>{""}</Text>
       </View>
     </View>
   );
@@ -492,14 +452,9 @@ export function HojaDocument({
           />
           <Tabla filas={parte} />
           <View style={s.abajo}>
-            <Rendicion filas={parte} />
+            <Rendicion />
             <Gastos />
           </View>
-          <Text style={s.nota}>
-            Total saldos: sumar los saldos finales de la planilla. Total para comprobar:
-            efectivo + transferencias + cheques + gastos + total saldos.
-            Comparar con el total a cobrar y las correcciones anotadas.
-          </Text>
           <View style={s.firmas}>
             <Text style={s.firma}>FIRMA REPARTIDOR</Text>
             <Text style={s.firma}>FIRMA CONTROL / ADMINISTRACIÓN</Text>
