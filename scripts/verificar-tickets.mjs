@@ -405,6 +405,100 @@ const CON_TECLADO = { ...TELEFONO, viewport: { width: 393, height: 400 } };
   await ctx.close();
 }
 
+// ============================================================
+// PC-014 · Movimientos por fecha, actor y categoría
+// ============================================================
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 950 },
+  });
+  const page = await ctx.newPage();
+  await entrar(page);
+  // Se genera un cambio real para comprobar que aparece.
+  const marca = "ensayo-" + Date.now();
+  await page.evaluate(async (nota) => {
+    const l = await (
+      await fetch("/api/customers", { credentials: "include" })
+    ).json();
+    await fetch(`/api/customers/${encodeURIComponent(l[0].phone)}/saldos`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delta: 1234, note: nota, opId: nota }),
+    });
+  }, marca);
+  await page.goto(BASE + "/operacion/movimientos");
+  await page.waitForTimeout(2200);
+  const filas = await page.locator(".movimientos > li").count();
+  check(
+    filas > 0,
+    "PC-014 · la pantalla lista movimientos del día",
+    `${filas}`,
+  );
+  const resumen = await page.locator(".mov-que strong").first().textContent();
+  check(
+    /→/.test(resumen || ""),
+    "PC-014 · el resumen muestra de cuánto a cuánto",
+    resumen?.trim().slice(0, 60),
+  );
+  await page.locator(".mov-cabecera").first().click();
+  await page.waitForTimeout(500);
+  const detalle = await page.locator(".mov-detalle").first().innerText();
+  check(
+    detalle.includes(marca),
+    "PC-014 · el detalle muestra el motivo cargado",
+  );
+  check(
+    /Usuario/.test(detalle) && /Acción/.test(detalle),
+    "PC-014 · el detalle dice quién y qué acción",
+  );
+  // Filtro por categoría.
+  await page.locator("button.filters-toggle").click();
+  await page.waitForTimeout(400);
+  await page.selectOption(".filters-panel select", { label: "Saldos" });
+  await page.locator('button:has-text("Aplicar filtros")').click();
+  await page.waitForTimeout(1200);
+  const soloSaldos = await page.locator(".mov-que small").allTextContents();
+  check(
+    soloSaldos.length > 0 && soloSaldos.every((t) => t.startsWith("Saldos")),
+    "PC-014 · filtrar por categoría deja solo esa categoría",
+    `${soloSaldos.length} filas`,
+  );
+  check(
+    (await page.locator(".filter-chip").count()) > 0,
+    "PC-014 · el filtro activo se ve y se puede quitar",
+  );
+  await ctx.close();
+}
+
+// ============================================================
+// PC-014 · Un preventista no puede consultar los movimientos
+// ============================================================
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+  });
+  const page = await ctx.newPage();
+  await page.goto(BASE + "/admin");
+  await page.fill(
+    'input[autocomplete="username"], input[name="user"]',
+    "franco",
+  );
+  await page.fill('input[type="password"]', PASS);
+  await page.click('button:has-text("Ingresar")');
+  await page.waitForTimeout(2400);
+  const estado = await page.evaluate(async () => {
+    const r = await fetch("/api/movimientos", { credentials: "include" });
+    return r.status;
+  });
+  check(
+    estado === 403,
+    "PC-014 · el servidor le niega los movimientos a un preventista",
+    `HTTP ${estado}`,
+  );
+  await ctx.close();
+}
+
 await browser.close();
 
 const fallas = resultados.filter((r) => r.estado === "FALLA");

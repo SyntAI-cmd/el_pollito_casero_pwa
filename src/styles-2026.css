@@ -1518,3 +1518,98 @@ dialog[open] {
 .weigh-filters-2 select {
   width: 100%;
 }
+
+/* ===================================================================
+   18. Movimientos (PC-014)
+   =================================================================== */
+.movimientos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.movimientos > li {
+  border-bottom: 1px solid var(--borde);
+}
+.movimientos > li.rechazado .mov-hora {
+  color: var(--rojo);
+}
+.mov-cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+.mov-cabecera:hover {
+  background: var(--tarjeta-2);
+}
+.mov-hora {
+  flex: none;
+  width: 130px;
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.mov-que {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.mov-que strong {
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mov-que small {
+  color: var(--tinta-2);
+  font-size: 12px;
+}
+.mov-detalle {
+  padding: 0 4px 14px 134px;
+}
+.mov-detalle dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  font-size: 13px;
+}
+.mov-detalle dt {
+  color: var(--tinta-2);
+}
+.mov-detalle dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.filters-fecha {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--tinta-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+@media (max-width: 760px) {
+  .mov-cabecera {
+    flex-wrap: wrap;
+  }
+  .mov-hora {
+    width: auto;
+  }
+  .mov-detalle {
+    padding-left: 4px;
+  }
+  .mov-detalle dl {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 0;
+  }
+  .mov-detalle dt {
+    margin-top: 8px;
+    font-size: 12px;
+  }
+}

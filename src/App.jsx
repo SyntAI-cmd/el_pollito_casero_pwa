@@ -26,6 +26,7 @@ import {
   Scale,
   Package,
   Printer,
+  History,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
@@ -35,6 +36,7 @@ import Modals from "./components/Modals.jsx";
 import Chat from "./components/Chat.jsx";
 import PushToggle from "./components/PushToggle.jsx";
 import Documents from "./pages/Documents.jsx";
+import Movimientos from "./pages/Movimientos.jsx";
 import { setArchiveOwner } from "./lib/archive.js";
 import Catalog from "./pages/Catalog.jsx";
 import Orders from "./pages/Orders.jsx";
@@ -78,6 +80,7 @@ const CLIENT_ROUTES = {
 const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
 const ADMIN_ROUTES = {
   "/operacion/documentos": Documents,
+  "/operacion/movimientos": Movimientos,
   "/operacion": Operations,
   "/operacion/clientes": Operations,
   "/operacion/equipo": Operations,
@@ -456,6 +459,7 @@ function seccionesDe(role) {
         [
           ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
           ["/operacion/documentos", "Documentos", ClipboardList, "Documentos"],
+          ["/operacion/movimientos", "Movimientos", History, "Movimientos"],
           ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
         ],
       ],

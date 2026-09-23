@@ -960,6 +960,27 @@ export function createApi({
       session,
     });
     if (fromDocuments) return fromDocuments;
+    // ---- Movimientos: el historial completo, solo para administración (PC-014) ----
+    if (path === "/api/movimientos" && method === "GET") {
+      if (session?.role !== "admin")
+        fail(403, "Los movimientos los consulta administración.");
+      const n = (k) => query.get(k) || undefined;
+      return json(200, {
+        ...store.audit.query({
+          desde: n("desde"),
+          hasta: n("hasta"),
+          actorId: n("actor"),
+          categoria: n("categoria"),
+          accion: n("accion"),
+          entidad: n("entidad"),
+          entidadId: n("entidadId"),
+          cursor: n("cursor"),
+          limite: Number(n("limite")) || 50,
+        }),
+        facetas: store.audit.facetas(),
+      });
+    }
+
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });

@@ -19,7 +19,7 @@ Se ejecuta el encargo adjunto a pedido explícito de Mauro; GitHub y Railway est
 | PC-011 | Buscadores sin bordes ni campos superpuestos | P1 | Pendiente | PC-002. |
 | PC-012 | Sidebar y navegación coherentes con la marca | P2 | Pendiente | PC-008, PC-013, PC-014 para el menú definitivo. |
 | PC-013 | Retirar el chat interno completo | P1 | Pendiente | PC-000. Coordinar cambios con PC-017 y PC-018. |
-| PC-014 | Pestaña Movimientos por fecha, actor y categoría | P1 | Pendiente | PC-003; verificar cobertura de los tickets que introduzcan nuevas mutaciones. |
+| PC-014 | Pestaña Movimientos por fecha, actor y categoría | P1 | Hecho | PC-003; verificar cobertura de los tickets que introduzcan nuevas mutaciones. |
 | PC-015 | Eliminar documentos del archivo con trazabilidad | P1 | Pendiente | PC-003. |
 | PC-016 | Hoja de ruta PDF con plantilla y datos automáticos | P1 | Hecho (plantilla recibida 23/09) | PC-003, PC-004, PC-005, PC-006, PC-008. |
 | PC-017 | Reducir consultas y recargas del servidor | P1 | Pendiente | PC-000, PC-001; coordinar con PC-008 y PC-013. |
