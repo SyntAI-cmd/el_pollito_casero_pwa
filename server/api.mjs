@@ -338,11 +338,21 @@ export function createApi({
       ? { lat: o.location.lat, lng: o.location.lng }
       : origin;
     const eta = await estimate(from, o.destination);
-    const current = store.orders.get(o.id);
-    if (!current || current.status !== "en_camino") return eta;
-    current.eta = eta;
-    store.orders.save(current);
-    events.orderChanged(current);
+    await withOrderLock(o.id, () => {
+      const current = store.orders.get(o.id);
+      if (
+        !current ||
+        current.status !== "en_camino" ||
+        current.departedAt !== o.departedAt ||
+        JSON.stringify(current.location) !== JSON.stringify(o.location) ||
+        JSON.stringify(current.destination) !== JSON.stringify(o.destination) ||
+        JSON.stringify(current.eta) !== JSON.stringify(o.eta)
+      )
+        return;
+      current.eta = eta;
+      store.orders.save(current);
+      events.orderChanged(current);
+    });
     return eta;
   }
 
@@ -669,11 +679,8 @@ export function createApi({
         );
       if (next === "en_camino") {
         o.departedAt = now();
-        if (o.destination)
-          o.eta = await estimate(
-            o.location ? { lat: o.location.lat, lng: o.location.lng } : origin,
-            o.destination,
-          );
+        // La salida es válida aunque OSRM no esté disponible. ETA es auxiliar.
+        if (o.destination) after.push(() => refreshEta(o));
         after.push(() =>
           notifyCustomer(o, {
             title: `${o.driver} salió con tu pedido`,
@@ -1518,6 +1525,11 @@ export function createApi({
       );
     }
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
+    if (orderMatch && method === "GET" && !orderMatch[2]) {
+      const o = store.orders.get(decodeURIComponent(orderMatch[1]));
+      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+      return json(200, view(o, session));
+    }
     if (orderMatch && method === "DELETE" && !orderMatch[2]) {
       if (session?.role !== "admin")
         fail(403, "Solo administración elimina pedidos.");
@@ -1565,6 +1577,20 @@ export function createApi({
       return withOrderLock(id, async () => {
         const o = store.orders.get(id);
         if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+        // Una salida es una transición única. Clientes viejos sin opId también
+        // pueden reconciliar una respuesta perdida sin repetir historial/push.
+        const startOnly =
+          body.status === "en_camino" &&
+          Object.keys(body).every((k) => k === "status" || k === "opId");
+        if (startOnly) {
+          if (!isStaff(session)) fail(403, "Solo el equipo inicia el reparto.");
+          if (session.role === "repartidor" && !mine(session, o))
+            fail(403, "Ese pedido no es tuyo.");
+          if (body.opId !== undefined)
+            str(body.opId, { min: 1, max: 80, name: "la operación" });
+          if (["en_camino", "entregado"].includes(o.status) && o.departedAt)
+            return json(200, view(o, session));
+        }
         const before = {
           status: o.status,
           paid: o.paid,
@@ -1572,18 +1598,32 @@ export function createApi({
           total: o.total,
         };
         const after = await updateOrder(o, body, session);
+        const despues = {
+          status: o.status,
+          paid: o.paid,
+          driver: o.driver,
+          total: o.total,
+        };
+        // La modificación y su registro van en la misma transacción: si falla una, no queda la otra.
         store.transaction(() => {
           store.orders.save(o);
-          store.audit.log(session, "order.update", "order", o.id, {
-            before,
-            after: {
-              status: o.status,
-              paid: o.paid,
-              driver: o.driver,
-              total: o.total,
+          store.audit.log(
+            session,
+            before.status !== o.status && o.status === "entregado"
+              ? "order.delivered"
+              : before.driver !== o.driver
+                ? "order.assign"
+                : "order.update",
+            "order",
+            o.id,
+            { campos: Object.keys(body) },
+            {
+              antes: before,
+              despues,
+              motivo: body.reason || body.motivo,
+              opId: body.opId,
             },
-            keys: Object.keys(body),
-          });
+          );
         });
         events.orderChanged(o);
         for (const task of after)
@@ -1671,6 +1711,7 @@ export function createApi({
       const sub = customerMatch[2];
       if (!sub && method === "PATCH") {
         // Modalidad, crédito y preventista habitual: los edita todo el equipo.
+        const previo = { plan: c.plan, credit: c.credit, driver: c.driver };
         if (body.plan !== undefined)
           c.plan = oneOf(body.plan, plans, "modalidad");
         if (body.credit !== undefined) c.credit = bool(body.credit, "crédito");
@@ -1679,8 +1720,22 @@ export function createApi({
             body.driver === ""
               ? ""
               : oneOf(body.driver, config.drivers, "repartidor");
-        store.customers.save(c);
-        store.audit.log(session, "customer.update", "customer", phone, body);
+        // La ficha y su registro, juntos; el historial guarda qué cambió, no el cuerpo entero.
+        store.transaction(() => {
+          store.customers.save(c);
+          store.audit.log(
+            session,
+            "customer.update",
+            "customer",
+            phone,
+            { campos: Object.keys(body) },
+            {
+              antes: previo,
+              despues: { plan: c.plan, credit: c.credit, driver: c.driver },
+              motivo: body.motivo,
+            },
+          );
+        });
         events.customerChanged(c);
         return json(200, withSummary(c));
       }

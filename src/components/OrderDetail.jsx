@@ -41,6 +41,7 @@ export default function OrderDetail({ order: abierto, role }) {
     customers,
     setModal,
     busy,
+    startingOrders,
     update,
     editOrder,
     deleteOrder,
@@ -298,11 +299,12 @@ export default function OrderDetail({ order: abierto, role }) {
             <button
               type="button"
               className="primary"
-              disabled={busy || !o.driver}
+              disabled={busy || startingOrders[o.id] || !o.driver}
+              aria-busy={!!startingOrders[o.id]}
               title={o.driver ? "" : "Asigná un preventista primero"}
               onClick={() => update(o, { status: "en_camino" })}
             >
-              Iniciar reparto <ArrowRight size={16} />
+              {startingOrders[o.id] ? "Iniciando reparto…" : "Iniciar reparto"} <ArrowRight size={16} />
             </button>
           )}
           {o.status === "en_camino" && (

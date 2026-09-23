@@ -22,6 +22,7 @@ import {
   dmy,
   liveCrates,
   boxCrates,
+  cajasDe,
   expectedCrates,
   weighedKg,
   floorStatus,
@@ -70,7 +71,7 @@ export default function DaySheet() {
   const totals = {
     orders: day.orders.length,
     boxes: day.orders.reduce((s, o) => s + expectedCrates(o), 0),
-    crates: day.orders.reduce((s, o) => s + boxCrates(o).length, 0),
+    crates: day.orders.reduce((s, o) => s + cajasDe(boxCrates(o)), 0),
     kg: day.orders.reduce((s, o) => s + weighedKg(o), 0),
     amount: day.orders.reduce((s, o) => s + o.total, 0),
   };
@@ -172,7 +173,7 @@ export default function DaySheet() {
             </h2>
             <span className="muted">
               {plural(list.length, "pedido", "pedidos")} ·{" "}
-              {list.reduce((s, o) => s + boxCrates(o).length, 0)}/
+              {list.reduce((s, o) => s + cajasDe(boxCrates(o)), 0)}/
               {list.reduce((s, o) => s + expectedCrates(o), 0)} cajones ·{" "}
               {kgText(list.reduce((s, o) => s + weighedKg(o), 0))}
               {" · "}
@@ -246,7 +247,7 @@ export default function DaySheet() {
                         </td>
                         <td className="num">
                           {expectedCrates(o)
-                            ? `${boxCrates(o).length} / ${expectedCrates(o)}`
+                            ? `${cajasDe(boxCrates(o))} / ${expectedCrates(o)}`
                             : liveCrates(o).length
                               ? `${liveCrates(o).length} bulto${liveCrates(o).length === 1 ? "" : "s"}`
                               : "—"}

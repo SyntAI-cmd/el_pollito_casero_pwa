@@ -622,6 +622,8 @@ export function createFloor({
         }
       }
       if (!Object.keys(changes).length) fail(400, "No hay nada que ajustar.");
+      // Antes y después del saldo, para que Movimientos pueda decir "100.000 → 90.000".
+      const posterior = accountSummary(store.orders.forCustomer(c.phone), c);
       store.transaction(() => {
         store.customers.save(c);
         store.audit.log(
@@ -629,7 +631,13 @@ export function createFloor({
           "customer.saldos",
           "customer",
           c.phone,
-          changes,
+          { ...changes, cliente: c.name },
+          {
+            antes: { balance: current.balance, boxes: current.boxes },
+            despues: { balance: posterior.balance, boxes: posterior.boxes },
+            motivo: body.note,
+            opId,
+          },
         );
       });
       events.customerChanged(c);
@@ -1048,14 +1056,20 @@ export function createFloor({
             : num(body.tare, { min: 0, max: 20, name: "la tara" });
         // Pesada por lote: `boxes` cajas juntas con su peso neto total (`net`) o bruto total (`gross`).
         // Sin `boxes` es la pesada clásica de un cajón por su bruto. Hasta 5000 kg por pesada.
-        const boxes =
-          num(body.boxes, {
-            min: 1,
-            max: 500,
-            integer: true,
-            name: "las cajas",
-            optional: true,
-          }) || 1;
+        // Cajas REALES del bulto. 0 es válido: el pedido va en bolsa, sin tara y sin envases.
+        // `optional` deja pasar undefined (pesada clásica de un cajón) pero no un 0 escrito.
+        const escribioCajas =
+          body.boxes !== undefined && body.boxes !== null && body.boxes !== "";
+        const boxes = escribioCajas
+          ? num(body.boxes, {
+              min: 0,
+              max: 500,
+              integer: true,
+              name: "las cajas",
+            })
+          : 1;
+        // tara_total = cajas_reales × tara_por_caja · peso_neto = peso_bruto − tara_total
+        const taraTotal = round2(t * boxes);
         let gross, netTotal;
         if (body.net !== undefined && body.net !== null && body.net !== "") {
           netTotal = num(body.net, {
@@ -1063,51 +1077,71 @@ export function createFloor({
             max: 5000,
             name: "el peso neto",
           });
-          gross = round2(netTotal + t * boxes);
+          gross = round2(netTotal + taraTotal);
         } else {
           gross = num(body.gross, {
             min: 0.1,
             max: 5000,
             name: "el peso bruto",
           });
-          netTotal = round2(gross - t * boxes);
+          netTotal = round2(gross - taraTotal);
           if (netTotal <= 0)
             fail(
               400,
-              `El bruto (${gross} kg) no supera la tara (${round2(t * boxes)} kg${boxes > 1 ? ` de ${boxes} cajas` : ""}).`,
+              boxes === 0
+                ? `El peso (${gross} kg) tiene que ser mayor que cero.`
+                : `El bruto (${gross} kg) no supera la tara (${taraTotal} kg${boxes > 1 ? ` de ${boxes} cajas` : ""}).`,
             );
         }
         const crateId =
           str(body.id, { max: 60, name: "el identificador", optional: true }) ||
           randomUUID();
-        // Un cajón por caja del lote, con el neto repartido (el último absorbe el redondeo); los ids
-        // derivan del id del lote, así reintentar desde el celular no duplica nada (idempotente).
-        const each = round2(netTotal / boxes);
+        // Una fila por caja del lote, con el neto repartido (la última absorbe el redondeo); los
+        // ids derivan del id del lote, así reintentar desde el celular no duplica (idempotente).
+        // En bolsa (0 cajas) va UNA fila que representa 0 envases: guarda el peso sin inventar
+        // un cajón y sin dividir por cero.
+        const filas = Math.max(1, boxes);
+        const each = round2(netTotal / filas);
         let inserted = 0;
-        for (let i = 0; i < boxes; i++) {
+        for (let i = 0; i < filas; i++) {
           const net =
-            i === boxes - 1 ? round2(netTotal - each * (boxes - 1)) : each;
+            i === filas - 1 ? round2(netTotal - each * (filas - 1)) : each;
+          // La tara aplicada queda guardada en la fila: cambiar la configuración más adelante
+          // no recalcula lo ya pesado.
+          const taraFila = boxes === 0 ? 0 : t;
           inserted += store.crates.add({
-            id: boxes === 1 ? crateId : `${crateId}:${i + 1}`,
+            id: filas === 1 ? crateId : `${crateId}:${i + 1}`,
             orderId: o.id,
             productId,
-            gross: round2(net + t),
-            tare: t,
+            gross: round2(net + taraFila),
+            tare: taraFila,
             net,
+            boxes: boxes === 0 ? 0 : 1,
             by: actorOf(session),
           })
             ? 1
             : 0;
         }
         if (inserted) applyCrates(o, session);
-        store.audit.log(session, "crate.add", "order", o.id, {
-          crateId,
-          productId,
-          boxes,
-          gross,
-          net: netTotal,
-          duplicate: !inserted,
-        });
+        store.audit.log(
+          session,
+          "crate.add",
+          "order",
+          o.id,
+          {
+            crateId,
+            productId,
+            boxes,
+            gross,
+            tare: taraTotal,
+            net: netTotal,
+          },
+          {
+            opId: crateId,
+            motivo: boxes === 0 ? "pesada en bolsa (sin cajas)" : undefined,
+            resultado: inserted ? "ok" : "rechazado",
+          },
+        );
         return json(
           inserted ? 201 : 200,
           withCrates(store.orders.get(o.id), session),

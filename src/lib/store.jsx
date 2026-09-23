@@ -58,6 +58,8 @@ export function StoreProvider({ children }) {
   const [modal, setModal] = useState(null);
   const [formError, setFormError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [startingOrders, setStartingOrders] = useState({});
+  const startLocks = useRef(new Set());
   const [install, setInstall] = useState(null);
   const [plan, setPlanState] = useState(() => stored("pc-plan", "minorista"));
   const [cart, setCart] = useState(() => stored("pc-cart", {}));
@@ -641,7 +643,37 @@ export function StoreProvider({ children }) {
       return order;
     });
 
-  const update = (o, data) =>
+  const startDelivery = async (o) => {
+    if (startLocks.current.has(o.id)) return false;
+    startLocks.current.add(o.id);
+    setStartingOrders((s) => ({ ...s, [o.id]: true }));
+    const owner = sessionRef.current;
+    try {
+      let confirmed;
+      try {
+        confirmed = await patch("/orders/" + o.id, {
+          status: "en_camino", opId: `departure:${o.id}`,
+        });
+      } catch (error) {
+        if (!error.network) throw error;
+        confirmed = await api("/orders/" + o.id);
+        if (!["en_camino", "entregado"].includes(confirmed.status)) throw error;
+      }
+      if (sessionRef.current !== owner) return false;
+      setOrders((list) => list.map((item) => item.id === o.id ? confirmed : item));
+      notify("Inicio de reparto confirmado.");
+      return true;
+    } catch (error) {
+      if (sessionRef.current === owner) notify(error.message);
+      return false;
+    } finally {
+      startLocks.current.delete(o.id);
+      setStartingOrders((s) => { const next = { ...s }; delete next[o.id]; return next; });
+    }
+  };
+  const update = (o, data) => data.status === "en_camino" && Object.keys(data).length === 1
+    ? startDelivery(o)
+    :
     run(
       async () => {
         await patch("/orders/" + o.id, data);
@@ -878,6 +910,7 @@ export function StoreProvider({ children }) {
     verifyPhone,
     setPassword,
     createStaffOrder,
+    startingOrders,
     editOrder,
     saveBalances,
     saveFicha,

@@ -27,6 +27,7 @@ import {
   dmy,
   liveCrates,
   boxCrates,
+  cajasDe,
   expectedCrates,
   weighedKg,
   floorStatus,
@@ -427,8 +428,8 @@ export default function TruckLoading() {
                           `${i.boxes ? i.boxes + " cj " : ""}${i.name.toLowerCase()} ${i.kg > 0 ? kgText(i.kg) : i.boxes ? "(sin pesar)" : kgText(i.kg)}`,
                       )
                       .join(", ")}
-                    {boxCrates(o).length < expected && !out
-                      ? ` · faltan pesar ${expected - boxCrates(o).length} cajones`
+                    {cajasDe(boxCrates(o)) < expected && !out
+                      ? ` · faltan pesar ${expected - cajasDe(boxCrates(o))} cajones`
                       : ""}
                   </small>
                 </span>

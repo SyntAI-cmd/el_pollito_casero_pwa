@@ -1,5 +1,69 @@
 import { useEffect, useRef, useState } from "react";
 
+/** El contenedor que realmente se desplaza alrededor de un campo. Dentro de una ventana
+ * (`dialog`) la página no se mueve: hay que desplazar la caja de la ventana, no `window`. */
+function contenedorDesplazable(el) {
+  for (let n = el.parentElement; n; n = n.parentElement) {
+    const cs = getComputedStyle(n);
+    const desplaza = /auto|scroll|overlay/.test(cs.overflowY);
+    if (desplaza && n.scrollHeight > n.clientHeight + 1) return n;
+    if (n.tagName === "DIALOG") break;
+  }
+  return null;
+}
+
+/** Mantiene visible el campo activo al cambiar el área visible del teclado.
+ * Sin temporizadores ni animación: cambiar de campo cancela el ajuste anterior.
+ * El desplazamiento instantáneo también respeta movimiento reducido.
+ * Funciona igual en la página y dentro de una ventana con su propio desplazamiento.
+ */
+export function useFieldVisibility() {
+  const cleanup = useRef(() => {});
+  useEffect(() => () => cleanup.current(), []);
+  return (event) => {
+    cleanup.current();
+    const field = event.currentTarget;
+    const viewport = window.visualViewport;
+    let frame;
+    const adjust = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!field.isConnected || document.activeElement !== field) return;
+        const caja = contenedorDesplazable(field);
+        const bounds = field.getBoundingClientRect();
+        // Área visible: la del teclado, recortada por la caja que desplaza si hay una.
+        const vTop = viewport?.offsetTop || 0;
+        const vBottom = vTop + (viewport?.height || window.innerHeight);
+        let top = vTop + 12;
+        let bottom = vBottom - 12;
+        if (caja) {
+          const r = caja.getBoundingClientRect();
+          top = Math.max(top, r.top + 12);
+          bottom = Math.min(bottom, r.bottom - 12);
+        }
+        const delta =
+          bounds.top < top
+            ? bounds.top - top
+            : bounds.bottom > bottom
+              ? bounds.bottom - bottom
+              : 0;
+        if (!delta) return;
+        if (caja) caja.scrollBy({ top: delta, behavior: "instant" });
+        else window.scrollBy({ top: delta, behavior: "instant" });
+      });
+    };
+    const stop = () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", adjust);
+      field.removeEventListener("blur", stop);
+    };
+    cleanup.current = stop;
+    viewport?.addEventListener("resize", adjust);
+    field.addEventListener("blur", stop);
+    adjust();
+  };
+}
+
 /**
  * ¿Estamos en pantalla de celular? Las tablas operativas se muestran como tarjetas debajo de
  * 760 px; arriba de eso conviene la tabla, que entra entera y se lee de un vistazo.
@@ -78,4 +142,26 @@ export function useBodyClass(clase, activo = true) {
     document.body.classList.add(clase);
     return () => document.body.classList.remove(clase);
   }, [clase, activo]);
+}
+
+/**
+ * Publica el alto realmente visible (el que deja el teclado del teléfono) como `--alto-visible`.
+ * `100dvh` no sirve para esto: en Android no se achica cuando sube el teclado, así que una
+ * ventana alta deja los botones de guardar debajo del teclado. Se monta una sola vez.
+ */
+export function useVisibleHeight() {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const set = () => {
+      const alto = vv?.height || window.innerHeight;
+      document.documentElement.style.setProperty("--alto-visible", `${alto}px`);
+    };
+    set();
+    vv?.addEventListener("resize", set);
+    window.addEventListener("orientationchange", set);
+    return () => {
+      vv?.removeEventListener("resize", set);
+      window.removeEventListener("orientationchange", set);
+    };
+  }, []);
 }

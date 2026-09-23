@@ -7,11 +7,13 @@ import { spawn } from "node:child_process";
 import { setTimeout as pause } from "node:timers/promises";
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { testEnv } from "./test-env.mjs";
+import sharp from "sharp";
 
 await mkdir("test-results", { recursive: true });
 const server = spawn(process.execPath, ["server.mjs"], {
   env: {
-    ...process.env,
+    ...(await testEnv()),
     PORT: "5181",
     DB_PATH: ":memory:",
     GEOCODING: "off",
@@ -298,6 +300,15 @@ try {
     400,
     "no se cancela en camino",
   );
+  assert.equal(
+    (await franco("/orders/" + id, { status: "entregado", boxes: 3 }, "PATCH")).status,
+    400,
+    "repartidor necesita comprobante antes de entregar",
+  );
+  const receipt = await sharp({ create: { width: 100, height: 100, channels: 3, background: "white" } }).jpeg().toBuffer();
+  assert.equal((await franco("/orders/" + id + "/comprobantes", {
+    kind: "firma", image: "data:image/jpeg;base64," + receipt.toString("base64"),
+  })).status, 201);
   assert.equal(
     (await franco("/orders/" + id, { status: "entregado", boxes: 3 }, "PATCH"))
       .status,
