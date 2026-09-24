@@ -14,7 +14,7 @@ import { remitoFileName } from "../lib/remito.js";
  * /imprimir?tipo=pedidos|tickets|remito|remitos&fecha=YYYY-MM-DD&repartidor=Nombre&pedido=…&turno=manana|tarde
  * "pedidos" genera la hoja de pedidos en PDF (A4 apaisada, todos los pedidos de la fecha);
  * "remito" el PDF de un pedido y "remitos" los del camión y fecha (un original por pedido,
- * 4 por hoja A4 a proporción 10 × 15). Los PDF se arman en el navegador y se muestran en una
+ * uno por hoja A6 vertical). Los PDF se arman en el navegador y se muestran en una
  * vista previa con Descargar / Imprimir / Compartir; no dependen de los márgenes del navegador.
  * "tickets" sigue siendo la comandera 80 mm (impresión nativa).
  */
@@ -74,7 +74,7 @@ export default function Print() {
                 (a.number || 0) - (b.number || 0),
             );
     const n = list.length;
-    const hojas = Math.ceil(n / 4);
+    const hojas = n;
     return (
       <div className="print-page">
         {n === 0 ? (
@@ -108,7 +108,7 @@ export default function Print() {
                 ? `Remito de ${list[0].name} · El Pollito Casero`
                 : "Remitos del día · El Pollito Casero"
             }
-            summary={`${n} remito${n === 1 ? "" : "s"} · ${hojas} hoja${hojas === 1 ? "" : "s"} A4, 4 por hoja (10 × 15 cm), solo original`}
+            summary={`${n} remito${n === 1 ? "" : "s"} · ${hojas} hoja${hojas === 1 ? "" : "s"} A6 · uno por hoja, solo original`}
           >
             {back}
             <span className="print-switches">

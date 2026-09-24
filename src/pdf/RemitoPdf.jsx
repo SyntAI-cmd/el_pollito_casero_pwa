@@ -14,67 +14,28 @@ import { remitoData } from "../lib/remito.js";
 Font.registerHyphenationCallback((word) => [word]);
 
 /**
- * Remitos internos en PDF, 4 por hoja A4 (2 arriba, 2 abajo), listos para cortar.
- * Cada remito es UN solo original (el respaldo queda en el sistema y en el PDF) con las
- * proporciones del talonario 10 × 15 cm: cabecera con logo, marca y datos fiscales, N° y fecha,
- * cliente / calle / localidad / cel., grilla KILOS · DETALLE · PRECIO X UN. · PRECIO TOTAL y al
- * pie CAJAS ADEUDADAS, SALDO, TOTAL y Firma Conforme.
- *
- * Geometría: cuatro remitos de 10 × 15 exactos ocuparían 200 × 300 mm y la A4 mide 210 × 297,
- * así que cada uno se dibuja a 95 × 142,5 mm (misma proporción 2:3) y queda un margen seguro de
- * 10 mm a los lados y 6 mm arriba y abajo, fuera del área no imprimible de la Brother. Se imprime
- * en A4 al 100 % y se corta por las marcas.
+ * Un remito por página A6 vertical (105 × 148 mm), sin marcas de corte.
+ * Margen interno de 4 mm para impresión en papel precortado.
  */
-
 const MM = 72 / 25.4;
-const PAGE_W = 210 * MM;
-const PAGE_H = 297 * MM;
-const CELL_W = 95 * MM;
-const CELL_H = 142.5 * MM;
-const MX = (PAGE_W - 2 * CELL_W) / 2;
-const MY = (PAGE_H - 2 * CELL_H) / 2;
-const PER_PAGE = 4;
+const PAGE_W = 105 * MM;
+const PAGE_H = 148 * MM;
 const MIN_ROWS = 10;
 
 const RED = "#dc2626";
 const INK = "#111111";
 const MUTED = "#555555";
 const LINE = "#c8c8c8";
-const CUT = "#9a9a9a";
 
 const s = StyleSheet.create({
   page: { backgroundColor: "#ffffff" },
   cell: {
-    position: "absolute",
-    width: CELL_W,
-    height: CELL_H,
-    paddingTop: 10,
-    paddingBottom: 9,
-    paddingHorizontal: 11,
+    width: PAGE_W,
+    height: PAGE_H,
+    padding: 4 * MM,
     fontFamily: "Helvetica",
     fontSize: 7,
     color: INK,
-  },
-  cut: { position: "absolute", backgroundColor: CUT },
-  dashV: {
-    position: "absolute",
-    top: MY,
-    left: MX + CELL_W,
-    width: 0,
-    height: 2 * CELL_H,
-    borderLeftWidth: 0.5,
-    borderLeftColor: LINE,
-    borderStyle: "dashed",
-  },
-  dashH: {
-    position: "absolute",
-    top: MY + CELL_H,
-    left: MX,
-    width: 2 * CELL_W,
-    height: 0,
-    borderTopWidth: 0.5,
-    borderTopColor: LINE,
-    borderStyle: "dashed",
   },
   head: { flexDirection: "row", alignItems: "flex-start" },
   logo: { width: 42, height: 28, objectFit: "contain", marginTop: 1 },
@@ -125,7 +86,7 @@ const s = StyleSheet.create({
     paddingVertical: 3.5,
     paddingHorizontal: 5,
   },
-  td: { paddingVertical: 3.6, paddingHorizontal: 5, fontSize: 7.4 },
+  td: { paddingVertical: 3.6, paddingHorizontal: 5, fontSize: 8 },
   tdTight: { paddingVertical: 1.6, fontSize: 6 },
   kilos: { width: 40, textAlign: "right" },
   // Renglón virtual (saldo anterior): se distingue de los productos físicos.
@@ -138,7 +99,7 @@ const s = StyleSheet.create({
     borderLeftColor: LINE,
   },
   total: {
-    width: 66,
+    width: 72,
     textAlign: "right",
     borderLeftWidth: 0.6,
     borderLeftColor: LINE,
@@ -163,8 +124,8 @@ const s = StyleSheet.create({
   totalLine: { fontSize: 12, fontFamily: "Helvetica-Bold", marginLeft: 8 },
   sign: {
     position: "absolute",
-    left: 11,
-    bottom: 12,
+    left: 4 * MM,
+    bottom: 5 * MM,
     width: 110,
     borderTopWidth: 0.6,
     borderTopColor: MUTED,
@@ -173,55 +134,18 @@ const s = StyleSheet.create({
   signText: { fontSize: 6.4, color: MUTED, textAlign: "center" },
   preventista: {
     position: "absolute",
-    right: 11,
-    bottom: 12,
+    right: 4 * MM,
+    bottom: 5 * MM,
     fontSize: 6,
     color: MUTED,
   },
 });
 
-/** Marcas de corte en el borde de la hoja, alineadas con la grilla 2 × 2. */
-function CutMarks() {
-  const len = 9;
-  const xs = [MX, MX + CELL_W, MX + 2 * CELL_W];
-  const ys = [MY, MY + CELL_H, MY + 2 * CELL_H];
-  return (
-    <>
-      {xs.map((x) => (
-        <React.Fragment key={"x" + x}>
-          <View style={[s.cut, { left: x, top: 0, width: 0.5, height: len }]} />
-          <View
-            style={[
-              s.cut,
-              { left: x, top: PAGE_H - len, width: 0.5, height: len },
-            ]}
-          />
-        </React.Fragment>
-      ))}
-      {ys.map((y) => (
-        <React.Fragment key={"y" + y}>
-          <View style={[s.cut, { top: y, left: 0, width: len, height: 0.5 }]} />
-          <View
-            style={[
-              s.cut,
-              { top: y, left: PAGE_W - len, width: len, height: 0.5 },
-            ]}
-          />
-        </React.Fragment>
-      ))}
-      <View style={s.dashV} />
-      <View style={s.dashH} />
-    </>
-  );
-}
-
-function Remito({ data: d, fiscal, logo, slot }) {
+function Remito({ data: d, fiscal, logo }) {
   const rows = Math.max(MIN_ROWS, d.lines.length);
   const tight = rows > 11;
-  const left = MX + (slot % 2) * CELL_W;
-  const top = MY + Math.floor(slot / 2) * CELL_H;
   return (
-    <View style={[s.cell, { left, top }]}>
+    <View style={s.cell}>
       <View style={s.head}>
         {logo ? <Image style={s.logo} src={logo} /> : null}
         <View style={s.brand}>
@@ -328,9 +252,6 @@ export function RemitoDocument({
   hidePrices = false,
   hideBalance = false,
 }) {
-  const pages = [];
-  for (let i = 0; i < orders.length; i += PER_PAGE)
-    pages.push(orders.slice(i, i + PER_PAGE));
   return (
     <Document
       title={
@@ -341,22 +262,17 @@ export function RemitoDocument({
       author={fiscal.legalName || "El Pollito Casero"}
       language="es-AR"
     >
-      {pages.map((chunk, pi) => (
-        <Page key={pi} size="A4" style={s.page}>
-          <CutMarks />
-          {chunk.map((o, slot) => (
-            <Remito
-              key={o.id}
-              slot={slot}
-              data={remitoData(
-                o,
-                customers.find((c) => c.phone === o.customer),
-                { hidePrices, hideBalance },
-              )}
-              fiscal={fiscal}
-              logo={logo}
-            />
-          ))}
+      {orders.map((o) => (
+        <Page key={o.id} size={[PAGE_W, PAGE_H]} style={s.page} wrap={false}>
+          <Remito
+            data={remitoData(
+              o,
+              customers.find((c) => c.phone === o.customer),
+              { hidePrices, hideBalance },
+            )}
+            fiscal={fiscal}
+            logo={logo}
+          />
         </Page>
       ))}
     </Document>

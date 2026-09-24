@@ -14,7 +14,7 @@ const shiftName = { manana: "Mañana", tarde: "Tarde" };
 
 /**
  * Imprimir (solo administración): hoja de pedidos (PDF A4 apaisada), hoja de ruta · rendición
- * por preventista (exige vehículo asignado), tickets y remitos (PDF, 4 por hoja A4). El vehículo de cada preventista se elige acá y
+ * por preventista (exige vehículo asignado), tickets y remitos (PDF, uno por hoja A6). El vehículo de cada preventista se elige acá y
  * queda guardado como salida del día.
  */
 export default function PrintHub() {
@@ -169,8 +169,9 @@ export default function PrintHub() {
             <FileText size={17} /> Remitos
           </h2>
           <p className="muted">
-            Un solo original por pedido, 4 remitos de 10 × 15 cm por hoja A4,
-            listos para cortar. El respaldo queda en el sistema.
+            Un remito por hoja A6 (105 × 148 mm), en vertical. Al imprimir,
+            seleccioná papel A6 y una página por hoja. El respaldo queda en el
+            sistema.
           </p>
           <div className="actions-row">
             <Link

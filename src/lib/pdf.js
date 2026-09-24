@@ -95,8 +95,7 @@ export async function hojaAction(
 }
 
 /**
- * Blob del PDF de remitos: un solo original por pedido, cuatro por hoja A4 (2 × 2) con las
- * proporciones del talonario 10 × 15 cm. El respaldo queda en el sistema.
+ * Blob del PDF de remitos: un solo original por pedido, uno por página A6 vertical. El respaldo queda en el sistema.
  */
 export async function remitoPdfBlob({
   orders,

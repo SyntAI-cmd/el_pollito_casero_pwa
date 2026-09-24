@@ -11,7 +11,7 @@ const canShareFiles = () =>
   });
 
 /**
- * Botones de remito en PDF (un original por pedido, 4 por hoja A4 a 10 × 15) para uno o varios pedidos:
+ * Botones de remito en PDF (un original por pedido, uno por hoja A6) para uno o varios pedidos:
  * "Descargar", "Compartir" (hoja nativa: WhatsApp, correo; solo donde el dispositivo lo permite)
  * e "Imprimir" (abre el PDF en una pestaña para mandarlo a la impresora).
  * `actions` elige cuáles mostrar; `small` usa el tamaño compacto de las tablas.
@@ -59,7 +59,7 @@ export default function RemitoActions({
           className={cls}
           disabled={!!busy}
           onClick={() => run("download")}
-          title="Descargar el remito en PDF (4 por hoja A4, 10 × 15 cm)"
+          title="Descargar el remito en PDF (uno por hoja A6)"
         >
           {busy === "download" ? <Spin /> : <FileDown size={size} />}{" "}
           {labels.download || (many ? "Remitos PDF" : "Remito PDF")}
