@@ -20,7 +20,7 @@ Font.registerHyphenationCallback((word) => [word]);
 const MM = 72 / 25.4;
 const PAGE_W = 105 * MM;
 const PAGE_H = 148 * MM;
-const MIN_ROWS = 10;
+const MIN_ROWS = 6;
 
 const RED = "#dc2626";
 const INK = "#111111";
@@ -34,28 +34,28 @@ const s = StyleSheet.create({
     height: PAGE_H,
     padding: 4 * MM,
     fontFamily: "Helvetica",
-    fontSize: 7,
+    fontSize: 8,
     color: INK,
   },
   head: { flexDirection: "row", alignItems: "flex-start" },
   logo: { width: 42, height: 28, objectFit: "contain", marginTop: 1 },
   brand: { flex: 1, marginLeft: 6, paddingRight: 6 },
   title: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: RED,
     letterSpacing: 0.2,
     lineHeight: 1.15,
     marginBottom: 4,
   },
-  tagline: { fontSize: 6.5, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-  small: { fontSize: 5.8, color: MUTED, lineHeight: 1.3 },
+  tagline: { fontSize: 7, fontFamily: "Helvetica-Bold", marginBottom: 2 },
+  small: { fontSize: 6.3, color: MUTED, lineHeight: 1.3 },
   doc: { width: 80, alignItems: "flex-end" },
-  docTitle: { fontSize: 8.6, fontFamily: "Helvetica-Bold", marginBottom: 1 },
-  docNum: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 5 },
-  docLine: { fontSize: 6.8, marginTop: 2 },
+  docTitle: { fontSize: 9, fontFamily: "Helvetica-Bold", marginBottom: 1 },
+  docNum: { fontSize: 11, fontFamily: "Helvetica-Bold", marginTop: 5 },
+  docLine: { fontSize: 7.5, marginTop: 2 },
   fiscal: {
-    fontSize: 5.2,
+    fontSize: 5.8,
     color: MUTED,
     textAlign: "right",
     lineHeight: 1.3,
@@ -74,7 +74,7 @@ const s = StyleSheet.create({
   },
   clientRow: { flexDirection: "row", gap: 6 },
   clientCol: { flex: 1 },
-  clientLine: { fontSize: 7.2, marginBottom: 3, lineHeight: 1.2 },
+  clientLine: { fontSize: 8.2, marginBottom: 3, lineHeight: 1.2 },
   table: { marginTop: 6, borderWidth: 0.6, borderColor: LINE },
   tr: { flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE },
   trLast: { borderBottomWidth: 0 },
@@ -82,13 +82,13 @@ const s = StyleSheet.create({
     backgroundColor: RED,
     color: "#ffffff",
     fontFamily: "Helvetica-Bold",
-    fontSize: 6.3,
+    fontSize: 7,
     paddingVertical: 3.5,
-    paddingHorizontal: 5,
+    paddingHorizontal: 3,
   },
-  td: { paddingVertical: 3.6, paddingHorizontal: 5, fontSize: 8 },
-  tdTight: { paddingVertical: 1.6, fontSize: 6 },
-  kilos: { width: 40, textAlign: "right" },
+  td: { paddingVertical: 3.2, paddingHorizontal: 3, fontSize: 9 },
+  tdTight: { paddingVertical: 1.6, fontSize: 8.5 },
+  kilos: { width: 34, textAlign: "right" },
   // Renglón virtual (saldo anterior): se distingue de los productos físicos.
   virtual: { color: "#666", fontFamily: "Helvetica-Oblique" },
   detail: { flex: 1, borderLeftWidth: 0.6, borderLeftColor: LINE },
@@ -104,24 +104,13 @@ const s = StyleSheet.create({
     borderLeftWidth: 0.6,
     borderLeftColor: LINE,
   },
-  note: { fontSize: 6.4, color: MUTED, marginTop: 5 },
+  note: { fontSize: 7.2, color: MUTED, marginTop: 5 },
   foot: {
     marginTop: 9,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
+    flexDirection: "column",
+    alignItems: "stretch",
   },
-  footLine: { flexDirection: "row", alignItems: "flex-end", marginBottom: 5 },
-  footLabel: { fontSize: 7.2, fontFamily: "Helvetica-Bold", marginRight: 4 },
-  footBox: {
-    minWidth: 56,
-    borderBottomWidth: 0.6,
-    borderBottomColor: MUTED,
-    fontSize: 7.6,
-    paddingBottom: 1,
-    paddingHorizontal: 2,
-  },
-  totalLine: { fontSize: 12, fontFamily: "Helvetica-Bold", marginLeft: 8 },
+  totalLine: { fontSize: 13, fontFamily: "Helvetica-Bold", textAlign: "right" },
   sign: {
     position: "absolute",
     left: 4 * MM,
@@ -131,19 +120,19 @@ const s = StyleSheet.create({
     borderTopColor: MUTED,
     paddingTop: 2.5,
   },
-  signText: { fontSize: 6.4, color: MUTED, textAlign: "center" },
+  signText: { fontSize: 7.2, color: MUTED, textAlign: "center" },
   preventista: {
     position: "absolute",
     right: 4 * MM,
     bottom: 5 * MM,
-    fontSize: 6,
+    fontSize: 7,
     color: MUTED,
   },
 });
 
 function Remito({ data: d, fiscal, logo }) {
   const rows = Math.max(MIN_ROWS, d.lines.length);
-  const tight = rows > 11;
+  const tight = rows > 6;
   return (
     <View style={s.cell}>
       <View style={s.head}>
@@ -226,11 +215,34 @@ function Remito({ data: d, fiscal, logo }) {
       </View>
       {d.notes ? <Text style={s.note}>Obs.: {d.notes}</Text> : null}
       <View style={s.foot}>
-        <View>
-          <View style={s.footLine}>
-            <Text style={s.footLabel}>CAJAS ADEUDADAS:</Text>
-            <Text style={s.footBox}>{d.owedBoxesText || " "}</Text>
-          </View>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "flex-end",
+            marginBottom: 5,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 8.2,
+              fontFamily: "Helvetica-Bold",
+              marginRight: 4,
+            }}
+          >
+            CAJAS ADEUDADAS:
+          </Text>
+          <Text
+            style={{
+              minWidth: 56,
+              borderBottomWidth: 0.6,
+              borderBottomColor: MUTED,
+              fontSize: 8.5,
+              paddingBottom: 1,
+              paddingHorizontal: 2,
+            }}
+          >
+            {d.owedBoxesText || " "}
+          </Text>
         </View>
         <Text style={s.totalLine}>TOTAL: {d.total || " "}</Text>
       </View>

@@ -49,18 +49,24 @@ export function remitoData(
       unit: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.price),
       total: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.lineTotal),
     }));
+  // Envases independientes del dinero, incluso en clientes exclusivos.
+  const owedBoxes = Math.max(0, c?.summary?.boxes || 0);
+  const boxesData = {
+    owedBoxes,
+    owedBoxesText: owedBoxes
+      ? `${owedBoxes} ${owedBoxes === 1 ? "caja" : "cajas"}`
+      : "",
+  };
   if (plain)
     return {
       ...remitoHeader(o, c),
       lines,
-      owedBoxes: 0,
-      owedBoxesText: "",
+      ...boxesData,
       total: "",
       saldo: "",
       previous: "",
       balance: "",
     };
-  const owedBoxes = Math.max(0, c?.summary?.boxes || 0);
   const onAccount = o.payment === "cuenta" && !o.paid ? o.total : 0;
   const previous = c
     ? Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100
@@ -85,10 +91,7 @@ export function remitoData(
   return {
     ...remitoHeader(o, c),
     lines,
-    owedBoxes,
-    owedBoxesText: owedBoxes
-      ? `${owedBoxes} ${owedBoxes === 1 ? "caja" : "cajas"}`
-      : "",
+    ...boxesData,
     /** Total impreso: productos (si llevan precio) + saldo anterior. */
     total: printedTotal ? money(printedTotal) : "",
     productsTotal: money(o.total),

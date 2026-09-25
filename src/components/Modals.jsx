@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { uploadReceipt, receiptsOf } from "../lib/photo.js";
 import { del } from "../lib/api.js";
-import Receipts from "./Receipts.jsx";
+import Receipts, { ReceiptList } from "./Receipts.jsx";
 import PhoneVerify from "./PhoneVerify.jsx";
 import { FichaForm } from "../pages/Customers.jsx";
 import OrderEdit from "./OrderEdit.jsx";
@@ -1002,137 +1002,179 @@ function Boxes({ order, kind }) {
   const [photo, setPhoto] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [panel, setPanel] = useState("cajas");
   useEffect(() => {
     if (returning) return;
     receiptsOf(order.id)
       .then(setReceipts)
       .catch(() => setReceipts([]));
-  }, [order.id, returning]);
+  }, [order.id, returning, panel]);
   const needsPhoto =
     !returning && driver && receipts !== null && receipts.length === 0;
+  const tabs =
+    customer && !returning ? (
+      <div className="pill-filters" role="group" aria-label="Revisar entrega">
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={panel === "cajas"}
+          onClick={() => {
+            if (puedeCerrar()) setPanel("cajas");
+          }}
+        >
+          Entrega y cajas
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          aria-pressed={panel === "saldo"}
+          onClick={() => setPanel("saldo")}
+        >
+          Deuda y comprobantes
+        </button>
+      </div>
+    ) : null;
+  if (panel === "saldo" && customer)
+    return (
+      <>
+        {tabs}
+        <Saldos customer={customer} order={order} />
+      </>
+    );
   return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setError("");
-        const count = Number(new FormData(e.target).get("boxes") || 0);
-        if (needsPhoto && !photo)
-          return setError(
-            "Sacá la foto del remito firmado (o del comprobante) para cerrar la entrega.",
-          );
-        if (photo) {
-          setUploading(true);
-          try {
-            await uploadReceipt(order.id, photo.file, { kind: "firma" });
-          } catch (err) {
+    <>
+      {tabs}
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setError("");
+          const count = Number(new FormData(e.target).get("boxes") || 0);
+          if (needsPhoto && !photo)
+            return setError(
+              "Sacá la foto del remito firmado (o del comprobante) para cerrar la entrega.",
+            );
+          if (photo) {
+            setUploading(true);
+            try {
+              await uploadReceipt(order.id, photo.file, { kind: "firma" });
+            } catch (err) {
+              setUploading(false);
+              return setError(err.message);
+            }
             setUploading(false);
-            return setError(err.message);
           }
-          setUploading(false);
-        }
-        const ok = await update(
-          order,
-          returning
-            ? { returnBoxes: count }
-            : {
-                status: "entregado",
-                boxes: wholesale ? count : 0,
-                ...(returned > 0 ? { returnBoxes: returned } : {}),
-              },
-        );
-        if (ok) setModal(null);
-      }}
-    >
-      <h2>{returning ? "Devolución de envases" : "Completar entrega"}</h2>
-      <p>
-        N° {orderNumber(order)} · {order.name}
-        {!returning && order.payment !== "cuenta" && !order.paid
-          ? " · Falta registrar el cobro"
-          : ""}
-      </p>
-      {returning || wholesale ? (
-        <label>
-          {returning
-            ? `Envases devueltos (pendientes: ${pending})`
-            : "Envases que dejás al cliente"}
-          <input
-            name="boxes"
-            type="number"
-            inputMode="numeric"
-            defaultValue={returning ? pending : 0}
-            onChange={(e) => setOutgoing(Number(e.target.value) || 0)}
-            min={returning ? 1 : 0}
-            max={returning ? pending : 100}
-            step="1"
-            required
-          />
-        </label>
-      ) : (
-        <p>Pedido minorista: sin envases retornables.</p>
-      )}
-      {!returning && wholesale && (
-        <>
+          const ok = await update(
+            order,
+            returning
+              ? { returnBoxes: count }
+              : {
+                  status: "entregado",
+                  boxes: wholesale ? count : 0,
+                  ...(returned > 0 ? { returnBoxes: returned } : {}),
+                },
+          );
+          if (ok) setModal(null);
+        }}
+      >
+        <h2>{returning ? "Devolución de envases" : "Completar entrega"}</h2>
+        <p>
+          N° {orderNumber(order)} · {order.name}
+          {!returning && order.payment !== "cuenta" && !order.paid
+            ? " · Falta registrar el cobro"
+            : ""}
+        </p>
+        {returning || wholesale ? (
           <label>
-            Cajas devueltas en esta entrega
+            {returning
+              ? `Envases devueltos (pendientes: ${pending})`
+              : "Envases que dejás al cliente"}
             <input
-              name="returned"
+              name="boxes"
               type="number"
               inputMode="numeric"
-              min="0"
-              max={outgoing}
+              defaultValue={returning ? pending : outgoing}
+              onChange={(e) => setOutgoing(Number(e.target.value) || 0)}
+              min={returning ? 1 : 0}
+              max={returning ? pending : 100}
               step="1"
-              value={returned}
-              onChange={(e) => setReturned(Number(e.target.value) || 0)}
+              required
             />
           </label>
-          <p className="notice">
-            {customer?.summary?.boxes || 0} anteriores + {outgoing} salientes −{" "}
-            {returned} devueltas ={" "}
-            <strong>
-              {(customer?.summary?.boxes || 0) + outgoing - returned} cajas
-              pendientes
-            </strong>
-          </p>
-        </>
-      )}
-      {!returning && receipts !== null && (
-        <p className="muted small">
-          {receipts.length
-            ? `${receipts.length} comprobante${receipts.length === 1 ? "" : "s"} ya cargado${receipts.length === 1 ? "" : "s"}.`
-            : driver
-              ? "Sin comprobantes: sacá la foto del remito firmado."
-              : "Sin comprobantes."}
-        </p>
-      )}
-      {!returning && (
-        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
-          <Camera size={15} />{" "}
-          {photo
-            ? `Foto lista: ${photo.name}`
-            : needsPhoto
-              ? "Foto del remito firmado (obligatoria)"
-              : "Agregar foto del remito firmado"}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPhoto({ file: f, name: f.name || "foto" });
-            }}
+        ) : (
+          <p>Pedido minorista: sin envases retornables.</p>
+        )}
+        {!returning && wholesale && (
+          <>
+            <label>
+              Cajas devueltas en esta entrega
+              <input
+                name="returned"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max={outgoing}
+                step="1"
+                value={returned}
+                onChange={(e) => setReturned(Number(e.target.value) || 0)}
+              />
+            </label>
+            <p className="notice">
+              {customer?.summary?.boxes || 0} anteriores + {outgoing} salientes
+              − {returned} devueltas ={" "}
+              <strong>
+                {(customer?.summary?.boxes || 0) + outgoing - returned} cajas
+                pendientes
+              </strong>
+            </p>
+          </>
+        )}
+        {!returning && receipts?.length > 0 && (
+          <ReceiptList
+            order={order}
+            receipts={receipts}
+            onChange={() => receiptsOf(order.id).then(setReceipts)}
+            compact
           />
-        </label>
-      )}
-      {(formError || error) && (
-        <p className="form-error" role="alert">
-          {error || formError}
-        </p>
-      )}
-      <button className="primary full" disabled={busy || uploading}>
-        {uploading ? "Subiendo la foto…" : "Confirmar"} <Check size={16} />
-      </button>
-    </form>
+        )}
+        {!returning && receipts !== null && (
+          <p className="muted small">
+            {receipts.length
+              ? `${receipts.length} comprobante${receipts.length === 1 ? "" : "s"} ya cargado${receipts.length === 1 ? "" : "s"}.`
+              : driver
+                ? "Sin comprobantes: sacá la foto del remito firmado."
+                : "Sin comprobantes."}
+          </p>
+        )}
+        {!returning && (
+          <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
+            <Camera size={15} />{" "}
+            {photo
+              ? `Foto lista: ${photo.name}`
+              : needsPhoto
+                ? "Foto del remito firmado (obligatoria)"
+                : "Agregar foto del remito firmado"}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setPhoto({ file: f, name: f.name || "foto" });
+              }}
+            />
+          </label>
+        )}
+        {(formError || error) && (
+          <p className="form-error" role="alert">
+            {error || formError}
+          </p>
+        )}
+        <button className="primary full" disabled={busy || uploading}>
+          {uploading ? "Subiendo la foto…" : "Confirmar"} <Check size={16} />
+        </button>
+      </form>
+    </>
   );
 }
 
@@ -1544,7 +1586,11 @@ export default function Modals() {
           order={orders.find((o) => o.id === modal.order?.id) || modal.order}
         />
       ) : type === "saldos" ? (
-        <Saldos customer={modal.customer} />
+        <Saldos
+          customer={modal.customer}
+          order={modal.order}
+          initialTab={modal.initialTab}
+        />
       ) : type === "boxes-return" ? (
         <BoxesReturn customer={modal.customer} />
       ) : type === "account-payment" ? (

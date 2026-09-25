@@ -78,6 +78,7 @@ const CLIENT_ROUTES = {
 };
 const CLIENT_PRIVATE = ["/pedidos", "/seguimiento", "/cuenta"];
 const ADMIN_ROUTES = {
+  "/operacion/entregas": Delivery,
   "/operacion/documentos": Documents,
   "/operacion/movimientos": Movimientos,
   "/operacion": Operations,
@@ -459,6 +460,7 @@ function seccionesDe(role) {
           ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
           ["/operacion/documentos", "Documentos", ClipboardList, "Documentos"],
           ["/operacion/movimientos", "Movimientos", History, "Movimientos"],
+          ["/operacion/entregas", "Revisar entregas", Truck, "Entregas"],
           ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
         ],
       ],

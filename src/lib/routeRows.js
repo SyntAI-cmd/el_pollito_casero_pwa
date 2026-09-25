@@ -1,3 +1,5 @@
+import { outgoingBoxes } from "./cajas.js";
+
 /** Projection at document emission. Each customer balance is carried once, never per order. */
 export function routeRows(orders, customers) {
   const list = orders
@@ -24,11 +26,7 @@ export function routeRows(orders, customers) {
   return list.map((o) => {
     const customer = customers.find((c) => c.phone === o.customer),
       b = balances.get(o.customer);
-    const out =
-      o.status === "entregado"
-        ? o.boxes || 0
-        : o.crates?.filter((c) => !c.voided).length ||
-          o.items.reduce((n, x) => n + (x.boxes || 0), 0);
+    const out = outgoingBoxes(o);
     const back = o.returned || 0,
       before = b.boxes,
       after = before + out - back;

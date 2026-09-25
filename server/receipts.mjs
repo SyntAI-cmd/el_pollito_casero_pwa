@@ -1,3 +1,11 @@
+import sharp from "sharp";
+import { actorDe } from "./auditoria.mjs";
+import { accountSummary } from "../domain.mjs";
+import {
+  createEvidenceSigner,
+  imageDigest,
+  receiptEvidencePdf,
+} from "./receipt-evidence.mjs";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import { fail } from "./errors.mjs";
@@ -29,6 +37,7 @@ export function createReceipts({
   documents,
 }) {
   const dir = `${dataDir}/receipts`;
+  const signEvidence = createEvidenceSigner(dataDir);
   const staffOnly = (session) => {
     if (!isStaff(session)) fail(403, "Solo el equipo.");
   };
@@ -87,27 +96,62 @@ export function createReceipts({
         });
         return json(200, existing);
       }
+      try {
+        await sharp(bytes, { limitInputPixels: 40000000 }).metadata();
+      } catch {
+        fail(400, "El archivo no es una imagen válida.");
+      }
+      const amount =
+        num(body.amount, {
+          min: 0,
+          max: 100000000,
+          name: "el importe",
+          optional: true,
+        }) ?? null;
+      const note = str(body.note, {
+        max: 200,
+        name: "la nota",
+        optional: true,
+      });
+      const customer = store.customers.get(o.customer);
+      const balance = accountSummary(
+        store.orders.forCustomer(o.customer),
+        customer || {},
+      ).balance;
+      const at = now();
+      const evidence = await signEvidence({
+        version: 1,
+        receiptId: id,
+        orderId: o.id,
+        orderNumber: o.number || o.id,
+        customerName: customer?.name || o.name,
+        actor: actorDe(session),
+        at,
+        kind,
+        amount,
+        note,
+        imageSha256: imageDigest(bytes),
+        ...(balance > 0 ? { customerBalance: balance } : {}),
+      });
+      // Un reintento concurrente conserva el autor original.
       const file = `${o.id}-${id}.${ext}`;
       await mkdir(dir, { recursive: true });
       await writeFile(`${dir}/${file}`, bytes);
+      const concurrent = store.receipts.get(id);
+      if (concurrent) return json(200, concurrent);
       const receipt = store.receipts.add({
         id,
         orderId: o.id,
         customer: o.customer,
         kind,
-        amount:
-          num(body.amount, {
-            min: 0,
-            max: 100000000,
-            name: "el importe",
-            optional: true,
-          }) ?? null,
-        note: str(body.note, { max: 200, name: "la nota", optional: true }),
+        amount,
+        note,
+        evidence,
         file,
         mime: `image/${ext}`,
         bytes: bytes.length,
         by: actorOf(session),
-        at: now(),
+        at,
       });
       store.audit.log(session, "receipt.add", "order", o.id, {
         id,
@@ -162,6 +206,49 @@ export function createReceipts({
         200,
         driver ? list.filter((r) => r.order?.driver === driver) : list,
       );
+    }
+    const evidenceDownload = path.match(
+      /^\/api\/comprobantes\/([^/]+)\/constancia\.(pdf|json)$/,
+    );
+    if (evidenceDownload && method === "GET") {
+      staffOnly(session);
+      const r = store.receipts.get(decodeURIComponent(evidenceDownload[1]));
+      if (!r) fail(404, "Comprobante no encontrado.");
+      const o = store.orders.get(r.orderId);
+      if (!o || !canTouch(session, o))
+        fail(403, "Ese pedido es de otro camión.");
+      const format = evidenceDownload[2];
+      let raw;
+      try {
+        raw =
+          format === "json"
+            ? Buffer.from(
+                JSON.stringify(
+                  r.evidence || { historico: true, by: r.by, at: r.at },
+                  null,
+                  2,
+                ),
+              )
+            : await receiptEvidencePdf(r, await readFile(`${dir}/${r.file}`));
+      } catch {
+        fail(
+          409,
+          "No se pudo verificar o leer el comprobante original. Revisá el archivo con administración.",
+        );
+      }
+      store.audit.log(session, "receipt.download", "order", r.orderId, {
+        file: r.file,
+      });
+      return {
+        status: 200,
+        raw,
+        headers: {
+          "Content-Type":
+            format === "pdf" ? "application/pdf" : "application/json",
+          "Content-Disposition": `attachment; filename="Constancia_${r.id}.${format}"`,
+          "Cache-Control": "private, no-store",
+        },
+      };
     }
     const image = path.match(/^\/api\/comprobantes\/([^/]+)\/imagen$/);
     if (image && method === "GET") {

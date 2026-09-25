@@ -167,9 +167,6 @@ export function actorDe(session) {
         : session.phone
           ? `cliente:${session.phone}`
           : null;
-  const nombre =
-    session.role === "repartidor"
-      ? session.driver || session.name
-      : session.name || session.driver || session.phone || null;
+  const nombre = session.name || session.driver || session.phone || null;
   return { id, nombre: nombre || null, rol: session.role || "sistema" };
 }

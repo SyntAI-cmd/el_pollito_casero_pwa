@@ -1,3 +1,5 @@
+import Activity from "./Activity.jsx";
+import Receipts from "./Receipts.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Wallet,
@@ -36,7 +38,7 @@ const r2 = (n) => Math.round(n * 100) / 100;
  * Recién al tocar "Guardar estado" se envía todo junto, en una sola operación (ni a medias ni
  * duplicada, aunque se reintente). Después de guardar la ventana sigue abierta.
  */
-export default function Saldos({ customer }) {
+export default function Saldos({ customer, order, initialTab = "dinero" }) {
   const ensureFieldVisible = useFieldVisibility();
   const { saveBalances, busy, setModal, orders, customers, formError } =
     useStore();
@@ -49,7 +51,7 @@ export default function Saldos({ customer }) {
   // Un solo teclado a la vista: con el de la app, el del teléfono no se abre y los botones
   // de guardar quedan siempre visibles.
   const { tecladoApp, cambiar } = useTecladoApp("teclado-saldos");
-  const [tab, setTab] = useState("dinero");
+  const [tab, setTab] = useState(initialTab);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [pendientes, setPendientes] = useState([]);
@@ -57,6 +59,14 @@ export default function Saldos({ customer }) {
   const [preguntando, setPreguntando] = useState(false);
   const opId = useRef(crypto.randomUUID().slice(0, 20));
 
+  const [receiptOrderId, setReceiptOrderId] = useState(order?.id || "");
+  const customerOrders = orders.filter(
+    (o) => o.customer === c.phone && o.status !== "cancelado",
+  );
+  const receiptOrder =
+    customerOrders.find((o) => o.id === receiptOrderId) ||
+    order ||
+    customerOrders[0];
   const n = parse(amount);
   const esDinero = tab === "dinero";
   const valido = esDinero
@@ -223,7 +233,7 @@ export default function Saldos({ customer }) {
         <button
           type="button"
           role="tab"
-          aria-selected={!esDinero}
+          aria-selected={tab === "cajas"}
           onClick={() => {
             setTab("cajas");
             setAmount("");
@@ -231,86 +241,178 @@ export default function Saldos({ customer }) {
         >
           <Package size={15} /> Cajas
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "comprobantes"}
+          onClick={() => setTab("comprobantes")}
+        >
+          Comprobantes
+        </button>
       </div>
-
-      <div className="saldos-entry">
-        <label>
-          {esDinero ? "Importe" : "Cantidad de cajas"}
-          <input
-            type="text"
-            /* Con el teclado de la app, el del teléfono no aparece: se ve lo que se escribe. */
-            inputMode={tecladoApp ? "none" : esDinero ? "decimal" : "numeric"}
-            enterKeyHint="done"
-            autoFocus
-            placeholder="0"
-            disabled={busy}
-            onFocus={tecladoApp ? undefined : ensureFieldVisible}
-            value={amount}
-            onChange={(e) =>
-              setAmount(
-                e.target.value.replace(esDinero ? /[^\d.,]/g : /[^\d]/g, ""),
-              )
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                agregar(+1);
+      {tab === "comprobantes" ? (
+        <section aria-label="Comprobantes del cliente">
+          {customerOrders.length > 1 && (
+            <label>
+              Pedido
+              <select
+                value={receiptOrder?.id || ""}
+                onChange={(e) => setReceiptOrderId(e.target.value)}
+              >
+                {customerOrders.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {String(o.number || o.id)} · {o.deliveryDate}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {receiptOrder ? (
+            <Receipts key={receiptOrder.id} order={receiptOrder} />
+          ) : (
+            <p>Para adjuntar comprobantes, abrí un pedido de este cliente.</p>
+          )}
+          <p className="muted small">
+            Si existe deuda, la constancia incluye el saldo registrado al subir
+            el comprobante. Si corregís la deuda, guardá el estado antes de
+            adjuntar.
+          </p>
+        </section>
+      ) : (
+        <div className="saldos-entry">
+          <label>
+            {esDinero ? "Importe" : "Cantidad de cajas"}
+            <input
+              type="text"
+              /* Con el teclado de la app, el del teléfono no aparece: se ve lo que se escribe. */
+              inputMode={tecladoApp ? "none" : esDinero ? "decimal" : "numeric"}
+              enterKeyHint="done"
+              autoFocus
+              placeholder="0"
+              disabled={busy}
+              onFocus={tecladoApp ? undefined : ensureFieldVisible}
+              value={amount}
+              onChange={(e) =>
+                setAmount(
+                  e.target.value.replace(esDinero ? /[^\d.,]/g : /[^\d]/g, ""),
+                )
               }
-            }}
-            aria-label={esDinero ? "Importe" : "Cantidad de cajas"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  agregar(+1);
+                }
+              }}
+              aria-label={esDinero ? "Importe" : "Cantidad de cajas"}
+            />
+          </label>
+          <div className="saldos-entry-row">
+            <button
+              type="button"
+              className="secondary"
+              disabled={!valido || busy}
+              onClick={() => agregar(+1)}
+            >
+              <Plus size={16} /> {esDinero ? "Suma deuda" : "Suma cajas"}
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={!valido || busy}
+              onClick={() => agregar(-1)}
+            >
+              <Minus size={16} /> {esDinero ? "Resta deuda" : "Devolvió cajas"}
+            </button>
+          </div>
+          {esDinero && (
+            <div className="saldos-entry-row">
+              <button
+                type="button"
+                className="secondary"
+                disabled={!valido || busy}
+                onClick={() => {
+                  const delta = r2(n - (actual.balance || 0));
+                  setPendientes((list) => [
+                    ...list.filter((p) => p.kind !== "dinero"),
+                    ...(delta
+                      ? [
+                          {
+                            id: crypto.randomUUID(),
+                            kind: "dinero",
+                            n: delta,
+                            note: note.trim() || "Corrección de deuda",
+                          },
+                        ]
+                      : []),
+                  ]);
+                  setAmount("");
+                  setGuardado(false);
+                }}
+              >
+                Dejar deuda en este importe
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || previstoDinero <= 0}
+                onClick={() => {
+                  const delta = -(actual.balance || 0);
+                  setPendientes((list) => [
+                    ...list.filter((p) => p.kind !== "dinero"),
+                    ...(delta
+                      ? [
+                          {
+                            id: crypto.randomUUID(),
+                            kind: "dinero",
+                            n: delta,
+                            note:
+                              note.trim() || "Deuda eliminada por el usuario",
+                          },
+                        ]
+                      : []),
+                  ]);
+                  setAmount("");
+                  setGuardado(false);
+                }}
+              >
+                Quitar deuda
+              </button>
+            </div>
+          )}
+          <CambiarTeclado tecladoApp={tecladoApp} cambiar={cambiar} />
+          {tecladoApp && (
+            <Teclado
+              decimales={esDinero}
+              vacio={amount === ""}
+              etiqueta={
+                esDinero ? "Teclado para el importe" : "Teclado para las cajas"
+              }
+              onTecla={(k) =>
+                setAmount((v) =>
+                  aplicarTecla(v, k, {
+                    maxDecimales: esDinero ? 2 : 0,
+                    maxLargo: esDinero ? 11 : 5,
+                  }),
+                )
+              }
+            />
+          )}
+          <input
+            className="wallet-note"
+            disabled={busy}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength="200"
+            placeholder="Motivo (opcional): saldo inicial, arreglo, conteo…"
+            aria-label="Motivo"
           />
-        </label>
-        <div className="saldos-entry-row">
-          <button
-            type="button"
-            className="secondary"
-            disabled={!valido || busy}
-            onClick={() => agregar(+1)}
-          >
-            <Plus size={16} /> {esDinero ? "Suma deuda" : "Suma cajas"}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={!valido || busy}
-            onClick={() => agregar(-1)}
-          >
-            <Minus size={16} /> {esDinero ? "Resta deuda" : "Devolvió cajas"}
-          </button>
+          <p className="muted small">
+            {esDinero
+              ? "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
+              : "Las cajas se cuentan aparte del dinero. Acá se corrige el conteo; las entregas y devoluciones de cada pedido se cargan desde el pedido."}
+          </p>
         </div>
-        <CambiarTeclado tecladoApp={tecladoApp} cambiar={cambiar} />
-        {tecladoApp && (
-          <Teclado
-            decimales={esDinero}
-            vacio={amount === ""}
-            etiqueta={
-              esDinero ? "Teclado para el importe" : "Teclado para las cajas"
-            }
-            onTecla={(k) =>
-              setAmount((v) =>
-                aplicarTecla(v, k, {
-                  maxDecimales: esDinero ? 2 : 0,
-                  maxLargo: esDinero ? 11 : 5,
-                }),
-              )
-            }
-          />
-        )}
-        <input
-          className="wallet-note"
-          disabled={busy}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength="200"
-          placeholder="Motivo (opcional): saldo inicial, arreglo, conteo…"
-          aria-label="Motivo"
-        />
-        <p className="muted small">
-          {esDinero
-            ? "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
-            : "Las cajas se cuentan aparte del dinero. Acá se corrige el conteo; las entregas y devoluciones de cada pedido se cargan desde el pedido."}
-        </p>
-      </div>
+      )}
 
       {hayCambios && (
         <div className="saldos-pending">
@@ -401,6 +503,7 @@ export default function Saldos({ customer }) {
         </div>
       )}
 
+      <Activity entity="customers" id={c.phone} revision={c} />
       <section className="wallet-moves">
         <h3>Últimos movimientos</h3>
         {moves.length === 0 ? (

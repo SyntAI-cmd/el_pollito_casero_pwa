@@ -1,3 +1,4 @@
+import { requestAudit } from "./request-audit.mjs";
 /**
  * Persistencia en SQLite (node:sqlite) con esquema relacional, migraciones,
  * transacciones, auditoría y copias de seguridad.
@@ -228,6 +229,8 @@ export async function openStore(path, { log = console } = {}) {
 
   // PC-003: el historial guarda actor estable, categoría, antes/después, motivo y operación.
   // Aditivo: las filas viejas conservan su autor de texto y quedan con las columnas nuevas en NULL.
+  if (!db.prepare("PRAGMA table_info(receipts)").all().some(c => c.name === "evidence_json"))
+    db.exec("ALTER TABLE receipts ADD COLUMN evidence_json TEXT");
   const auditCols = db
     .prepare("PRAGMA table_info(audit_log)")
     .all()
@@ -564,7 +567,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
       "SELECT * FROM receipts WHERE voided = 0 AND at >= ? AND at < ? ORDER BY at",
     ),
     insertReceipt: db.prepare(
-      "INSERT INTO receipts(id, order_id, customer, kind, amount, note, file, mime, bytes, by_actor, at) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO receipts(id, order_id, customer, kind, amount, note, file, mime, bytes, by_actor, at, evidence_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
     ),
     updateReceipt: db.prepare(
       "UPDATE receipts SET kind = COALESCE(?, kind), amount = CASE WHEN ? = 1 THEN ? ELSE amount END, note = COALESCE(?, note) WHERE id = ?",
@@ -894,6 +897,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           mime: r.mime,
           bytes: r.bytes,
           by: r.by_actor,
+          evidence: p(r.evidence_json, null),
           at: r.at,
           voided: !!r.voided,
         }
@@ -1333,6 +1337,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           r.bytes,
           r.by,
           r.at || now(),
+          r.evidence ? JSON.stringify(r.evidence) : null,
         );
         return rowToReceipt(q.receipt.get(r.id));
       },
@@ -1448,6 +1453,8 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
        * Todo pasa por la lista de campos permitidos: nunca guarda claves, tokens ni imágenes.
        */
       log: (session, action, entity, entityId, detail, extra = {}) => {
+        const scope = requestAudit.getStore();
+        if (scope) scope.logged = true;
         // Reintento de la misma operación: no se duplica el movimiento comercial.
         if (extra.opId && q.auditByOp.get(extra.opId, action)) return;
         const actor = actorDe(session);

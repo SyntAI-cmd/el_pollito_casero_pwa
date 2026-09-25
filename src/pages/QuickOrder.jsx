@@ -465,7 +465,8 @@ export default function QuickOrder() {
               >
                 Confirmar sin precio ni saldo
                 <small>
-                  Cliente exclusivo: remito solo con kilos y detalle
+                  Cliente exclusivo: remito con kilos, detalle y control de
+                  cajas
                 </small>
               </button>
             </div>

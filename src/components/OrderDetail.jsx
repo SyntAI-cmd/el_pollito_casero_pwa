@@ -1,3 +1,4 @@
+import Activity from "./Activity.jsx";
 import React, { useEffect, useState } from "react";
 import {
   MapPin,
@@ -240,6 +241,7 @@ export default function OrderDetail({ order: abierto, role }) {
 
       {/* Las cajas van aparte del dinero, con las cuatro cifras a la vista */}
       <CajasBox order={o} customer={customer} />
+      <Activity id={o.id} revision={o} />
 
       <section className="od-block od-state">
         <p>
@@ -304,7 +306,8 @@ export default function OrderDetail({ order: abierto, role }) {
               title={o.driver ? "" : "Asigná un preventista primero"}
               onClick={() => update(o, { status: "en_camino" })}
             >
-              {startingOrders[o.id] ? "Iniciando reparto…" : "Iniciar reparto"} <ArrowRight size={16} />
+              {startingOrders[o.id] ? "Iniciando reparto…" : "Iniciar reparto"}{" "}
+              <ArrowRight size={16} />
             </button>
           )}
           {o.status === "en_camino" && (

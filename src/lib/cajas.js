@@ -35,3 +35,14 @@ export function orderBoxes(order, balance = 0) {
     actual: balance,
   };
 }
+
+/** Cajas que salen en el documento: entrega confirmada, pesada real o pedido pendiente.
+ * Una pesada en bolsa (boxes: 0) nunca se convierte en un cajón.
+ * Las opciones de precios, saldo e impresión no intervienen en este cálculo.
+ */
+export function outgoingBoxes(order) {
+  if (order.status === "entregado") return order.boxes || 0;
+  const crates = order.crates?.filter((c) => !c.voided) || [];
+  if (crates.length) return crates.reduce((sum, c) => sum + (c.boxes ?? 1), 0);
+  return (order.items || []).reduce((sum, item) => sum + (item.boxes || 0), 0);
+}

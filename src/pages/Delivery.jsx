@@ -81,8 +81,16 @@ export default function Delivery() {
     <>
       <PageHead
         eyebrow="REPARTO"
-        title={`Hola, ${session.name.split(" ")[0]}.`}
-        description="Tus entregas de hoy, en orden."
+        title={
+          session.role === "admin"
+            ? "Revisar entregas."
+            : `Hola, ${session.name.split(" ")[0]}.`
+        }
+        description={
+          session.role === "admin"
+            ? "Revisá los comprobantes, las cajas y el saldo antes de confirmar la entrega."
+            : "Tus entregas de hoy, en orden."
+        }
       >
         <div className="head-actions">
           <span className={"live-indicator " + (live ? "on" : "")}>
@@ -178,6 +186,23 @@ export default function Delivery() {
                         : "A pesar"}
                   </span>
                 </div>
+                {customers.find((c) => c.phone === o.customer) && (
+                  <button
+                    type="button"
+                    className="secondary full"
+                    disabled={busy}
+                    onClick={() =>
+                      setModal({
+                        type: "saldos",
+                        customer: customers.find((c) => c.phone === o.customer),
+                        order: o,
+                        initialTab: "cajas",
+                      })
+                    }
+                  >
+                    Cajas, deuda y comprobantes
+                  </button>
+                )}
                 <button
                   type="button"
                   className="primary full dc-open"

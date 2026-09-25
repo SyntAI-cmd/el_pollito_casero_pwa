@@ -87,6 +87,10 @@ const meta = {
     "Respuestas sobre pedidos, pagos, envases y reparto.",
   ],
   "/operacion": ["Operación", "Gestión de pedidos, repartidores y clientes."],
+  "/operacion/entregas": [
+    "Revisar entregas",
+    "Comprobantes, saldos y confirmación de entrega.",
+  ],
   "/reparto": ["Mis entregas", "Entregas asignadas, GPS y cobros."],
   "/ingresar": [
     "Ingresar",

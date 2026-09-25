@@ -17,6 +17,7 @@ export function ReceiptButton({
   amount,
   label,
   className = "secondary",
+  capture,
   onDone,
 }) {
   const { notify } = useStore();
@@ -28,7 +29,7 @@ export function ReceiptButton({
       <input
         type="file"
         accept="image/*"
-        capture="environment"
+        capture={capture}
         hidden
         disabled={busy}
         onChange={async (e) => {
@@ -80,10 +81,19 @@ export function ReceiptList({ order, receipts, onChange, compact = false }) {
             <strong>{receiptKinds[r.kind] || r.kind}</strong>
             {r.amount ? <span> · {money(r.amount)}</span> : null}
             <small>
-              {r.by} · {dateText(r.at)} {timeText(r.at)}
+              Subido por {r.evidence?.payload?.actor?.nombre || r.by} · ID:{" "}
+              {r.evidence?.payload?.actor?.id || "No registrado (histórico)"} ·{" "}
+              {dateText(r.at)} {timeText(r.at)}
               {r.note ? ` · ${r.note}` : ""}
             </small>
           </div>
+          <a
+            className="secondary small"
+            href={`/api/comprobantes/${encodeURIComponent(r.id)}/constancia.pdf`}
+            download
+          >
+            Descargar constancia PDF
+          </a>
           {session?.role === "admin" && (
             <button
               type="button"
@@ -121,7 +131,7 @@ export function ReceiptList({ order, receipts, onChange, compact = false }) {
                   "¿Anular este comprobante? Motivo (opcional):",
                 );
                 if (reason === null) return;
-                del("/comprobantes/" + r.id)
+                del("/comprobantes/" + r.id, { reason })
                   .then(() => onChange?.())
                   .catch((e) => notify(e.message));
               }}
@@ -158,6 +168,10 @@ export default function Receipts({ order }) {
       ) : (
         <ReceiptList order={order} receipts={list} onChange={load} />
       )}
+      <p className="muted small">
+        Cada imagen queda identificada con tu usuario, ID y fecha.
+        Administración puede descargar la imagen con su constancia automática.
+      </p>
       {order.status !== "cancelado" && (
         <div className="actions-row">
           <ReceiptButton
@@ -170,6 +184,12 @@ export default function Receipts({ order }) {
             order={order}
             kind="transferencia"
             label="Transferencia"
+            onDone={load}
+          />
+          <ReceiptButton
+            order={order}
+            kind="otro"
+            label="Otro comprobante"
             onDone={load}
           />
           <ReceiptButton

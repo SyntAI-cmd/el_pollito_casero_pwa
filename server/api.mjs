@@ -1,3 +1,4 @@
+import { withRequestAudit } from "./request-audit.mjs";
 import { randomUUID } from "node:crypto";
 import {
   products,
@@ -940,7 +941,7 @@ export function createApi({
   });
 
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
-  return async function handle({ method, path, body, query, session, ip }) {
+  return withRequestAudit(async function handle({ method, path, body, query, session, ip }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
     const fromDocuments = await documents.handle({
       method,
@@ -971,6 +972,21 @@ export function createApi({
       });
     }
 
+    const activity = path.match(/^\/api\/orders\/([^/]+)\/movimientos$/);
+    if (activity && method === "GET") {
+      if (!isStaff(session)) fail(403,"Solo el equipo.");
+      const o = store.orders.get(decodeURIComponent(activity[1]));
+      if (!o) fail(404,"Pedido no encontrado.");
+      if (session.role !== "admin" && o.driver && !mine(session,o)) fail(403,"Ese pedido es de otro camión.");
+      return json(200,store.audit.query({entidad:"order",entidadId:o.id,cursor:query.get("cursor"),limite:50}));
+    }
+    const customerActivity = path.match(/^\/api\/customers\/([^/]+)\/movimientos$/);
+    if (customerActivity && method === "GET") {
+      if (!isStaff(session)) fail(403,"Solo el equipo.");
+      const id = decodeURIComponent(customerActivity[1]);
+      if (!store.customers.get(id)) fail(404,"Cliente no encontrado.");
+      return json(200,store.audit.query({entidad:"customer",entidadId:id,cursor:query.get("cursor"),limite:50}));
+    }
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });
@@ -1906,7 +1922,7 @@ export function createApi({
     }
 
     return null;
-  };
+  }, store);
 }
 
 /** Suscriptores de eventos en tiempo real (Server-Sent Events). */
