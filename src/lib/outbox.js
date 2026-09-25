@@ -73,11 +73,12 @@ function scheduleBackoff() {
   if (retryTimer) clearTimeout(retryTimer);
   const delay = backoffDelay;
   backoffDelay = Math.min(backoffDelay * 2, 60000);
-  if (typeof setTimeout !== "undefined") {
+  if (typeof window !== "undefined" && typeof setTimeout !== "undefined") {
     retryTimer = setTimeout(() => {
       retryTimer = null;
       flush().catch(() => {});
     }, delay);
+    retryTimer?.unref?.();
   }
 }
 
@@ -237,5 +238,6 @@ if (typeof window !== "undefined") {
     resetBackoff();
     flush().catch(() => {});
   });
-  setTimeout(() => flush().catch(() => {}), 2000);
+  const t = setTimeout(() => flush().catch(() => {}), 2000);
+  t?.unref?.();
 }

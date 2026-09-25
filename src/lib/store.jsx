@@ -78,10 +78,54 @@ export function StoreProvider({ children }) {
       .catch(() => {});
   }, [session]);
 
+  const isFetchingOrders = useRef(false);
+  const isFetchingCustomers = useRef(false);
+  const customerDebounceTimer = useRef(null);
+  const ordersDebounceTimer = useRef(null);
+
   const notify = useCallback((text) => setToast(text), []);
+
+  // FIX: Actualización incremental por ID de pedido para evitar descargar el listado completo
+  const updateOrderById = useCallback(
+    async (orderId) => {
+      if (!orderId) return;
+      try {
+        const updated = await api("/orders/" + encodeURIComponent(orderId));
+        if (updated) {
+          const prevStatus = lastStatuses.current[updated.id];
+          if (
+            prevStatus &&
+            prevStatus !== updated.status &&
+            sessionRef.current?.role === "cliente"
+          ) {
+            notify(`${updated.id}: ${labels[updated.status]}`);
+          }
+          lastStatuses.current[updated.id] = updated.status;
+          setOrders((current) => {
+            const idx = current.findIndex((o) => o.id === updated.id);
+            if (idx >= 0) {
+              const next = [...current];
+              next[idx] = updated;
+              return next;
+            }
+            return [updated, ...current];
+          });
+        }
+      } catch (e) {
+        if (e.status === 404) {
+          setOrders((current) => current.filter((o) => o.id !== orderId));
+          delete lastStatuses.current[orderId];
+        }
+      }
+    },
+    [notify],
+  );
 
   const loadOrders = useCallback(
     async ({ silent = false } = {}) => {
+      // FIX: Evitar múltiples peticiones en vuelo concurrentes para pedidos
+      if (isFetchingOrders.current) return;
+      isFetchingOrders.current = true;
       try {
         const list = await api("/orders");
         const previous = lastStatuses.current;
@@ -105,6 +149,8 @@ export function StoreProvider({ children }) {
           setServerDown(true);
           if (!silent) setError(serverDownMessage);
         } else if (!silent) setError(e.message);
+      } finally {
+        isFetchingOrders.current = false;
       }
     },
     [notify],
@@ -119,9 +165,19 @@ export function StoreProvider({ children }) {
     if (
       sessionRef.current?.role === "admin" ||
       sessionRef.current?.role === "repartidor"
-    )
-      setCustomers(await api("/customers").catch(() => []));
-    else setCustomers([]);
+    ) {
+      // FIX: Bandera isFetching para evitar múltiples peticiones en vuelo de clientes
+      if (isFetchingCustomers.current) return;
+      isFetchingCustomers.current = true;
+      try {
+        const list = await api("/customers").catch(() => []);
+        setCustomers(list);
+      } finally {
+        isFetchingCustomers.current = false;
+      }
+    } else {
+      setCustomers([]);
+    }
   }, []);
   /** Vuelve a traer pedidos y clientes del servidor (al entrar a una vista, para no mostrar datos viejos). */
   const reload = useCallback(
@@ -200,13 +256,25 @@ export function StoreProvider({ children }) {
     if (!session) return;
     const close = subscribe(
       (type, data) => {
-        if (type === "orders")
-          loadOrders({ silent: true }).then(() =>
-            Promise.all([loadMe(), loadCustomers()]),
-          );
+        if (type === "orders") {
+          // FIX: Actualización incremental por ID de pedido; debounce a lista completa solo si no hay ID
+          if (data?.id) {
+            updateOrderById(data.id);
+          } else {
+            clearTimeout(ordersDebounceTimer.current);
+            ordersDebounceTimer.current = setTimeout(
+              () => loadOrders({ silent: true }),
+              500,
+            );
+          }
+        }
         if (type === "customer") {
-          loadMe();
-          loadCustomers();
+          // FIX: Debounce agresivo en llamadas a clientes para evitar recargas masivas consecutivas
+          clearTimeout(customerDebounceTimer.current);
+          customerDebounceTimer.current = setTimeout(() => {
+            loadMe();
+            loadCustomers();
+          }, 600);
         }
       },
       (state) => setLive(state),
@@ -215,9 +283,11 @@ export function StoreProvider({ children }) {
     return () => {
       close();
       clearInterval(timer);
+      clearTimeout(ordersDebounceTimer.current);
+      clearTimeout(customerDebounceTimer.current);
       setLive(false);
     };
-  }, [session, loadOrders, loadMe, loadCustomers]);
+  }, [session, updateOrderById, loadOrders, loadMe, loadCustomers]);
 
   useEffect(() => persist("pc-cart", cart), [cart]);
   useEffect(() => persist("pc-plan", plan), [plan]);

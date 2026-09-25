@@ -9,6 +9,7 @@ import { requestAudit } from "./request-audit.mjs";
  */
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, readdir, unlink } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import {
   actorDe,
   cambios as cambiosDe,
@@ -1562,11 +1563,25 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     async backup(dir = "data/backups", keep = 14) {
       if (memory) return null;
       await mkdir(dir, { recursive: true });
-      const stamp = new Date().toISOString().slice(0, 10);
-      const file = `${dir}/pollito-${stamp}.sqlite`;
+      // FIX: Timestamp exacto (año-mes-dia-hora-minuto-segundo) para evitar colisiones "output file already exists"
+      const now = new Date();
+      const stamp = now
+        .toISOString()
+        .replace(/T/, "-")
+        .replace(/:/g, "-")
+        .slice(0, 19);
+      let file = `${dir}/pollito-${stamp}.sqlite`;
+      if (existsSync(file)) {
+        file = `${dir}/pollito-${stamp}-${now.getMilliseconds()}.sqlite`;
+      }
       db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+      // FIX: Compatibilidad de retención con nombres históricos diarios y nuevos con timestamp exacto
       const files = (await readdir(dir))
-        .filter((f) => /^pollito-\d{4}-\d{2}-\d{2}\.sqlite$/.test(f))
+        .filter((f) =>
+          /^pollito-\d{4}-\d{2}-\d{2}(?:-\d{2}-\d{2}-\d{2}(?:-\d+)?)?\.sqlite$/.test(
+            f,
+          ),
+        )
         .sort();
       for (const old of files.slice(0, Math.max(0, files.length - keep)))
         await unlink(`${dir}/${old}`).catch(() => {});

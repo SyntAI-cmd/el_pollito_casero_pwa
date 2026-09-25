@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, subscribe } from "./api.js";
 
 export const todayKey = (d = new Date()) =>
@@ -57,8 +57,14 @@ export function useDay(date) {
   const [day, setDay] = useState({ date, orders: [], tare: 1.7 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  // FIX: Flag isFetching para evitar múltiples peticiones en vuelo concurrentes
+  const isFetching = useRef(false);
+
   const load = useCallback(
     async ({ silent = false } = {}) => {
+      // FIX: Proteger llamadas repetidas si ya hay una petición en curso
+      if (isFetching.current) return;
+      isFetching.current = true;
       if (!silent) setLoading(true);
       try {
         const d = await api("/dia?fecha=" + date);
@@ -68,24 +74,59 @@ export function useDay(date) {
         if (!silent) setError(e.message);
       } finally {
         setLoading(false);
+        isFetching.current = false;
       }
     },
     [date],
   );
+
   useEffect(() => {
     load();
   }, [load]);
+
   useEffect(() => {
     let timer;
-    const close = subscribe((type) => {
+    const close = subscribe((type, data) => {
       if (type !== "orders") return;
+
+      // FIX: Actualización incremental si el evento trae el ID del pedido
+      if (data?.id) {
+        api("/orders/" + encodeURIComponent(data.id))
+          .then((updated) => {
+            if (updated) {
+              setDay((prev) => {
+                const idx = prev.orders.findIndex((o) => o.id === data.id);
+                if (idx >= 0) {
+                  const nextOrders = [...prev.orders];
+                  nextOrders[idx] = updated;
+                  return { ...prev, orders: nextOrders };
+                } else if (updated.deliveryDate === date) {
+                  return { ...prev, orders: [...prev.orders, updated] };
+                }
+                return prev;
+              });
+            }
+          })
+          .catch((e) => {
+            if (e.status === 404) {
+              setDay((prev) => ({
+                ...prev,
+                orders: prev.orders.filter((o) => o.id !== data.id),
+              }));
+            }
+          });
+        return;
+      }
+
+      // FIX: Debounce agresivo en llamadas a listas completas cuando no hay ID puntual
       clearTimeout(timer);
-      timer = setTimeout(() => load({ silent: true }), 300);
+      timer = setTimeout(() => load({ silent: true }), 500);
     });
     return () => {
       close();
       clearTimeout(timer);
     };
-  }, [load]);
+  }, [load, date]);
+
   return { day, loading, error, reload: load, setDay };
 }
