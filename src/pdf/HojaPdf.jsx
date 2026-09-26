@@ -431,7 +431,7 @@ export function HojaDocument({
   shift = "",
   orders = [],
   customers = [],
-  logo = "/brand/logo-texto.png",
+  logo = "/brand/logo-texto-print.png",
 }) {
   const filas = routeRows(orders, customers);
   const partes = partesAdaptadas(filas);

@@ -169,7 +169,7 @@ export function PedidosDocument({
   date,
   orders,
   shift = "",
-  logo = "/brand/logo-texto.png",
+  logo = "/brand/logo-texto-print.png",
 }) {
   const sorted = [...orders].sort(
     (a, b) =>

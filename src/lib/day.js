@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, subscribe } from "./api.js";
+import { coalescedRefresh } from "./refresh.js";
 
 export const todayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -57,76 +58,55 @@ export function useDay(date) {
   const [day, setDay] = useState({ date, orders: [], tare: 1.7 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  // FIX: Flag isFetching para evitar múltiples peticiones en vuelo concurrentes
-  const isFetching = useRef(false);
-
-  const load = useCallback(
-    async ({ silent = false } = {}) => {
-      // FIX: Proteger llamadas repetidas si ya hay una petición en curso
-      if (isFetching.current) return;
-      isFetching.current = true;
-      if (!silent) setLoading(true);
-      try {
-        const d = await api("/dia?fecha=" + date);
-        setDay(d);
-        setError("");
-      } catch (e) {
-        if (!silent) setError(e.message);
-      } finally {
-        setLoading(false);
-        isFetching.current = false;
-      }
-    },
-    [date],
-  );
+  const refreshRef = useRef(null);
+  const load = useCallback(() => refreshRef.current?.(), []);
 
   useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
+    let active = true;
     let timer;
-    const close = subscribe((type, data) => {
-      if (type !== "orders") return;
-
-      // FIX: Actualización incremental si el evento trae el ID del pedido
-      if (data?.id) {
-        api("/orders/" + encodeURIComponent(data.id))
-          .then((updated) => {
-            if (updated) {
-              setDay((prev) => {
-                const idx = prev.orders.findIndex((o) => o.id === data.id);
-                if (idx >= 0) {
-                  const nextOrders = [...prev.orders];
-                  nextOrders[idx] = updated;
-                  return { ...prev, orders: nextOrders };
-                } else if (updated.deliveryDate === date) {
-                  return { ...prev, orders: [...prev.orders, updated] };
-                }
-                return prev;
-              });
-            }
-          })
-          .catch((e) => {
-            if (e.status === 404) {
-              setDay((prev) => ({
-                ...prev,
-                orders: prev.orders.filter((o) => o.id !== data.id),
-              }));
-            }
-          });
-        return;
+    const controller = new AbortController();
+    setDay({ date, orders: [], tare: 1.7 });
+    setLoading(true);
+    setError("");
+    const refresh = coalescedRefresh(async () => {
+      if (!active) return;
+      try {
+        const d = await api("/dia?fecha=" + date, {
+          signal: AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(12000),
+          ]),
+        });
+        if (active) {
+          setDay(d);
+          setError("");
+        }
+      } catch (e) {
+        if (active) setError(e.message);
+      } finally {
+        if (active) setLoading(false);
       }
-
-      // FIX: Debounce agresivo en llamadas a listas completas cuando no hay ID puntual
-      clearTimeout(timer);
-      timer = setTimeout(() => load({ silent: true }), 500);
     });
-    return () => {
-      close();
+    refreshRef.current = refresh;
+    void refresh();
+    // La consulta por fecha aplica todos los filtros del servidor, incluidos cancelación
+    // y reasignación. Agrupa ráfagas de pesadas sin descargar el histórico completo.
+    const close = subscribe((type) => {
+      if (type !== "orders") return;
       clearTimeout(timer);
+      timer = setTimeout(refresh, 300);
+    });
+    const online = () => void refresh();
+    window.addEventListener("online", online);
+    return () => {
+      active = false;
+      controller.abort();
+      refreshRef.current = null;
+      clearTimeout(timer);
+      close();
+      window.removeEventListener("online", online);
     };
-  }, [load, date]);
+  }, [date]);
 
   return { day, loading, error, reload: load, setDay };
 }

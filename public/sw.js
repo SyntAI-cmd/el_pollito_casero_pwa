@@ -1,7 +1,43 @@
+function clearRetiredDocuments() {
+  return new Promise((resolve) => {
+    if (typeof indexedDB === "undefined") return resolve(false);
+    const request = indexedDB.open("pollito-documents", 1);
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains("pending"))
+        request.result.createObjectStore("pending", { keyPath: "id" });
+    };
+    request.onerror = () => resolve(false);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      if (!db.objectStoreNames.contains("pending")) {
+        db.close();
+        return resolve(true);
+      }
+      const tx = db.transaction("pending", "readwrite");
+      tx.objectStore("pending").clear();
+      tx.oncomplete = () => {
+        db.close();
+        resolve(true);
+      };
+      tx.onabort = tx.onerror = () => {
+        db.close();
+        resolve(false);
+      };
+    };
+  });
+}
+
 const CACHE = "pollito-shell-__BUILD_ID__";
 const ASSETS = /* PRECACHE */ [];
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(["/", "/icon.svg", "/manifest.webmanifest", ...ASSETS])));
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll(["/", "/icon.svg", "/manifest.webmanifest", ...ASSETS]),
+      ),
+  );
   self.skipWaiting();
 });
 self.addEventListener("activate", (event) =>
@@ -15,6 +51,7 @@ self.addEventListener("activate", (event) =>
             .map((k) => caches.delete(k)),
         ),
       )
+      .then(() => clearRetiredDocuments())
       .then(() => self.clients.claim()),
   ),
 );
@@ -52,7 +89,21 @@ self.addEventListener("message", (event) => {
 });
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method !== "GET" || url.origin !== location.origin) return;
+  if (url.origin !== location.origin) return;
+  // Las pestañas de versiones anteriores pueden conservar su temporizador de subidas.
+  // Acusar recibo del retiro sin leer el cuerpo base64 ni enviarlo al servidor.
+  if (event.request.method === "POST" && url.pathname === "/api/documents") {
+    event.respondWith(
+      Promise.resolve(
+        new Response(JSON.stringify({ retired: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    return;
+  }
+  if (event.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) {
     if (!OFFLINE_API.test(url.pathname + url.search)) return;
     event.respondWith(
@@ -95,7 +146,9 @@ self.addEventListener("fetch", (event) => {
           fetch(event.request).then((response) => {
             if (response.ok) {
               const copy = response.clone();
-              caches.open(CACHE).then((cache) => cache.put(event.request, copy));
+              caches
+                .open(CACHE)
+                .then((cache) => cache.put(event.request, copy));
             }
             return response;
           }),
@@ -125,12 +178,15 @@ self.addEventListener("push", (event) => {
 });
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL(event.notification.data?.url || "/", location.origin).href;
+  const url = new URL(event.notification.data?.url || "/", location.origin)
+    .href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      const open = list.find((c) => c.url.startsWith(location.origin));
-      if (open) return open.navigate(url).then((c) => c?.focus());
-      return self.clients.openWindow(url);
-    }),
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        const open = list.find((c) => c.url.startsWith(location.origin));
+        if (open) return open.navigate(url).then((c) => c?.focus());
+        return self.clients.openWindow(url);
+      }),
   );
 });

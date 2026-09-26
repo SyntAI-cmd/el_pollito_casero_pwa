@@ -1,5 +1,4 @@
-import { archivePdf } from "./archive.js";
-import { createElement } from "react";
+import { renderPdf } from "./pdf-job.js";
 import { remitoFileName } from "./remito.js";
 
 /**
@@ -8,14 +7,6 @@ import { remitoFileName } from "./remito.js";
  * (import dinámico) y no en el arranque de la app. Todo se genera del lado del cliente: no hay
  * funciones serverless de por medio ni tiempos de espera.
  */
-
-let cache = null;
-async function engine() {
-  if (!cache) {
-    cache = import("@react-pdf/renderer").then((m) => m.pdf);
-  }
-  return cache;
-}
 
 const safe = (t) =>
   String(t || "")
@@ -33,20 +24,8 @@ async function deliver(action, blob, name, share) {
 }
 
 /** Hoja de pedidos del día (A4 apaisada): N° pedido · cliente · producto · kg · observación. */
-export async function pedidosPdfBlob({ date, orders, shift }) {
-  const [pdf, { PedidosDocument }] = await Promise.all([
-    engine(),
-    import("../pdf/PedidosPdf.jsx"),
-  ]);
-  const blob = await pdf(
-    createElement(PedidosDocument, { date, orders, shift }),
-  ).toBlob();
-  await archivePdf(blob, {
-    name: pedidosFileName({ date, shift }),
-    orders: orders.map((o) => o.id),
-    kind: "pedidos",
-  });
-  return blob;
+export async function pedidosPdfBlob({ date, orders, shift, signal }) {
+  return renderPdf("pedidos", { date, orders, shift }, { signal });
 }
 export const pedidosFileName = ({ date, shift }) =>
   `Hoja_pedidos_${safe(date)}${shift ? "_" + safe(shift) : ""}.pdf`;
@@ -66,21 +45,20 @@ export async function hojaPdfBlob({
   vehicle,
   orders,
   customers,
+  signal,
 }) {
   if (!orders?.length) throw Error("No hay pedidos para la hoja.");
-  const [pdf, { HojaDocument }] = await Promise.all([
-    engine(),
-    import("../pdf/HojaPdf.jsx"),
-  ]);
-  const blob = await pdf(
-    createElement(HojaDocument, { date, drivers, vehicle, orders, customers }),
-  ).toBlob();
-  await archivePdf(blob, {
-    name: `Hoja_ruta_${safe(date)}_${safe((drivers || []).join("_") || vehicle || "reparto")}.pdf`,
-    orders: orders.map((o) => o.id),
-    kind: "hojas-ruta",
-  });
-  return blob;
+  return renderPdf(
+    "hoja",
+    {
+      date,
+      drivers,
+      vehicle,
+      orders,
+      customers: documentCustomers(orders, customers),
+    },
+    { signal },
+  );
 }
 export async function hojaAction(
   action,
@@ -103,27 +81,24 @@ export async function remitoPdfBlob({
   fiscal,
   hidePrices = false,
   hideBalance = false,
+  signal,
 }) {
   if (!orders?.length) throw Error("No hay pedidos para el remito.");
-  const [pdf, { RemitoDocument }] = await Promise.all([
-    engine(),
-    import("../pdf/RemitoPdf.jsx"),
-  ]);
-  const blob = await pdf(
-    createElement(RemitoDocument, {
+  return renderPdf(
+    "remito",
+    {
       orders,
-      customers,
+      customers: documentCustomers(orders, customers),
       fiscal,
       hidePrices,
       hideBalance,
-    }),
-  ).toBlob();
-  await archivePdf(blob, {
-    name: remitoFileName(orders, {}),
-    orders: orders.map((o) => o.id),
-    kind: "remitos",
-  });
-  return blob;
+    },
+    { signal },
+  );
+}
+function documentCustomers(orders, customers = []) {
+  const phones = new Set(orders.map((o) => o.customer));
+  return customers.filter((c) => phones.has(c.phone));
 }
 
 /** Descarga el blob como archivo (o lo abre en una pestaña si el navegador no permite descargar). */

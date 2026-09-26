@@ -260,7 +260,7 @@ export function RemitoDocument({
   orders,
   customers = [],
   fiscal = {},
-  logo = "/brand/logo-pollito.png",
+  logo = "/brand/logo-pollito-print.png",
   hidePrices = false,
   hideBalance = false,
 }) {

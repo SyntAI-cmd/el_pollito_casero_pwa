@@ -28,15 +28,17 @@ export default function PdfPreview({
   const [busy, setBusy] = useState("");
   useEffect(() => {
     let alive = true;
+    const controller = new AbortController();
     setBlob(null);
     setError("");
-    generate()
+    generate(controller.signal)
       .then((b) => alive && setBlob(b))
       .catch(
         (e) => alive && setError(e?.message || "No se pudo generar el PDF."),
       );
     return () => {
       alive = false;
+      controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
@@ -57,6 +59,8 @@ export default function PdfPreview({
           title: fileName.replace(/\.pdf$/, "").replace(/_/g, " "),
           text: shareText,
         });
+    } catch (e) {
+      setError(e.message || "No se pudo abrir el PDF.");
     } finally {
       setBusy("");
     }

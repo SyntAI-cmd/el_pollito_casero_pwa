@@ -90,8 +90,9 @@ export default function Print() {
               hidePrices,
               hideBalance,
             ]}
-            generate={() =>
+            generate={(signal) =>
               remitoPdfBlob({
+                signal,
                 orders: list,
                 customers,
                 fiscal: config?.fiscal || {},
@@ -148,8 +149,8 @@ export default function Print() {
     <div className="print-page">
       <PdfPreview
         deps={[fecha, turno, repartidor, list.map((o) => o.id).join(",")]}
-        generate={() =>
-          pedidosPdfBlob({ date: fecha, orders: list, shift: turno })
+        generate={(signal) =>
+          pedidosPdfBlob({ date: fecha, orders: list, shift: turno, signal })
         }
         fileName={pedidosFileName({ date: fecha, shift: turno })}
         shareText="Hoja de pedidos · El Pollito Casero"

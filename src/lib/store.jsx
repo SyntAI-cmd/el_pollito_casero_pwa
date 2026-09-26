@@ -29,6 +29,7 @@ import {
 } from "./format.js";
 import { useRoute } from "./router.jsx";
 import { setDueño } from "./outbox.js";
+import { coalescedRefresh } from "./refresh.js";
 import { dueñoDe } from "./sesion.js";
 import { enablePush, disablePush, syncPush, pushPermission } from "./push.js";
 import {
@@ -79,7 +80,6 @@ export function StoreProvider({ children }) {
   }, [session]);
 
   const isFetchingOrders = useRef(false);
-  const isFetchingCustomers = useRef(false);
   const customerDebounceTimer = useRef(null);
   const ordersDebounceTimer = useRef(null);
 
@@ -89,8 +89,10 @@ export function StoreProvider({ children }) {
   const updateOrderById = useCallback(
     async (orderId) => {
       if (!orderId) return;
+      const owner = sessionRef.current;
       try {
         const updated = await api("/orders/" + encodeURIComponent(orderId));
+        if (sessionRef.current !== owner) return;
         if (updated) {
           const prevStatus = lastStatuses.current[updated.id];
           if (
@@ -112,6 +114,7 @@ export function StoreProvider({ children }) {
           });
         }
       } catch (e) {
+        if (sessionRef.current !== owner) return;
         if (e.status === 404) {
           setOrders((current) => current.filter((o) => o.id !== orderId));
           delete lastStatuses.current[orderId];
@@ -161,24 +164,24 @@ export function StoreProvider({ children }) {
       setMe(await api("/me").catch(() => null));
     else setMe(null);
   }, []);
-  const loadCustomers = useCallback(async () => {
-    if (
-      sessionRef.current?.role === "admin" ||
-      sessionRef.current?.role === "repartidor"
-    ) {
-      // FIX: Bandera isFetching para evitar múltiples peticiones en vuelo de clientes
-      if (isFetchingCustomers.current) return;
-      isFetchingCustomers.current = true;
-      try {
-        const list = await api("/customers").catch(() => []);
-        setCustomers(list);
-      } finally {
-        isFetchingCustomers.current = false;
-      }
-    } else {
-      setCustomers([]);
-    }
-  }, []);
+  const loadCustomers = useMemo(
+    () =>
+      coalescedRefresh(async () => {
+        const owner = sessionRef.current;
+        if (!["admin", "repartidor"].includes(owner?.role)) {
+          setCustomers([]);
+          return;
+        }
+        try {
+          const list = await api("/customers");
+          if (sessionRef.current === owner) setCustomers(list);
+        } catch (e) {
+          // Una falla temporal no vacía las fichas ni cambia sus saldos a cero.
+          if (sessionRef.current === owner && !e.network) notify(e.message);
+        }
+      }),
+    [notify],
+  );
   /** Vuelve a traer pedidos y clientes del servidor (al entrar a una vista, para no mostrar datos viejos). */
   const reload = useCallback(
     () =>
@@ -268,7 +271,7 @@ export function StoreProvider({ children }) {
             );
           }
         }
-        if (type === "customer") {
+        if (type === "customer" || type === "orders") {
           // FIX: Debounce agresivo en llamadas a clientes para evitar recargas masivas consecutivas
           clearTimeout(customerDebounceTimer.current);
           customerDebounceTimer.current = setTimeout(() => {
@@ -279,7 +282,11 @@ export function StoreProvider({ children }) {
       },
       (state) => setLive(state),
     );
-    const timer = setInterval(() => loadOrders({ silent: true }), 30000);
+    const timer = setInterval(() => {
+      loadOrders({ silent: true });
+      loadCustomers();
+      loadMe();
+    }, 30000);
     return () => {
       close();
       clearInterval(timer);
