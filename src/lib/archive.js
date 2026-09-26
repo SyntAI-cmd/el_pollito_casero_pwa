@@ -1,13 +1,15 @@
 import { api } from "./api.js";
+
 let owner = "",
   working = false;
+
 export function setArchiveOwner(session) {
   owner =
     session && ["admin", "repartidor"].includes(session.role)
       ? `${session.role}:${session.username || session.driver || session.name}`
       : "";
-  if (owner) void flushDocuments();
 }
+
 function database() {
   return new Promise((resolve, reject) => {
     const r = indexedDB.open("pollito-documents", 1);
@@ -17,6 +19,7 @@ function database() {
     r.onerror = () => reject(r.error);
   });
 }
+
 async function items(action, value) {
   const db = await database();
   return new Promise((resolve, reject) => {
@@ -24,7 +27,8 @@ async function items(action, value) {
       "pending",
       action === "getAll" ? "readonly" : "readwrite",
     );
-    const r = tx.objectStore("pending")[action](value);
+    const store = tx.objectStore("pending");
+    const r = action === "clear" ? store.clear() : store[action](value);
     tx.oncomplete = () => {
       db.close();
       resolve(r.result);
@@ -35,35 +39,36 @@ async function items(action, value) {
     };
   });
 }
+
 const notice = (message) =>
   typeof window !== "undefined" &&
   window.dispatchEvent(new CustomEvent("archive-status", { detail: message }));
 
+/** Cancela y vacía completamente la cola de documentos pendientes en este dispositivo. */
+export async function cancelDocumentsQueue() {
+  try {
+    await items("clear");
+    console.info("Cola de documentos pendientes cancelada en este dispositivo.");
+    return true;
+  } catch (err) {
+    console.warn("No se pudo limpiar la cola de documentos:", err);
+    return false;
+  }
+}
+export const clearDocumentsQueue = cancelDocumentsQueue;
+
+/**
+ * Conservación de documentos en segundo plano.
+ * NOTA: Con la sección de Documentos retirada de producción, no se encolan subidas
+ * en segundo plano para evitar bloqueos, consumos innecesarios o alertas repetitivas.
+ * Los PDFs se generan, descargan y comparten normalmente de forma directa.
+ */
 export async function archivePdf(
   blob,
-  { name, orders = [], kind = "documentos" },
+  { name, orders = [], kind = "documentos" } = {},
 ) {
-  if (!owner) return;
-  const id = crypto.randomUUID(),
-    who = owner;
-  try {
-    await items("put", {
-      id,
-      owner: who,
-      blob,
-      name,
-      orders,
-      kind,
-      status: "pending",
-      created: new Date().toISOString(),
-    });
-  } catch {
-    throw Error(
-      "No se pudo conservar el documento en este dispositivo. Liberá espacio y reintentá.",
-    );
-  }
-  notice("Documento conservado. Preparando envío al servidor…");
-  void flushDocuments();
+  // Módulo de archivo desactivado por decisión operativa.
+  return;
 }
 
 export async function flushDocuments() {
@@ -82,13 +87,10 @@ export async function flushDocuments() {
     for (const row of rows) {
       if (owner !== who) break;
       if (row.owner !== who) continue;
-      // FIX: Ignorar documentos marcados con error permanente para no bloquear la cola
       if (row.status === "requires_attention") continue;
 
-      // FIX: Aislar el hilo cediendo tiempo al event loop antes de procesar cada PDF pesado
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      // FIX: Bloque try/catch robusto por cada documento en el bucle
       try {
         const base64 = await new Promise((resolve, reject) => {
           const r = new FileReader();
@@ -97,7 +99,6 @@ export async function flushDocuments() {
           r.readAsDataURL(row.blob);
         });
 
-        // FIX: Presupuesto de tiempo aislado (60s) para PDFs sin interferir con timeout de pesadas
         await api("/documents", {
           method: "POST",
           body: JSON.stringify({
@@ -110,9 +111,6 @@ export async function flushDocuments() {
         });
 
         await items("delete", row.id);
-        notice(
-          "Documento guardado en el servidor. Consultá su envío a Drive en Documentos.",
-        );
       } catch (docError) {
         const isPermanent =
           docError.status &&
@@ -122,31 +120,30 @@ export async function flushDocuments() {
           docError.status !== 429;
 
         if (isPermanent) {
-          // FIX: Error permanente (ej. 400): marcar como requires_attention y usar continue para no frenar los demás
           row.status = "requires_attention";
           row.error = docError.message || "Rechazado por el servidor";
           row.failedAt = new Date().toISOString();
           await items("put", row);
-          notice(
-            `Documento ${row.name || "pendiente"} requiere atención: ${docError.message}`,
-          );
           continue;
         } else {
-          // Fallo transitorio (red o servidor): detener el ciclo actual y esperar próximo reintento
-          notice("Documento pendiente en este dispositivo: " + docError.message);
+          // Error transitorio: no emitir toast invasivo en bucle continuo
+          console.warn("Fallo transitorio en envío de documento:", docError.message);
           break;
         }
       }
     }
   } catch (e) {
-    notice("Documento pendiente en este dispositivo: " + e.message);
+    console.warn("Error en flushDocuments:", e.message);
   } finally {
     working = false;
   }
 }
 
+// Inicialización en navegador: limpiar cola trabada y exponer helper
 if (typeof window !== "undefined") {
-  window.addEventListener("online", () => void flushDocuments());
-  const docInterval = setInterval(() => void flushDocuments(), 30000);
-  docInterval?.unref?.();
+  // Cancelar inmediatamente cualquier documento pendiente que haya quedado encolado en el dispositivo
+  setTimeout(() => {
+    cancelDocumentsQueue().catch(() => {});
+  }, 500);
+  window.cancelarColaDocumentos = cancelDocumentsQueue;
 }

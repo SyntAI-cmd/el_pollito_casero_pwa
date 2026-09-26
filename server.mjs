@@ -126,6 +126,10 @@ if (process.env.RESET_DATOS) {
       else if (name === "saldos") resetBalances(store, { log: rlog, dir });
       else if (name === "admin")
         makeAdmin(store, value.split(","), { log: rlog });
+      else if (name === "limpiar-semana" || name === "semana") {
+        const { limpiarSemana } = await import("./scripts/limpiar-semana.mjs");
+        limpiarSemana(store, { log: rlog, dir });
+      }
     }
   } catch (e) {
     log.warn("Reset:", e.message);

@@ -458,8 +458,6 @@ function seccionesDe(role) {
         "Gestión",
         [
           ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
-          ["/operacion/documentos", "Documentos", ClipboardList, "Documentos"],
-          ["/operacion/movimientos", "Movimientos", History, "Movimientos"],
           ["/operacion/entregas", "Revisar entregas", Truck, "Entregas"],
           ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
         ],
@@ -473,7 +471,6 @@ function seccionesDe(role) {
         ["/reparto/nuevo", "Cargar pedido", Plus, "Nuevo"],
         ["/reparto/pesada", "Pesaje", Scale, "Pesaje"],
         ["/reparto/clientes", "Clientes", Users, "Clientes"],
-        ["/reparto/documentos", "Documentos", ClipboardList, "Documentos"],
       ],
     ],
   ];
