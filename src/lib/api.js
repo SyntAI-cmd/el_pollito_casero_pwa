@@ -21,6 +21,8 @@ export async function api(path, options = {}) {
       },
     });
   } catch (cause) {
+    // Una cancelación pedida por la app no es un problema de red.
+    if (cause?.name === "AbortError" && options.signal?.aborted) throw cause;
     // Failed to fetch / timeout: el servidor no responde o no hay red.
     const e = Error(
       navigator.onLine
@@ -31,10 +33,41 @@ export async function api(path, options = {}) {
     e.cause = cause;
     throw e;
   }
-  const data = r.status === 204 ? null : await r.json();
-  if (!r.ok) {
-    const e = Error(data?.error || "No se pudo completar la solicitud.");
+  // El estado HTTP se conserva siempre: una página HTML de un proxy (502, 503) o un corte a mitad
+  // de la respuesta no debe esconder qué pasó ni convertirse en un rechazo definitivo.
+  let data = null;
+  let nonJson = false;
+  if (r.status !== 204) {
+    let text = "";
+    try {
+      text = await r.text();
+    } catch (cause) {
+      const e = Error("La respuesta del servidor llegó incompleta.");
+      e.network = true;
+      e.status = r.status;
+      e.cause = cause;
+      throw e;
+    }
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        nonJson = true;
+      }
+    }
+  }
+  if (!r.ok || nonJson) {
+    const e = Error(
+      data?.error ||
+        (nonJson
+          ? `El servidor respondió algo inesperado (${r.status}).`
+          : "No se pudo completar la solicitud."),
+    );
     e.status = r.status;
+    e.nonJson = nonJson;
+    const retryAfter = Number(r.headers.get("Retry-After"));
+    if (Number.isFinite(retryAfter) && retryAfter > 0)
+      e.retryAfter = retryAfter * 1000;
     if ((r.status === 401 || r.status === 403) && path !== "/session")
       authErrorHandler?.(e);
     throw e;
@@ -52,40 +85,70 @@ export const del = (path, body) =>
 export const put = (path, body) =>
   api(path, { method: "PUT", body: JSON.stringify(body) });
 
-/** Suscripción a novedades del servidor. Devuelve una función para cerrar. */
-export function subscribe(onEvent, onState) {
-  let source;
-  let closed = false;
-  let retry = 2000;
-  const open = () => {
-    if (closed) return;
-    source = new EventSource("/api/events");
-    source.addEventListener("hello", () => {
-      retry = 2000;
-      onState?.(true);
+/**
+ * Novedades del servidor: UNA conexión SSE por pestaña, compartida por todas las pantallas
+ * (antes cada una abría la suya). `onEvent(type, data)`; `onState(live, { reconnected })`, donde
+ * `reconnected` avisa que hubo un corte: los eventos de ese rato se perdieron y hay que conciliar.
+ * Devuelve una función para desuscribirse; la conexión se cierra cuando no queda nadie.
+ */
+const hub = { source: null, retry: 2000, timer: null, listeners: new Set() };
+const EVENT_TYPES = ["orders", "customer", "news", "fleet"];
+let hubLive = false;
+let hubDropped = false;
+function hubOpen() {
+  if (hub.source || !hub.listeners.size) return;
+  const source = new EventSource("/api/events");
+  hub.source = source;
+  source.addEventListener("hello", () => {
+    hub.retry = 2000;
+    const reconnected = hubDropped;
+    hubDropped = false;
+    hubLive = true;
+    for (const l of hub.listeners) l.onState?.(true, { reconnected });
+  });
+  for (const type of EVENT_TYPES)
+    source.addEventListener(type, (e) => {
+      let data = null;
+      try {
+        data = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      for (const l of hub.listeners) l.onEvent?.(type, data);
     });
-    source.addEventListener("orders", (e) =>
-      onEvent("orders", JSON.parse(e.data)),
-    );
-    source.addEventListener("customer", (e) =>
-      onEvent("customer", JSON.parse(e.data)),
-    );
-    source.addEventListener("news", (e) => onEvent("news", JSON.parse(e.data)));
-    source.addEventListener("fleet", (e) =>
-      onEvent("fleet", JSON.parse(e.data)),
-    );
-    source.onerror = () => {
-      onState?.(false);
-      source.close();
-      if (!closed) setTimeout(open, (retry = Math.min(retry * 2, 30000)));
-    };
-  };
-  open();
-  return () => {
-    closed = true;
-    source?.close();
+  source.onerror = () => {
+    source.close();
+    if (hub.source === source) hub.source = null;
+    hubDropped = true;
+    hubLive = false;
+    for (const l of hub.listeners) l.onState?.(false, {});
+    clearTimeout(hub.timer);
+    if (hub.listeners.size)
+      hub.timer = setTimeout(
+        hubOpen,
+        (hub.retry = Math.min(hub.retry * 2, 30000)),
+      );
   };
 }
+export function subscribe(onEvent, onState) {
+  const listener = { onEvent, onState };
+  hub.listeners.add(listener);
+  if (hub.source) {
+    if (hubLive) queueMicrotask(() => onState?.(true, { reconnected: false }));
+  } else if (!hub.timer) hubOpen();
+  return () => {
+    hub.listeners.delete(listener);
+    if (!hub.listeners.size) {
+      clearTimeout(hub.timer);
+      hub.timer = null;
+      hub.source?.close();
+      hub.source = null;
+      hubLive = false;
+      hubDropped = false;
+    }
+  };
+}
+export const isLive = () => hubLive;
 
 export function stored(key, fallback) {
   try {
@@ -94,8 +157,19 @@ export function stored(key, fallback) {
     return fallback;
   }
 }
+/** Preferencias y datos que se pueden volver a pedir: si no se guardan, no pasa nada. */
 export function persist(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch {}
+    return true;
+  } catch {
+    return false;
+  }
+}
+/** Datos que no se pueden perder (cola de pesadas): la falla se informa a quien llama. */
+export function persistStrict(key, value) {
+  const text = JSON.stringify(value);
+  localStorage.setItem(key, text);
+  if (localStorage.getItem(key) !== text)
+    throw Error("El teléfono no confirmó la escritura.");
 }
