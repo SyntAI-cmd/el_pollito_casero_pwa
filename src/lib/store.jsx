@@ -411,9 +411,15 @@ export function StoreProvider({ children }) {
     dropOrder,
   ]);
 
-  useEffect(() => persist("pc-cart", cart), [cart]);
-  useEffect(() => persist("pc-plan", plan), [plan]);
-  useEffect(() => persist("pc-profile", profile), [profile]);
+  useEffect(() => {
+    persist("pc-cart", cart);
+  }, [cart]);
+  useEffect(() => {
+    persist("pc-plan", plan);
+  }, [plan]);
+  useEffect(() => {
+    persist("pc-profile", profile);
+  }, [profile]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 5000);

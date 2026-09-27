@@ -158,13 +158,12 @@ export function stored(key, fallback) {
   }
 }
 /** Preferencias y datos que se pueden volver a pedir: si no se guardan, no pasa nada. */
+// No devuelve nada a propósito: se usa como cuerpo de efectos de React, que sólo aceptan una
+// función de limpieza o nada (devolver true rompía al entrar y salir de la sesión).
 export function persist(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
+  } catch {}
 }
 /** Datos que no se pueden perder (cola de pesadas): la falla se informa a quien llama. */
 export function persistStrict(key, value) {
