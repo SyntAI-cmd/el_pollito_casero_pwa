@@ -34,7 +34,18 @@ import {
   floorStatus,
   floorLabels,
 } from "../lib/day.js";
-import { send, propias, ajenas, onOutbox } from "../lib/outbox.js";
+import {
+  send,
+  propias,
+  ajenas,
+  onOutbox,
+  onResult,
+  estado as estadoCola,
+  revision,
+  reintentar,
+  descartar,
+} from "../lib/outbox.js";
+import { overlayPending, rejectedFor } from "../lib/pending.js";
 
 const fmt = (n) =>
   Number(n).toLocaleString("es-AR", {
@@ -103,24 +114,46 @@ export default function Weighing() {
     if (next !== location.search)
       navigate(location.pathname + next, { replace: true, scroll: false });
   }, [date, shift, driver, estado]);
-  const { day, loading, error, reload, setDay } = useDay(date);
+  const { day, loading, error, applyOrder } = useDay(date);
   const [selected, setSelected] = useState(query.get("pedido") || null);
   const [product, setProduct] = useState(null);
   const [gross, setGross] = useState("");
   const [boxes, setBoxes] = useState("");
-  const [queued, setQueued] = useState(propias().length);
-  // Pendientes de OTRA persona en este mismo teléfono: se avisan, no se envían con esta sesión.
-  const [deOtros, setDeOtros] = useState(ajenas().length);
+  // Cola del teléfono: pendientes (guardados acá, sin confirmar), en envío, y rechazados que
+  // requieren revisión. Lo pendiente se muestra encima de lo confirmado hasta resolverse por id.
+  const [queue, setQueue] = useState(() => ({
+    mias: propias(),
+    otras: ajenas().length,
+    meta: { ...estadoCola(), revision: revision() },
+  }));
   useEffect(
     () =>
-      onOutbox((mias, otras) => {
-        setQueued(mias.length);
-        setDeOtros(otras.length);
-      }),
+      onOutbox((mias, otras, meta) =>
+        setQueue({ mias, otras: otras.length, meta }),
+      ),
     [],
   );
-  const order = day.orders.find((o) => o.id === selected) || null;
+  // Respuesta del servidor a cada pesada, anulación o carga (también las que salieron solas
+  // al volver la señal): se aplica tal cual, sin volver a bajar la nota.
+  useEffect(
+    () =>
+      onResult(({ result }) => {
+        if (result?.id && Array.isArray(result.crates)) applyOrder(result);
+      }),
+    [applyOrder],
+  );
+  const queued = queue.mias.length;
+  const deOtros = queue.otras;
   const tare = day.tare || 1.7;
+  const orders = useMemo(
+    () =>
+      overlayPending(day.orders, queue.mias, {
+        tare,
+        sending: queue.meta.enviando,
+      }),
+    [day.orders, queue, tare],
+  );
+  const order = orders.find((o) => o.id === selected) || null;
   const back = session?.role === "admin" ? "/operacion" : "/reparto";
 
   // Preventistas que realmente figuran en la nota del día, como primero o como segundo.
@@ -128,17 +161,17 @@ export default function Weighing() {
     () =>
       [
         ...new Set(
-          day.orders.flatMap((o) => [o.driver, o.driver2].filter(Boolean)),
+          orders.flatMap((o) => [o.driver, o.driver2].filter(Boolean)),
         ),
       ].sort((a, b) => a.localeCompare(b)),
-    [day.orders],
+    [orders],
   );
   // Pedidos de hoy en el orden en que se cargaron (N° de pedido), con búsqueda por cliente o N°.
   const [search, setSearch] = useState("");
   const q = normalize(search.trim());
   const list = useMemo(
     () =>
-      day.orders
+      orders
         .filter((o) => !["en_camino", "entregado"].includes(o.status))
         .filter((o) => !shift || orderShift(o, customers) === shift)
         // Un pedido aparece una sola vez: alcanza con que el preventista sea el primero o el
@@ -172,7 +205,7 @@ export default function Weighing() {
             (a.o.number || 0) - (b.o.number || 0) ||
             a.o.created.localeCompare(b.o.created),
         ),
-    [day.orders, q, shift, driver, estado, customers],
+    [orders, q, shift, driver, estado, customers],
   );
 
   useEffect(() => {
@@ -224,50 +257,28 @@ export default function Weighing() {
     if (saving.current) return;
     if (!order || !product || !Number.isFinite(g) || net <= 0) return;
     saving.current = true;
-    setTimeout(() => (saving.current = false), 600);
+    // El campo se vacía en este mismo evento (React lo aplica antes del próximo toque, que ya no
+    // tiene peso): el bloqueo sólo cubre repeticiones del mismo gesto y no frena la siguiente.
+    setTimeout(() => (saving.current = false), 0);
     const id = crypto.randomUUID();
-    const count = nBoxes;
-    // En bolsa va una sola fila que representa 0 envases: nunca se divide por cero.
-    const filas = Math.max(1, count);
-    const each = Math.round((net / filas) * 100) / 100;
-    const taraFila = count === 0 ? 0 : tare;
-    const at = new Date().toISOString();
-    // Optimista: se ve la pesada al instante, aunque no haya señal.
-    const optimistic = Array.from({ length: filas }, (_, i) => {
-      const n =
-        i === filas - 1
-          ? Math.round((net - each * (filas - 1)) * 100) / 100
-          : each;
-      return {
-        id: filas === 1 ? id : `${id}:${i + 1}`,
-        productId: product,
-        gross: Math.round((n + taraFila) * 100) / 100,
-        tare: taraFila,
-        net: n,
-        boxes: count === 0 ? 0 : 1,
-        at,
-        pending: true,
-      };
-    });
-    setDay((d) => ({
-      ...d,
-      orders: d.orders.map((o) =>
-        o.id === order.id
-          ? { ...o, crates: [...(o.crates || []), ...optimistic] }
-          : o,
-      ),
-    }));
+    // La pesada se guarda primero en el teléfono (la cola avisa y se ve como pendiente al
+    // instante); el operador puede seguir con la siguiente sin esperar al servidor.
     setGross("");
     setBoxes("");
-    const body = { id, productId: product, boxes: count, gross: g };
+    const body = { id, productId: product, boxes: nBoxes, gross: g };
     const r = await send(`/orders/${order.id}/crates`, body).catch((e) => {
-      notify(e.message);
-      reload({ silent: true });
+      notify(
+        `Pesada rechazada: ${e.message} Quedó en «Requiere revisión».`,
+      );
       return null;
     });
-    if (r?.queued)
-      notify("Sin señal: la pesada quedó guardada y se envía sola.");
-    else if (r) reload({ silent: true });
+    if (r?.queued && r.durable === false)
+      notify(
+        "¡Atención! El teléfono no pudo guardar la pesada. No cierres la app hasta que se envíe.",
+      );
+    else if (r?.queued)
+      notify("Sin señal: la pesada quedó guardada en el teléfono y se envía sola.");
+    else if (r?.id && Array.isArray(r.crates)) applyOrder(r);
   }
   async function undo(group) {
     const kg = group.crates.reduce((s, c) => s + c.net, 0);
@@ -277,6 +288,8 @@ export default function Weighing() {
         : `el lote de ${group.crates.length} cajas (${fmt(kg)} kg)`;
     if (!window.confirm(`¿Anular ${what}?`)) return;
     try {
+      // Todas quedan en la cola de una vez (se ocultan al instante) y salen en orden; la
+      // respuesta de cada anulación se aplica al llegar.
       await Promise.all(
         group.crates.map((c) =>
           send(
@@ -286,7 +299,6 @@ export default function Weighing() {
           ),
         ),
       );
-      reload({ silent: true });
     } catch (e) {
       notify(e.message);
     }
@@ -349,6 +361,14 @@ export default function Weighing() {
         </div>
       </PageHead>
       {error && <p className="notice error">{error}</p>}
+      {!order && queue.meta.revision.length > 0 && (
+        <p className="notice error" role="alert">
+          {queue.meta.revision.length === 1
+            ? "1 operación requiere revisión"
+            : `${queue.meta.revision.length} operaciones requieren revisión`}
+          : abrí el pedido para ver el motivo y decidir si reintentar o descartar.
+        </p>
+      )}
 
       {!order && (
         <div className="weigh-filters" role="group" aria-label="Turno">
@@ -431,7 +451,7 @@ export default function Weighing() {
       )}
       {!order && (
         <section className="floor-list">
-          {loading && !day.orders.length ? (
+          {loading && !orders.length ? (
             <p className="muted">Cargando la nota del {dmy(date)}…</p>
           ) : list.length === 0 ? (
             <div className="floor-empty">
@@ -518,11 +538,20 @@ export default function Weighing() {
               cargó.
             </p>
           )}
-          <p className="weigh-sync">
+          {queue.meta.errorAlmacenamiento && (
+            <p className="notice error" role="alert">
+              {queue.meta.errorAlmacenamiento}
+            </p>
+          )}
+          <p className="weigh-sync" role="status">
             {queued > 0 ? (
               <span className="sync pendiente">
-                <WifiOff size={14} /> {queued} pesada{queued === 1 ? "" : "s"}{" "}
-                pendiente{queued === 1 ? "" : "s"} de sincronizar
+                <WifiOff size={14} /> {queued} pendiente{queued === 1 ? "" : "s"}{" "}
+                de enviar
+                {queue.meta.enviando.length ? " · enviando…" : ""}
+                {queue.meta.esperandoSesion
+                  ? " · esperando que vuelvas a ingresar"
+                  : ""}
               </span>
             ) : (
               <span className="sync guardado">
@@ -530,6 +559,11 @@ export default function Weighing() {
               </span>
             )}
           </p>
+          <Rechazadas
+            items={rejectedFor(order.id, queue.meta.revision)}
+            products={order.items}
+            notify={notify}
+          />
           <div
             className="weigh-products"
             role="tablist"
@@ -773,7 +807,11 @@ export default function Weighing() {
                             ? " · cargado"
                             : ` · ${loaded} cargados`
                           : ""}
-                        {pendingSend ? " · enviando…" : ""}
+                        {pendingSend
+                          ? gr.crates.some((c) => c.sending)
+                            ? " · enviando…"
+                            : " · pendiente de envío"
+                          : ""}
                       </span>
                       {!loaded && !pendingSend && (
                         <button
@@ -805,6 +843,60 @@ export default function Weighing() {
           </p>
         </section>
       )}
+    </div>
+  );
+}
+
+/**
+ * Pesadas que el servidor rechazó (pedido cancelado, datos inválidos…): quedan guardadas en el
+ * teléfono con su motivo hasta que alguien decida reintentarlas o descartarlas.
+ */
+function Rechazadas({ items, products, notify }) {
+  if (!items.length) return null;
+  const nombre = (id) => products.find((p) => p.id === id)?.name || id;
+  return (
+    <div className="notice error weigh-rejected" role="alert">
+      <strong>
+        {items.length === 1
+          ? "1 pesada requiere revisión"
+          : `${items.length} pesadas requieren revisión`}
+      </strong>
+      <ul>
+        {items.map((r) => (
+          <li key={r.id}>
+            <span>
+              {nombre(r.productId)} · {r.boxes === 0 ? "bolsa" : `${r.boxes ?? 1} caja${r.boxes === 1 ? "" : "s"}`}{" "}
+              · bruto {fmt(r.gross)} kg — {r.motivo}
+            </span>
+            <span className="weigh-rejected-actions">
+              <button
+                type="button"
+                className="link-button"
+                onClick={async () => {
+                  if (!(await reintentar(r.id)))
+                    notify("No se pudo volver a poner en la cola.");
+                }}
+              >
+                Reintentar
+              </button>
+              <button
+                type="button"
+                className="link-button"
+                onClick={async () => {
+                  if (
+                    window.confirm(
+                      `¿Descartar la pesada de ${fmt(r.gross)} kg? No se va a enviar.`,
+                    )
+                  )
+                    await descartar(r.id).catch((e) => notify(e.message));
+                }}
+              >
+                Descartar
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

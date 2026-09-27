@@ -33,7 +33,7 @@ import {
   floorStatus,
   floorLabels,
 } from "../lib/day.js";
-import { send } from "../lib/outbox.js";
+import { send, onResult } from "../lib/outbox.js";
 import { api, post, put, subscribe } from "../lib/api.js";
 import { vehicleLabel } from "../components/Vehicles.jsx";
 
@@ -51,7 +51,7 @@ export default function TruckLoading() {
   const [driver, setDriver] = useState(
     isAdmin ? query.get("camion") || drivers[0] || "" : session?.driver || "",
   );
-  const { day, loading, reload, setDay } = useDay(date);
+  const { day, loading, reload, setDay, applyOrder } = useDay(date);
   // Flota: vehículos y salidas del día (vehículo + preventistas + hora). Si no hay vehículos
   // cargados en Equipo, la pantalla sigue funcionando por preventista como antes.
   const [vehicles, setVehicles] = useState([]);
@@ -169,7 +169,34 @@ export default function TruckLoading() {
       return changed ? { ...d, orders } : d;
     });
   }, [day, setDay]);
-  /** Ejecuta una llamada al servidor; cuando no queda ninguna en vuelo, refresca una sola vez. */
+  /**
+   * Resultado de una carga o bajada: el servidor devuelve el pedido con sus cajones y se aplica
+   * tal cual. Lo que quedó en la cola sin señal sigue marcado hasta que se confirme (antes, un
+   * refresco completo al terminar lo hacía desaparecer de la pantalla).
+   */
+  const settleCrate = useCallback(
+    (crateId, result) => {
+      if (!result || result.queued) return;
+      pendingLoad.current.delete(crateId);
+      pendingUnload.current.delete(crateId);
+      if (result.id && Array.isArray(result.crates)) applyOrder(result);
+    },
+    [applyOrder],
+  );
+  useEffect(
+    () =>
+      onResult(({ entry, result, error }) => {
+        const m = entry.path.match(/^\/crates\/([^/]+)\/(load|unload)$/);
+        if (!m) return;
+        const crateId = decodeURIComponent(m[1]);
+        if (error) {
+          pendingLoad.current.delete(crateId);
+          pendingUnload.current.delete(crateId);
+          void reload();
+        } else settleCrate(crateId, result);
+      }),
+    [settleCrate, reload],
+  );
   async function sync(fn) {
     inflight.current++;
     try {
@@ -177,11 +204,7 @@ export default function TruckLoading() {
     } catch (e) {
       notify(e.message);
     } finally {
-      if (--inflight.current === 0) {
-        await reload({ silent: true });
-        pendingLoad.current.clear();
-        pendingUnload.current.clear();
-      }
+      inflight.current--;
     }
   }
   function load(o, count = 1) {
@@ -209,7 +232,8 @@ export default function TruckLoading() {
       ),
     }));
     sync(async () => {
-      for (const c of free) await send(`/crates/${c.id}/load`, {});
+      for (const c of free)
+        settleCrate(c.id, await send(`/crates/${c.id}/load`, {}));
     });
   }
   function unload(o) {
@@ -233,7 +257,9 @@ export default function TruckLoading() {
           : x,
       ),
     }));
-    sync(() => send(`/crates/${last.id}/unload`, {}));
+    sync(async () =>
+      settleCrate(last.id, await send(`/crates/${last.id}/unload`, {})),
+    );
   }
   async function closeTruck() {
     setClosing(true);
