@@ -1,5 +1,9 @@
 # Rendimiento
 
+> **27/09/2026:** mediciones de extremo a extremo (teléfono 4G + CPU ×4 pesando mientras la PC
+> carga pedidos; caché fría/caliente) en [ENTREGA-2026-09-27-RENDIMIENTO-CONFIABILIDAD.md](ENTREGA-2026-09-27-RENDIMIENTO-CONFIABILIDAD.md),
+> con `scripts/bench-pesaje.mjs` y `scripts/bench-carga.mjs`.
+
 ## Cómo se mide
 
 ```bash
