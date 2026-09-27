@@ -14,11 +14,21 @@ import {
   put,
   del,
   subscribe,
+  isLive,
   stored,
   persist,
   serverDownMessage,
   onAuthError,
 } from "./api.js";
+import {
+  tick,
+  mergeFull,
+  mergePartial,
+  upsertList,
+  removeFromList,
+  createBatcher,
+  idsParam,
+} from "./sync.js";
 import {
   labels,
   productPrice,
@@ -71,66 +81,65 @@ export function StoreProvider({ children }) {
   sessionRef.current = session;
   // Quién está usando la app: lo necesitan la cola de envíos (para no mandar lo de otro con esta
   // sesión) y el service worker (para no servir la copia privada de otro). PC-019.
+  // "Sin sesión" se avisa sólo cuando el servidor lo confirmó (o al salir): al arrancar, la sesión
+  // todavía no se conoce, y avisarlo borraba la copia de datos del teléfono. Sin señal, la app
+  // volvía al ingreso y no se veían las pesadas pendientes.
+  const [sessionKnown, setSessionKnown] = useState(false);
   useEffect(() => {
     setDueño(session);
+    if (!session && !sessionKnown) return;
     const id = dueñoDe(session);
     navigator.serviceWorker?.ready
       ?.then((reg) => reg.active?.postMessage({ type: "sesion", id }))
       .catch(() => {});
-  }, [session]);
-
-  const isFetchingOrders = useRef(false);
-  const customerDebounceTimer = useRef(null);
-  const ordersDebounceTimer = useRef(null);
+  }, [session, sessionKnown]);
 
   const notify = useCallback((text) => setToast(text), []);
 
-  // FIX: Actualización incremental por ID de pedido para evitar descargar el listado completo
-  const updateOrderById = useCallback(
-    async (orderId) => {
-      if (!orderId) return;
-      const owner = sessionRef.current;
-      try {
-        const updated = await api("/orders/" + encodeURIComponent(orderId));
-        if (sessionRef.current !== owner) return;
-        if (updated) {
-          const prevStatus = lastStatuses.current[updated.id];
-          if (
-            prevStatus &&
-            prevStatus !== updated.status &&
-            sessionRef.current?.role === "cliente"
-          ) {
-            notify(`${updated.id}: ${labels[updated.status]}`);
-          }
-          lastStatuses.current[updated.id] = updated.status;
-          setOrders((current) => {
-            const idx = current.findIndex((o) => o.id === updated.id);
-            if (idx >= 0) {
-              const next = [...current];
-              next[idx] = updated;
-              return next;
-            }
-            return [updated, ...current];
-          });
-        }
-      } catch (e) {
-        if (sessionRef.current !== owner) return;
-        if (e.status === 404) {
-          setOrders((current) => current.filter((o) => o.id !== orderId));
-          delete lastStatuses.current[orderId];
-        }
+  // ---- Sincronización por entidad (PC-017) ----
+  // Cada pedido y cada ficha recuerdan cuán nueva es la información aplicada: una respuesta que
+  // salió antes de un cambio no lo pisa. Los eventos traen el id y se consultan sólo esos.
+  const orderVersions = useRef(new Map());
+  const customerVersions = useRef(new Map());
+  const lastFull = useRef(0);
+  const ordersSilent = useRef(true);
+  const byPhone = (c) => c.phone;
+  const clientStatusNotice = useCallback(
+    (list) => {
+      if (sessionRef.current?.role !== "cliente") return;
+      for (const o of list) {
+        const prev = lastStatuses.current[o.id];
+        if (prev && prev !== o.status) notify(`${o.id}: ${labels[o.status]}`);
+        lastStatuses.current[o.id] = o.status;
       }
     },
     [notify],
   );
+  /** Pedido devuelto por una escritura: se aplica directo (sin volver a pedir la lista). */
+  const applyOrder = useCallback((order) => {
+    if (!order?.id) return;
+    const { crates: _crates, ...o } = order;
+    const seq = tick();
+    lastStatuses.current[o.id] = o.status;
+    setOrders((current) => upsertList(current, o, seq, orderVersions.current));
+  }, []);
+  const dropOrder = useCallback((id) => {
+    const seq = tick();
+    delete lastStatuses.current[id];
+    setOrders((current) =>
+      removeFromList(current, id, seq, orderVersions.current),
+    );
+  }, []);
 
-  const loadOrders = useCallback(
-    async ({ silent = false } = {}) => {
-      // FIX: Evitar múltiples peticiones en vuelo concurrentes para pedidos
-      if (isFetchingOrders.current) return;
-      isFetchingOrders.current = true;
+  const loadOrders = useMemo(() => {
+    const refresh = coalescedRefresh(async () => {
+      const owner = sessionRef.current;
+      const silent = ordersSilent.current;
+      ordersSilent.current = true;
+      const seq = tick();
       try {
         const list = await api("/orders");
+        if (sessionRef.current !== owner) return;
         const previous = lastStatuses.current;
         for (const o of list)
           if (
@@ -142,22 +151,26 @@ export function StoreProvider({ children }) {
         lastStatuses.current = Object.fromEntries(
           list.map((o) => [o.id, o.status]),
         );
-        setOrders(list);
+        setOrders((current) =>
+          mergeFull(current, list, seq, orderVersions.current),
+        );
         setServerDown(false);
         setError("");
         return list;
       } catch (e) {
+        if (sessionRef.current !== owner) return;
         if (e.status === 401) return setOrders([]);
         if (e.network) {
           setServerDown(true);
           if (!silent) setError(serverDownMessage);
         } else if (!silent) setError(e.message);
-      } finally {
-        isFetchingOrders.current = false;
       }
-    },
-    [notify],
-  );
+    });
+    return ({ silent = false } = {}) => {
+      if (!silent) ordersSilent.current = false;
+      return refresh();
+    };
+  }, [notify]);
 
   const loadMe = useCallback(async () => {
     if (sessionRef.current?.role === "cliente")
@@ -172,9 +185,13 @@ export function StoreProvider({ children }) {
           setCustomers([]);
           return;
         }
+        const seq = tick();
         try {
           const list = await api("/customers");
-          if (sessionRef.current === owner) setCustomers(list);
+          if (sessionRef.current === owner)
+            setCustomers((current) =>
+              mergeFull(current, list, seq, customerVersions.current, byPhone),
+            );
         } catch (e) {
           // Una falla temporal no vacía las fichas ni cambia sus saldos a cero.
           if (sessionRef.current === owner && !e.network) notify(e.message);
@@ -182,16 +199,89 @@ export function StoreProvider({ children }) {
       }),
     [notify],
   );
-  /** Vuelve a traer pedidos y clientes del servidor (al entrar a una vista, para no mostrar datos viejos). */
-  const reload = useCallback(
+  /** Pedidos puntuales (eventos en vivo): los que no vuelven ya no existen o no le tocan. */
+  const orderBatch = useMemo(
     () =>
-      Promise.all([
-        loadOrders({ silent: true }),
-        loadMe(),
-        loadCustomers(),
-      ]).catch(() => {}),
-    [loadOrders, loadMe, loadCustomers],
+      createBatcher(async (ids) => {
+        const owner = sessionRef.current;
+        if (!owner) return;
+        const seq = tick();
+        const list = await api("/orders?ids=" + idsParam(ids));
+        if (sessionRef.current !== owner || !Array.isArray(list)) return;
+        clientStatusNotice(list);
+        setOrders((current) =>
+          mergePartial(current, ids, list, seq, orderVersions.current),
+        );
+        for (const id of ids)
+          if (!list.some((o) => o.id === id)) delete lastStatuses.current[id];
+      }, 150),
+    [clientStatusNotice],
   );
+  /** Fichas puntuales: el saldo del cliente de un pedido recién pesado, cobrado o editado. */
+  const customerBatch = useMemo(
+    () =>
+      createBatcher(async (phones) => {
+        const owner = sessionRef.current;
+        if (!["admin", "repartidor"].includes(owner?.role)) return;
+        if (phones.includes("*")) return loadCustomers();
+        const seq = tick();
+        const list = await api("/customers?phones=" + idsParam(phones));
+        if (sessionRef.current !== owner || !Array.isArray(list)) return;
+        setCustomers((current) =>
+          mergePartial(
+            current,
+            phones,
+            list,
+            seq,
+            customerVersions.current,
+            byPhone,
+          ),
+        );
+      }, 300),
+    [loadCustomers],
+  );
+  const fullSync = useCallback(async () => {
+    const [list] = await Promise.all([
+      loadOrders({ silent: true }),
+      loadMe(),
+      loadCustomers(),
+    ]);
+    // Sólo cuenta como conciliado si la lista llegó (una falla vuelve a intentar pronto).
+    if (Array.isArray(list)) lastFull.current = Date.now();
+  }, [loadOrders, loadMe, loadCustomers]);
+  /**
+   * Después de una escritura: con eventos en vivo, se aplica lo devuelto y se consultan sólo el
+   * pedido y la ficha afectados (el resto llega por eventos). Sin eventos, se concilia todo.
+   */
+  const afterWrite = useCallback(
+    async ({ order, removed, orderIds = [], customers: phones = [] }) => {
+      if (order?.id) applyOrder(order);
+      if (removed) dropOrder(removed);
+      if (!isLive()) return fullSync();
+      await Promise.all([
+        ...orderIds.map((id) => orderBatch.add(id, true)),
+        ...phones.filter(Boolean).map((p) => customerBatch.add(p, true)),
+      ]);
+    },
+    [applyOrder, dropOrder, fullSync, orderBatch, customerBatch],
+  );
+  /**
+   * Vuelve a traer pedidos y clientes (al entrar a una vista, para no mostrar datos viejos). Con
+   * eventos en vivo y una conciliación reciente no hace falta: los cambios ya llegaron solos.
+   */
+  const reload = useCallback(
+    ({ force = false } = {}) =>
+      !force && isLive() && Date.now() - lastFull.current < 60000
+        ? Promise.resolve()
+        : fullSync().catch(() => {}),
+    [fullSync],
+  );
+  /** Olvida lo aplicado de la sesión anterior (otra persona, otro alcance de datos). */
+  const resetSync = () => {
+    orderVersions.current = new Map();
+    customerVersions.current = new Map();
+    lastFull.current = 0;
+  };
 
   // Carga inicial: configuración, sesión y pedidos.
   useEffect(() => {
@@ -202,8 +292,10 @@ export function StoreProvider({ children }) {
         persist("pc-config-v3", rest);
         setSession(s);
         sessionRef.current = s;
+        // La sesión ya se conoce (del servidor o, sin señal, de la copia privada de esta persona).
+        setSessionKnown(true);
         if (s?.plan) setPlanState(s.plan);
-        await Promise.all([loadOrders(), loadMe(), loadCustomers()]);
+        await fullSync();
         if (s) syncPush(rest.pushKey).catch(() => {});
       })
       .catch(() => {
@@ -224,7 +316,8 @@ export function StoreProvider({ children }) {
       window.removeEventListener("offline", status);
       window.removeEventListener("beforeinstallprompt", prompt);
     };
-  }, [loadOrders, loadMe, loadCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Si el servidor rechaza la sesión (usuario desactivado, rol cambiado, vencida), se vuelve al ingreso.
   useEffect(() => {
@@ -237,8 +330,10 @@ export function StoreProvider({ children }) {
         const s = await api("/session");
         if (s) return;
         const wasStaff = current.role !== "cliente";
+        setSessionKnown(true);
         setSession(null);
         sessionRef.current = null;
+        resetSync();
         setOrders([]);
         setMe(null);
         setCustomers([]);
@@ -254,47 +349,67 @@ export function StoreProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Novedades en tiempo real mientras haya sesión; respaldo por sondeo cada 30 s.
+  // Novedades en tiempo real mientras haya sesión. Con eventos en vivo sólo se consulta lo que
+  // cambió, más una conciliación completa cada 5 min; sin eventos, cada 30 s como antes. Al
+  // reconectar se concilia todo (los eventos del corte se perdieron). Con la pestaña oculta no
+  // se consulta; al volver, si pasó más de un minuto, se concilia.
   useEffect(() => {
     if (!session) return;
+    let meTimer;
     const close = subscribe(
       (type, data) => {
+        const cliente = sessionRef.current?.role === "cliente";
         if (type === "orders") {
-          // FIX: Actualización incremental por ID de pedido; debounce a lista completa solo si no hay ID
           if (data?.id) {
-            updateOrderById(data.id);
-          } else {
-            clearTimeout(ordersDebounceTimer.current);
-            ordersDebounceTimer.current = setTimeout(
-              () => loadOrders({ silent: true }),
-              500,
-            );
-          }
+            if (data.deleted) dropOrder(data.id);
+            else void orderBatch.add(data.id);
+          } else void loadOrders({ silent: true });
+          // Servidores anteriores no dicen de qué cliente es: se refrescan todas las fichas.
+          if (data && "customer" in data) {
+            if (data.customer) void customerBatch.add(data.customer);
+          } else void customerBatch.add("*");
         }
-        if (type === "customer" || type === "orders") {
-          // FIX: Debounce agresivo en llamadas a clientes para evitar recargas masivas consecutivas
-          clearTimeout(customerDebounceTimer.current);
-          customerDebounceTimer.current = setTimeout(() => {
-            loadMe();
-            loadCustomers();
-          }, 600);
+        if (type === "customer") {
+          if (data?.phone && data.phone !== "*")
+            void customerBatch.add(data.phone);
+          else void customerBatch.add("*");
+        }
+        if (cliente && (type === "orders" || type === "customer")) {
+          clearTimeout(meTimer);
+          meTimer = setTimeout(loadMe, 600);
         }
       },
-      (state) => setLive(state),
+      (state, info) => {
+        setLive(state);
+        if (state && info?.reconnected) void fullSync();
+      },
     );
+    const visible = () => document.visibilityState !== "hidden";
     const timer = setInterval(() => {
-      loadOrders({ silent: true });
-      loadCustomers();
-      loadMe();
-    }, 30000);
+      if (!visible()) return;
+      const age = Date.now() - lastFull.current;
+      if (age >= (isLive() ? 5 * 60000 : 30000)) void fullSync();
+    }, 15000);
+    const onVisible = () => {
+      if (visible() && Date.now() - lastFull.current >= 60000) void fullSync();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       close();
       clearInterval(timer);
-      clearTimeout(ordersDebounceTimer.current);
-      clearTimeout(customerDebounceTimer.current);
+      clearTimeout(meTimer);
+      document.removeEventListener("visibilitychange", onVisible);
       setLive(false);
     };
-  }, [session, updateOrderById, loadOrders, loadMe, loadCustomers]);
+  }, [
+    session,
+    orderBatch,
+    customerBatch,
+    loadOrders,
+    loadMe,
+    fullSync,
+    dropOrder,
+  ]);
 
   useEffect(() => persist("pc-cart", cart), [cart]);
   useEffect(() => persist("pc-plan", plan), [plan]);
@@ -471,6 +586,7 @@ export function StoreProvider({ children }) {
       setProfile((p) => ({ ...p, name: s.name, phone: fields.phone }));
       if (s.plan) setPlanState(s.plan);
       lastStatuses.current = {};
+      resetSync();
       await Promise.all([loadOrders(), loadMe()]);
       syncPush(config?.pushKey).catch(() => {});
       setModal(null);
@@ -497,6 +613,7 @@ export function StoreProvider({ children }) {
       ...(s.phone ? {} : {}),
     }));
     lastStatuses.current = {};
+    resetSync();
     await Promise.all([loadOrders(), loadMe()]);
     syncPush(config?.pushKey).catch(() => {});
     setModal(null);
@@ -586,10 +703,11 @@ export function StoreProvider({ children }) {
       setSession(s);
       sessionRef.current = s;
       lastStatuses.current = {};
+      resetSync();
       // El equipo no hereda carrito ni datos del cliente anterior en este dispositivo.
       setCart({});
       setProfile({});
-      await Promise.all([loadOrders(), loadCustomers()]);
+      await fullSync();
       syncPush(config?.pushKey).catch(() => {});
       setModal(null);
       navigate(s.role === "admin" ? "/operacion" : "/reparto");
@@ -606,8 +724,10 @@ export function StoreProvider({ children }) {
       sessionRef.current?.role === "repartidor";
     await disablePush().catch(() => {});
     await del("/session").catch(() => {});
+    setSessionKnown(true);
     setSession(null);
     sessionRef.current = null;
+    resetSync();
     setOrders([]);
     setMe(null);
     setCustomers([]);
@@ -630,7 +750,7 @@ export function StoreProvider({ children }) {
           "/customers/" + encodeURIComponent(customer.phone) + "/ficha",
           fields,
         );
-        await loadCustomers();
+        await afterWrite({ customers: [customer.phone] });
         if (!keepOpen) setModal(null);
         notify(keepOpen ? "Lista guardada." : "Ficha guardada.");
         return true;
@@ -640,7 +760,7 @@ export function StoreProvider({ children }) {
   const createCustomer = (fields) =>
     run(async () => {
       const c = await post("/customers", fields);
-      await loadCustomers();
+      await afterWrite({ customers: [c.phone] });
       setModal(null);
       notify(
         `Cliente ${c.name} creado${c.status === "incompleto" ? " (CUIT pendiente)" : ""}.`,
@@ -657,7 +777,7 @@ export function StoreProvider({ children }) {
             body: JSON.stringify({ prices }),
           },
         );
-        await loadCustomers();
+        await afterWrite({ customers: [customer.phone] });
         setModal(null);
         notify("Precios guardados.");
         return true;
@@ -695,7 +815,7 @@ export function StoreProvider({ children }) {
           method: "DELETE",
           body: JSON.stringify({ reason: reason || "" }),
         });
-        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        await afterWrite({ removed: o.id, customers: [o.customer] });
         notify(`Pedido ${o.id} eliminado.`);
         return true;
       },
@@ -716,11 +836,17 @@ export function StoreProvider({ children }) {
         ...payload,
         key: crypto.randomUUID(),
       });
-      await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+      // La respuesta ya es el pedido: se agrega sin bajar la lista entera (PC-017).
+      await afterWrite({ order, customers: [order.customer] });
       notify(`Pedido ${order.id} cargado para ${order.name}.`);
       return order;
     });
 
+  /** Respuesta de una escritura sobre un pedido: se usa si es el pedido; si no, se consulta. */
+  const orderResult = (o, r) =>
+    r && r.id === o.id && Array.isArray(r.items)
+      ? { order: r, customers: [o.customer] }
+      : { orderIds: [o.id], customers: [o.customer] };
   const startDelivery = async (o) => {
     if (startLocks.current.has(o.id)) return false;
     startLocks.current.add(o.id);
@@ -739,9 +865,7 @@ export function StoreProvider({ children }) {
         if (!["en_camino", "entregado"].includes(confirmed.status)) throw error;
       }
       if (sessionRef.current !== owner) return false;
-      setOrders((list) =>
-        list.map((item) => (item.id === o.id ? confirmed : item)),
-      );
+      applyOrder(confirmed);
       notify("Inicio de reparto confirmado.");
       return true;
     } catch (error) {
@@ -761,8 +885,8 @@ export function StoreProvider({ children }) {
       ? startDelivery(o)
       : run(
           async () => {
-            await patch("/orders/" + o.id, data);
-            await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+            const r = await patch("/orders/" + o.id, data);
+            await afterWrite(orderResult(o, r));
             return true;
           },
           { onError: (e) => notify(e.message) },
@@ -771,8 +895,8 @@ export function StoreProvider({ children }) {
   const editOrder = (o, data) =>
     run(
       async () => {
-        await put("/orders/" + o.id + "/editar", data);
-        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        const r = await put("/orders/" + o.id + "/editar", data);
+        await afterWrite(orderResult(o, r));
         notify(`Pedido N° ${orderNumber(o)} actualizado.`);
         return true;
       },
@@ -786,7 +910,7 @@ export function StoreProvider({ children }) {
           "/customers/" + encodeURIComponent(c.phone) + "/saldos",
           data,
         );
-        await Promise.all([loadCustomers(), loadOrders({ silent: true })]);
+        await afterWrite({ customers: [c.phone] });
         notify(`Saldos de ${c.name} actualizados.`);
         return true;
       },
@@ -797,7 +921,7 @@ export function StoreProvider({ children }) {
     run(
       async () => {
         await patch("/customers/" + c.phone, data);
-        await loadCustomers();
+        await afterWrite({ customers: [c.phone] });
         notify("Cliente actualizado.");
         return true;
       },
@@ -808,7 +932,8 @@ export function StoreProvider({ children }) {
     run(
       async () => {
         await post("/customers/" + customer.phone + "/payments", data);
-        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        // Los pedidos que cubre el cobro llegan por eventos; la ficha se trae ya.
+        await afterWrite({ customers: [customer.phone] });
         notify("Pago registrado.");
         return true;
       },
@@ -818,7 +943,7 @@ export function StoreProvider({ children }) {
     run(
       async () => {
         await post("/customers/" + customer.phone + "/boxes", { boxes });
-        await Promise.all([loadOrders({ silent: true }), loadCustomers()]);
+        await afterWrite({ customers: [customer.phone] });
         notify(`${boxes} envases recibidos de ${customer.name}.`);
         return true;
       },

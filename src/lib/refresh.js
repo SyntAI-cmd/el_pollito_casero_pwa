@@ -6,14 +6,17 @@ export function coalescedRefresh(task) {
     dirty = true;
     if (!running) {
       running = Promise.resolve().then(async () => {
+        // Devuelve el resultado de la última vuelta (la más nueva).
+        let result;
         try {
           do {
             dirty = false;
-            await task();
+            result = await task();
           } while (dirty);
         } finally {
           running = null;
         }
+        return result;
       });
     }
     return running;

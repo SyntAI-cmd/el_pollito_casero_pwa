@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, subscribe } from "./api.js";
+import { api, subscribe, isLive } from "./api.js";
 import { coalescedRefresh } from "./refresh.js";
+import {
+  tick,
+  mergeFull,
+  mergePartial,
+  upsertList,
+  removeFromList,
+  createBatcher,
+  idsParam,
+} from "./sync.js";
 
 export const todayKey = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -53,60 +62,147 @@ export const floorLabels = {
   entregado: "Entregado",
 };
 
-/** Pedidos de una fecha con sus cajones; se actualiza en vivo con los eventos del servidor. */
+/** Conciliación completa de respaldo: con eventos en vivo, cada 3 min; sin eventos, cada 30 s. */
+const FULL_LIVE = 180000;
+const FULL_POLL = 30000;
+const byId = (o) => o.id;
+
+/**
+ * Pedidos de una fecha con sus cajones; se actualiza en vivo con los eventos del servidor.
+ *
+ * Un evento trae sólo el id (y la fecha) del pedido que cambió: se consulta ese pedido con los
+ * mismos filtros de la nota (`/dia?fecha=…&ids=…`), agrupando ráfagas. Si el servidor no lo
+ * devuelve (cancelado, trasladado de fecha, reasignado), sale de la lista. La nota completa se
+ * vuelve a pedir al abrir, al reconectar (los eventos del corte se perdieron), al volver a la
+ * pantalla y como respaldo periódico. `applyOrder` aplica la respuesta de una escritura sin
+ * volver a consultar, y ninguna respuesta vieja pisa una más nueva.
+ */
 export function useDay(date) {
   const [day, setDay] = useState({ date, orders: [], tare: 1.7 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const refreshRef = useRef(null);
+  const applyRef = useRef(null);
   const load = useCallback(() => refreshRef.current?.(), []);
+  const applyOrder = useCallback((order) => applyRef.current?.(order), []);
 
   useEffect(() => {
     let active = true;
     let timer;
+    let lastFull = 0;
+    const versions = new Map();
+    const known = new Set();
     const controller = new AbortController();
+    const signal = () =>
+      AbortSignal.any([controller.signal, AbortSignal.timeout(12000)]);
     setDay({ date, orders: [], tare: 1.7 });
     setLoading(true);
     setError("");
+    const commit = (change) =>
+      setDay((current) => {
+        const next = change(current);
+        known.clear();
+        for (const o of next.orders) known.add(o.id);
+        return next;
+      });
     const refresh = coalescedRefresh(async () => {
       if (!active) return;
+      const seq = tick();
       try {
-        const d = await api("/dia?fecha=" + date, {
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(12000),
-          ]),
-        });
-        if (active) {
-          setDay(d);
-          setError("");
-        }
+        const d = await api("/dia?fecha=" + date, { signal: signal() });
+        if (!active) return;
+        commit((current) => ({
+          ...d,
+          orders: mergeFull(current.orders, d.orders, seq, versions, byId),
+        }));
+        lastFull = Date.now();
+        setError("");
       } catch (e) {
         if (active) setError(e.message);
       } finally {
         if (active) setLoading(false);
       }
     });
+    const batch = createBatcher(async (ids) => {
+      if (!active) return;
+      const seq = tick();
+      const d = await api(`/dia?fecha=${date}&ids=${idsParam(ids)}`, {
+        signal: signal(),
+      });
+      if (!active) return;
+      commit((current) =>
+        d.partial
+          ? {
+              ...current,
+              tare: d.tare ?? current.tare,
+              orders: mergePartial(current.orders, ids, d.orders, seq, versions, byId),
+            }
+          : // Servidor anterior: devolvió la nota entera; se aplica como tal.
+            { ...d, orders: mergeFull(current.orders, d.orders, seq, versions, byId) },
+      );
+    }, 250);
+    applyRef.current = (order) => {
+      if (!active || !order?.id) return;
+      const seq = tick();
+      commit((current) =>
+        order.deliveryDate && order.deliveryDate !== date
+          ? { ...current, orders: removeFromList(current.orders, order.id, seq, versions, byId) }
+          : { ...current, orders: upsertList(current.orders, order, seq, versions, byId) },
+      );
+    };
     refreshRef.current = refresh;
     void refresh();
-    // La consulta por fecha aplica todos los filtros del servidor, incluidos cancelación
-    // y reasignación. Agrupa ráfagas de pesadas sin descargar el histórico completo.
-    const close = subscribe((type) => {
-      if (type !== "orders") return;
-      clearTimeout(timer);
-      timer = setTimeout(refresh, 300);
-    });
+    const close = subscribe(
+      (type, data) => {
+        if (type !== "orders") return;
+        if (!data?.id) {
+          clearTimeout(timer);
+          timer = setTimeout(refresh, 300);
+          return;
+        }
+        // Un pedido de otra fecha que no está en esta nota no le cambia nada a esta pantalla.
+        if (data.date && data.date !== date && !known.has(data.id)) return;
+        if (data.deleted) {
+          const seq = tick();
+          commit((current) => ({
+            ...current,
+            orders: removeFromList(current.orders, data.id, seq, versions, byId),
+          }));
+          return;
+        }
+        void batch.add(data.id);
+      },
+      (live, info) => {
+        if (live && info?.reconnected) void refresh();
+      },
+    );
+    const stale = (max) => Date.now() - lastFull >= max;
+    const visible = () =>
+      typeof document === "undefined" || document.visibilityState !== "hidden";
+    const poll = setInterval(() => {
+      if (visible() && stale(isLive() ? FULL_LIVE : FULL_POLL)) void refresh();
+    }, 15000);
+    const onVisible = () => {
+      if (visible() && stale(60000)) void refresh();
+    };
     const online = () => void refresh();
     window.addEventListener("online", online);
+    if (typeof document !== "undefined")
+      document.addEventListener?.("visibilitychange", onVisible);
     return () => {
       active = false;
       controller.abort();
       refreshRef.current = null;
+      applyRef.current = null;
       clearTimeout(timer);
+      clearInterval(poll);
+      batch.stop();
       close();
       window.removeEventListener("online", online);
+      if (typeof document !== "undefined")
+        document.removeEventListener?.("visibilitychange", onVisible);
     };
   }, [date]);
 
-  return { day, loading, error, reload: load, setDay };
+  return { day, loading, error, reload: load, setDay, applyOrder };
 }

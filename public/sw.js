@@ -106,6 +106,10 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) {
     if (!OFFLINE_API.test(url.pathname + url.search)) return;
+    // Consultas puntuales por id (eventos en vivo): van directo a la red y no se guardan. Cada
+    // combinación de ids sería una copia nueva que nunca se borra; sin señal alcanza con la
+    // última nota, lista de pedidos y clientes completas.
+    if (/[?&](ids|phones)=/.test(url.search)) return;
     event.respondWith(
       (async () => {
         // Sin saber de quién es la sesión no se guarda ni se sirve copia privada.

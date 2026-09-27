@@ -202,6 +202,20 @@ export function createApi({
     if (!existing && plans.includes(data.plan)) customer.plan = data.plan;
     return store.customers.save(customer);
   }
+  /** "a,b,c" → ["a","b","c"] (hasta 100, sin repetidos); null si no vino el parámetro. */
+  const idList = (raw) => {
+    if (raw === null || raw === undefined) return null;
+    const ids = [
+      ...new Set(
+        String(raw)
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (ids.length > 100) fail(400, "Hasta 100 identificadores por consulta.");
+    return ids;
+  };
   const withSummary = (c) => ({
     ...c,
     summary: accountSummary(store.orders.forCustomer(c.phone), c),
@@ -265,6 +279,13 @@ export function createApi({
     (session.role === "admin" ||
       (session.role === "repartidor" && o.driver === session.driver) ||
       (session.role === "cliente" && ownsOrder(session, o)));
+  /**
+   * Lectura: además, el segundo preventista ve el pedido (como en su lista y en los eventos en
+   * vivo). Sólo para consultar: modificarlo sigue sujeto a `canSee` y a las reglas de cada acción.
+   */
+  const canRead = (session, o) =>
+    canSee(session, o) ||
+    (session?.role === "repartidor" && o.driver2 === session.driver);
   /** Vincula un teléfono verificado a la sesión (y a su cuenta, si la tiene). */
   function attachPhone(session, phone, name) {
     // Si la ficha ya existe se respeta su nombre; si no, se crea con el de la sesión.
@@ -289,9 +310,7 @@ export function createApi({
    */
   const servedBy = (session) => {
     if (session.role !== "repartidor") return () => true;
-    const mine = new Set(
-      store.orders.forDriver(session.driver).map((o) => o.customer),
-    );
+    const mine = new Set(store.orders.customersOfDriver(session.driver));
     const me = store.drivers.get(session.driver);
     const zones = new Set((me?.zones || []).map((z) => z.toLowerCase()));
     return (c) =>
@@ -1528,11 +1547,23 @@ export function createApi({
     }
 
     // ---- Pedidos ----
-    if (path === "/api/orders" && method === "GET")
+    if (path === "/api/orders" && method === "GET") {
+      // Sólo los pedidos pedidos (eventos en vivo): los que no existen o ya no le tocan a esta
+      // sesión no vienen, y el cliente los quita. Evita bajar el histórico por cada cambio.
+      const ids = idList(query.get("ids"));
+      if (ids)
+        return json(
+          200,
+          ids
+            .map((id) => store.orders.get(id))
+            .filter((o) => o && canRead(session, o))
+            .map((o) => view(o, session)),
+        );
       return json(
         200,
         visibleOrders(session).map((o) => view(o, session)),
       );
+    }
     if (path === "/api/orders" && method === "POST") {
       if (session?.role === "repartidor")
         fail(
@@ -1554,7 +1585,7 @@ export function createApi({
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
     if (orderMatch && method === "GET" && !orderMatch[2]) {
       const o = store.orders.get(decodeURIComponent(orderMatch[1]));
-      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
+      if (!o || !canRead(session, o)) fail(404, "Pedido no encontrado.");
       return json(200, view(o, session));
     }
     if (orderMatch && method === "DELETE" && !orderMatch[2]) {
@@ -1715,8 +1746,13 @@ export function createApi({
       if (!isStaff(session)) fail(403, "Solo el equipo.");
       const prices = store.prices.all();
       const mine = servedBy(session);
-      const list = store.customers
-        .all()
+      // Fichas puntuales (saldo de un cliente tras una pesada o un cobro), con el mismo formato.
+      const phones = idList(query.get("phones"));
+      const list = (
+        phones
+          ? phones.map((p) => store.customers.get(p)).filter(Boolean)
+          : store.customers.all()
+      )
         .filter((c) => !c.archived || query.get("todos") === "1")
         .map((c) => ({
           ...withSummary(c),
@@ -1952,7 +1988,15 @@ export function createEvents() {
     orderChanged(o) {
       for (const c of clients)
         if (sees(c.session, o))
-          send(c, "orders", { id: o.id, status: o.status });
+          send(c, "orders", {
+            id: o.id,
+            status: o.status,
+            // Para actualizar sólo la ficha afectada y la nota de ese día, sin listas completas.
+            // null explícito: la app distingue "sin cliente" de un servidor anterior.
+            customer: o.customer || null,
+            date: o.deliveryDate || null,
+            deleted: o.deleted || undefined,
+          });
     },
     customerChanged(customer) {
       for (const c of clients)

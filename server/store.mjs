@@ -275,6 +275,10 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     ordersDriver: db.prepare(
       "SELECT rowid AS seq, * FROM orders WHERE driver = ? OR json_extract(data, '$.driver2') = ? ORDER BY created DESC, rowid DESC",
     ),
+    // Sólo las claves de cliente: "mis clientes" del preventista sin hidratar cada pedido.
+    customersOfDriver: db.prepare(
+      "SELECT DISTINCT customer FROM orders WHERE driver = ? OR json_extract(data, '$.driver2') = ?",
+    ),
     ordersAccount: db.prepare(
       "SELECT rowid AS seq, * FROM orders WHERE account_id = ? ORDER BY created DESC, rowid DESC",
     ),
@@ -973,6 +977,8 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
       all: () => q.ordersAll.all().map(rowToOrder),
       forCustomer: (phone) => q.ordersCustomer.all(phone).map(rowToOrder),
       forDriver: (name) => q.ordersDriver.all(name, name).map(rowToOrder),
+      customersOfDriver: (name) =>
+        q.customersOfDriver.all(name, name).map((r) => r.customer),
       get: (id) => rowToOrder(q.order.get(id)),
       byKey: (key) => rowToOrder(q.orderByKey.get(key)),
       forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),

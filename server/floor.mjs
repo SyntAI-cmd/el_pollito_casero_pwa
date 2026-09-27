@@ -1186,6 +1186,9 @@ export function createFloor({
       return withOrderLock(c.orderId, async () => {
         const o = store.orders.get(c.orderId);
         if (!crateOne[2] && method === "DELETE") {
+          // Reintento de una anulación que ya se aplicó (respuesta perdida): mismo resultado,
+          // sin volver a recalcular ni duplicar la auditoría.
+          if (c.voided) return json(200, withCrates(o, session));
           if (c.loadedAt)
             fail(
               400,
@@ -1224,9 +1227,29 @@ export function createFloor({
       const date = query.get("fecha");
       if (!date || !dateRe.test(date))
         fail(400, "Indicá la fecha (AAAA-MM-DD).");
-      let orders = store.orders
-        .forDate(date)
-        .filter((o) => o.status !== "cancelado");
+      // `ids`: sólo esos pedidos, con los mismos filtros (fecha, cancelados, camión). Lo que no
+      // vuelve ya no pertenece a esta nota y la app lo saca: así un evento no baja el día entero.
+      const ids = query.get("ids");
+      let wanted = null;
+      if (ids !== null) {
+        wanted = [
+          ...new Set(
+            String(ids)
+              .split(",")
+              .map((x) => x.trim())
+              .filter(Boolean),
+          ),
+        ];
+        if (wanted.length > 100)
+          fail(400, "Hasta 100 identificadores por consulta.");
+      }
+      let orders = (
+        wanted
+          ? wanted
+              .map((id) => store.orders.get(id))
+              .filter((o) => o && o.deliveryDate === date)
+          : store.orders.forDate(date)
+      ).filter((o) => o.status !== "cancelado");
       if (session.role === "repartidor")
         orders = orders.filter(
           (o) => o.driver === session.driver || o.driver2 === session.driver,
@@ -1234,6 +1257,7 @@ export function createFloor({
       return json(200, {
         date,
         tare: tare(),
+        ...(ids !== null ? { partial: true } : {}),
         orders: orders.map((o) => withCrates(o, session)),
       });
     }
