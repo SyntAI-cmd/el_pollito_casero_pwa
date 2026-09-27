@@ -1,4 +1,5 @@
 import http from "node:http";
+import { gzipSync } from "node:zlib";
 import { readFile } from "node:fs/promises";
 import { resolve, extname, sep } from "node:path";
 import { openStore } from "./server/store.mjs";
@@ -277,6 +278,19 @@ const pages = {
   "/acceso": ["Acceso del equipo", "Panel interno."],
   "/admin": ["Administración", "Panel interno."],
   "/imprimir": ["Impresión", "Panel interno."],
+  // Pantallas de piso: al recargar o abrir un enlace directo responden 200 (antes, 404 con la app).
+  "/operacion/dia": ["Nota del día", "Panel interno."],
+  "/operacion/pesada": ["Pesaje", "Panel interno."],
+  "/operacion/carga": ["Carga del camión", "Panel interno."],
+  "/operacion/imprimir": ["Imprimir", "Panel interno."],
+  "/operacion/precios": ["Listas de precios", "Panel interno."],
+  "/operacion/documentos": ["Documentos", "Panel interno."],
+  "/operacion/movimientos": ["Movimientos", "Panel interno."],
+  "/reparto/pesada": ["Pesaje", "Panel interno."],
+  "/reparto/carga": ["Carga del camión", "Panel interno."],
+  "/reparto/nuevo": ["Cargar pedido", "Panel interno."],
+  "/reparto/clientes": ["Clientes", "Panel interno."],
+  "/reparto/documentos": ["Documentos", "Panel interno."],
 };
 const indexable = ["/", "/planes", "/ayuda"];
 const internal = [
@@ -290,6 +304,18 @@ const internal = [
   "/acceso",
   "/admin",
   "/imprimir",
+  "/operacion/dia",
+  "/operacion/pesada",
+  "/operacion/carga",
+  "/operacion/imprimir",
+  "/operacion/precios",
+  "/operacion/documentos",
+  "/operacion/movimientos",
+  "/reparto/pesada",
+  "/reparto/carga",
+  "/reparto/nuevo",
+  "/reparto/clientes",
+  "/reparto/documentos",
 ];
 const esc = (s) =>
   String(s).replace(
@@ -351,13 +377,34 @@ const csp = [
 ].join("; ");
 const sessionCookie = (id) =>
   `pc_session=${id || ""}; Path=/; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}; Max-Age=${id ? 60 * 60 * 24 * 90 : 0}`;
-const json = (res, status, value, headers = {}) => {
-  res.writeHead(status, {
+/**
+ * Respuesta JSON. Con `req`, las respuestas grandes (listas de pedidos y clientes, nota del día)
+ * viajan comprimidas: en un celular con 4G son 5-10 veces menos bytes para el mismo dato.
+ */
+const json = (res, status, value, headers = {}, req = null) => {
+  let payload = JSON.stringify(value ?? null);
+  const head = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     ...headers,
-  });
-  res.end(JSON.stringify(value ?? null));
+  };
+  if (req && payload.length > 1400) {
+    head.Vary = "Accept-Encoding";
+    if (/\bgzip\b/.test(req.headers["accept-encoding"] || "")) {
+      payload = gzipSync(payload, { level: 5 });
+      head["Content-Encoding"] = "gzip";
+    }
+  }
+  res.writeHead(status, head);
+  res.end(payload);
+};
+/** Estáticos comprimidos una sola vez: los de /assets/ no cambian (llevan hash en el nombre). */
+const gzipped = new Map();
+const compressible = new Set([".js", ".css", ".svg", ".json", ".webmanifest", ".txt"]);
+/** Id de operación de una escritura (pesada, cobro): para cruzar el registro con la auditoría. */
+const opOf = (body) => {
+  const id = body && (body.opId || body.id || body.key);
+  return typeof id === "string" ? " op=" + id.slice(0, 60) : "";
 };
 async function readBody(req, limit = 50000) {
   let text = "";
@@ -474,14 +521,20 @@ const server = http.createServer(async (req, res) => {
         });
         return res.end();
       }
-      json(res, result.status, result.body, headers);
-      if (req.method !== "GET" || result.status >= 400)
+      // Tiempo de servidor visible en las herramientas del navegador, separado de la red.
+      const took = Date.now() - started;
+      headers["Server-Timing"] = `app;dur=${took}`;
+      json(res, result.status, result.body, headers, req);
+      // Escrituras y errores siempre; lecturas sólo si fueron lentas (no se registra /api/events,
+      // que es una conexión abierta y no una consulta).
+      if (req.method !== "GET" || result.status >= 400 || took >= 300)
         log.info(
           req.method,
-          path,
+          path + (req.method === "GET" && url.search ? url.search.slice(0, 80) : ""),
           result.status,
-          Date.now() - started + "ms",
+          took + "ms",
           session ? session.role : "-",
+          opOf(body).trim(),
         );
       return;
     }
@@ -517,6 +570,27 @@ const server = http.createServer(async (req, res) => {
             "Content-Type",
             types[extname(target)] || "application/octet-stream",
           );
+          if (compressible.has(extname(target)) && data.length > 1400) {
+            res.setHeader("Vary", "Accept-Encoding");
+            if (/\bgzip\b/.test(req.headers["accept-encoding"] || "")) {
+              const immutable = path.startsWith("/assets/");
+              let gz = immutable ? gzipped.get(target) : null;
+              if (!gz) {
+                gz = gzipSync(data, { level: 9 });
+                if (immutable) gzipped.set(target, gz);
+              }
+              res.setHeader("Content-Encoding", "gzip");
+              if (immutable)
+                res.setHeader(
+                  "Cache-Control",
+                  "public, max-age=31536000, immutable",
+                );
+              else if (path === "/sw.js")
+                res.setHeader("Cache-Control", "no-cache");
+              else res.setHeader("Cache-Control", "public, max-age=86400");
+              return res.end(gz);
+            }
+          }
           if (path.startsWith("/assets/"))
             res.setHeader(
               "Cache-Control",

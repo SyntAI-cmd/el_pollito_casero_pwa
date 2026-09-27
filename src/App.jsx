@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import {
   House,
   ShoppingBag,
@@ -34,17 +34,34 @@ import { isActive, planNames } from "./lib/format.js";
 import { MobileCartBar } from "./components/Cart.jsx";
 import Modals from "./components/Modals.jsx";
 import PushToggle from "./components/PushToggle.jsx";
-import Documents from "./pages/Documents.jsx";
-import Movimientos from "./pages/Movimientos.jsx";
 import { setArchiveOwner } from "./lib/archive.js";
-import Catalog from "./pages/Catalog.jsx";
-import Orders from "./pages/Orders.jsx";
-import Tracking from "./pages/Tracking.jsx";
-import Account from "./pages/Account.jsx";
-import Plans from "./pages/Plans.jsx";
-import Help from "./pages/Help.jsx";
-import Login from "./pages/Login.jsx";
-import Operations from "./pages/Operations.jsx";
+
+// Pantallas de piso de todo el día (pesaje, carga, entregas): en el paquete principal, para abrir
+// sin una segunda descarga. El resto, bajo demanda: todas quedan en el precache del service
+// worker (menos el motor de PDF), así se sigue trabajando sin señal.
+import Weighing from "./pages/Weighing.jsx";
+import TruckLoading from "./pages/TruckLoading.jsx";
+import Delivery from "./pages/Delivery.jsx";
+const Documents = lazy(() => import("./pages/Documents.jsx"));
+const Movimientos = lazy(() => import("./pages/Movimientos.jsx"));
+const Catalog = lazy(() => import("./pages/Catalog.jsx"));
+const Orders = lazy(() => import("./pages/Orders.jsx"));
+const Tracking = lazy(() => import("./pages/Tracking.jsx"));
+const Account = lazy(() => import("./pages/Account.jsx"));
+const Plans = lazy(() => import("./pages/Plans.jsx"));
+const Help = lazy(() => import("./pages/Help.jsx"));
+const Login = lazy(() => import("./pages/Login.jsx"));
+const Operations = lazy(() => import("./pages/Operations.jsx"));
+const Print = lazy(() => import("./pages/Print.jsx"));
+const QuickOrder = lazy(() => import("./pages/QuickOrder.jsx"));
+const PrintHub = lazy(() => import("./pages/PrintHub.jsx"));
+const DaySheet = lazy(() => import("./pages/DaySheet.jsx"));
+const PriceLists = lazy(() => import("./pages/PriceLists.jsx"));
+const Loading = () => (
+  <div className="loading" aria-busy="true">
+    Cargando…
+  </div>
+);
 import Customers from "./pages/Customers.jsx";
 import { PageHead } from "./components/ui.jsx";
 import { todayKey } from "./lib/day.js";
@@ -53,15 +70,7 @@ import {
   useKeyboardOpen,
   useVisibleHeight,
 } from "./lib/media.js";
-import Delivery from "./pages/Delivery.jsx";
 import Access from "./pages/Access.jsx";
-import Print from "./pages/Print.jsx";
-import QuickOrder from "./pages/QuickOrder.jsx";
-import Weighing from "./pages/Weighing.jsx";
-import TruckLoading from "./pages/TruckLoading.jsx";
-import PrintHub from "./pages/PrintHub.jsx";
-import DaySheet from "./pages/DaySheet.jsx";
-import PriceLists from "./pages/PriceLists.jsx";
 
 /**
  * Tres aplicaciones en una, separadas por rol. El servidor ya filtra los datos;
@@ -357,7 +366,9 @@ function ClientShell({ Page, path }) {
               </div>
             </div>
           ) : Page ? (
-            <Page />
+            <Suspense fallback={<Loading />}>
+              <Page />
+            </Suspense>
           ) : (
             <NotFound />
           )}
@@ -624,7 +635,13 @@ function StaffShell({ Page, path }) {
         </header>
         <main id="contenido" tabIndex="-1" className="staff-main">
           <Notices />
-          {Page ? <Page /> : <NotFound />}
+          {Page ? (
+            <Suspense fallback={<Loading />}>
+              <Page />
+            </Suspense>
+          ) : (
+            <NotFound />
+          )}
         </main>
       </div>
       <TabBar
@@ -732,7 +749,9 @@ export default function App() {
   if (path === "/ingresar" && !staff)
     return (
       <>
-        <Login />
+        <Suspense fallback={<Loading />}>
+          <Login />
+        </Suspense>
         {chrome}
       </>
     );
