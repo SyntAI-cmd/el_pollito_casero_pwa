@@ -112,6 +112,15 @@ export function limpiarSemana(store, { log = console.log, dir = "data", dryRun =
       store.customers.save(c);
     }
 
+    // La numeración de remitos sigue desde el último: al vaciar la tabla, SQLite vuelve a 1.
+    const ultimo =
+      db.prepare("SELECT MAX(rowid) AS n FROM orders").get().n || 0;
+    const base = Number(store.settings.get("numeroBase", 0)) || 0;
+    store.settings.set("numeroBase", base + ultimo);
+    log(`Numeración de remitos: el próximo será el ${base + ultimo + 1}.`);
+    // Pagos: ya están dentro del saldo consolidado; sin sus pedidos solo confunden el extracto.
+    db.exec("DELETE FROM payments");
+
     // 4. Eliminación de pedidos, cajones, movimientos y documentos
     log(`Eliminando pedidos, cajones, movimientos y documentos...`);
     db.exec("DELETE FROM crates");
