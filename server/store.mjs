@@ -230,7 +230,12 @@ export async function openStore(path, { log = console } = {}) {
 
   // PC-003: el historial guarda actor estable, categoría, antes/después, motivo y operación.
   // Aditivo: las filas viejas conservan su autor de texto y quedan con las columnas nuevas en NULL.
-  if (!db.prepare("PRAGMA table_info(receipts)").all().some(c => c.name === "evidence_json"))
+  if (
+    !db
+      .prepare("PRAGMA table_info(receipts)")
+      .all()
+      .some((c) => c.name === "evidence_json")
+  )
     db.exec("ALTER TABLE receipts ADD COLUMN evidence_json TEXT");
   const auditCols = db
     .prepare("PRAGMA table_info(audit_log)")
@@ -585,13 +590,19 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     ),
   };
 
+  // N° de remito = posición del pedido + la base guardada al vaciar pedidos (limpieza), para que
+  // la numeración siga desde el último remito impreso y nunca repita números.
+  let numberBase = null;
+  const baseNumero = () =>
+    (numberBase ??=
+      Number(p(q.setting.get("numeroBase")?.value ?? "0", 0)) || 0);
   const rowToOrder = (r) => {
     if (!r) return null;
     const extra = p(r.data, {});
     const o = {
       ...extra,
       id: r.id,
-      number: r.seq ?? null,
+      number: r.seq == null ? null : r.seq + baseNumero(),
       key: r.idem_key,
       customer: r.customer,
       name: r.name,
@@ -1298,7 +1309,10 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
         const r = q.setting.get(key);
         return r ? p(r.value, fallback) : fallback;
       },
-      set: (key, value) => q.setSetting.run(key, JSON.stringify(value), now()),
+      set: (key, value) => {
+        if (key === "numeroBase") numberBase = null;
+        return q.setSetting.run(key, JSON.stringify(value), now());
+      },
     },
     /** Cierres de caja por repartidor y día: efectivo esperado vs. recibido, con quién y cuándo. */
     closures: {

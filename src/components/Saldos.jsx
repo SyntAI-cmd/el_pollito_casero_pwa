@@ -7,6 +7,7 @@ import { money, dateText } from "../lib/format.js";
 import { ledger } from "../lib/ledger.js";
 import { modalGuard } from "../lib/guard.js";
 import { useFieldVisibility } from "../lib/media.js";
+import { businessDate as todayKey } from "../lib/businessDate.js";
 import Teclado, {
   useTecladoApp,
   CambiarTeclado,
@@ -76,10 +77,16 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
 
   // Lo que debe hoy se parte en dos: lo de antes y los pedidos a cuenta que todavía viajan.
   const total = r2(actual.balance || 0);
+  // "En curso" = pedidos a cuenta de hoy en adelante. Por fecha, no por estado: si nadie
+  // confirma las entregas, un pedido de hace una semana no es "de hoy".
+  const hoy = todayKey();
   const enCurso = r2(
     customerOrders
       .filter(
-        (o) => o.payment === "cuenta" && !o.paid && o.status !== "entregado",
+        (o) =>
+          o.payment === "cuenta" &&
+          !o.paid &&
+          (o.deliveryDate || o.created.slice(0, 10)) >= hoy,
       )
       .reduce((s, o) => s + (o.total || 0), 0),
   );
