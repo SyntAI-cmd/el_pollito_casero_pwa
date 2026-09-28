@@ -8,11 +8,13 @@ import {
   ArrowRight,
   MapPin,
   FileText,
+  CheckCheck,
 } from "lucide-react";
 import { kgText, totalKg, money, orderNumber, labels } from "../lib/format.js";
 import { useStore } from "../lib/store.jsx";
 import { PageHead, EmptyState, StatusBadge } from "../components/ui.jsx";
 import News from "../components/News.jsx";
+import { businessDate as todayKey } from "../lib/businessDate.js";
 
 /** Cajas pedidas y kilos pesados de un pedido, para el resumen de la tarjeta. */
 const boxesOf = (o) => o.items.reduce((s, i) => s + (i.boxes || 0), 0);
@@ -22,9 +24,22 @@ const boxesOf = (o) => o.items.reduce((s, i) => s + (i.boxes || 0), 0);
  * La acción principal de cada tarjeta es "Ver pedido": abre la ficha completa sin tocar nada.
  */
 export default function Delivery() {
-  const { session, orders, live, customers, setModal, busy, reload } =
-    useStore();
+  const {
+    session,
+    orders,
+    live,
+    customers,
+    setModal,
+    busy,
+    reload,
+    config,
+    deliverBatch,
+  } = useStore();
   const [filter, setFilter] = useState("pendientes");
+  // Administración: ver un preventista y cerrar sus entregas del día de una vez.
+  const [driver, setDriver] = useState("");
+  const [confirmando, setConfirmando] = useState(false);
+  const [cobrados, setCobrados] = useState(true);
   useEffect(() => {
     reload();
   }, [reload]);
@@ -48,7 +63,12 @@ export default function Delivery() {
   const byZone = (a, b) =>
     (a.locality?.name || "").localeCompare(b.locality?.name || "") ||
     (a.number || 0) - (b.number || 0);
-  const mine = orders.filter((o) => o.status !== "cancelado");
+  const admin = session.role === "admin";
+  const mine = orders.filter(
+    (o) =>
+      o.status !== "cancelado" &&
+      (!admin || !driver || o.driver === driver || o.driver2 === driver),
+  );
   const ready = mine.filter((o) => o.status === "preparando").sort(byZone);
   const onRoute = mine.filter((o) => o.status === "en_camino").sort(byZone);
   const pending = mine
@@ -68,6 +88,18 @@ export default function Delivery() {
     entregadas: done,
   };
   const list = groups[filter] || pending;
+  // Entregas que ya tendrían que haber salido: de hoy y días anteriores, sin confirmar.
+  const hoy = todayKey();
+  const paraCerrar = pending.filter(
+    (o) => (o.deliveryDate || o.created.slice(0, 10)) <= hoy,
+  );
+  const sinCobro = paraCerrar.filter(
+    (o) => o.payment !== "cuenta" && !o.paid,
+  ).length;
+  const cerrar = async () => {
+    const r = await deliverBatch(paraCerrar, { cobrados });
+    if (r) setConfirmando(false);
+  };
   const kgToday = pending.reduce((s, o) => s + totalKg(o), 0);
   const cobrado = done
     .filter((o) => o.paid)
@@ -98,6 +130,81 @@ export default function Delivery() {
           </span>
         </div>
       </PageHead>
+
+      {admin && (
+        <section
+          className="panel deliver-batch"
+          aria-label="Entregas por preventista"
+        >
+          <label>
+            Preventista
+            <select
+              value={driver}
+              onChange={(e) => {
+                setDriver(e.target.value);
+                setConfirmando(false);
+              }}
+            >
+              <option value="">Todos</option>
+              {(config?.drivers || []).map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+          </label>
+          {!confirmando ? (
+            <button
+              type="button"
+              className="primary"
+              disabled={busy || !paraCerrar.length}
+              onClick={() => setConfirmando(true)}
+              title="Confirma como entregados los pedidos de hoy y días anteriores"
+            >
+              <CheckCheck size={16} /> Marcar entregados del día (
+              {paraCerrar.length})
+            </button>
+          ) : (
+            <div className="deliver-batch-confirm" role="alertdialog">
+              <p>
+                Se van a marcar como <strong>entregados</strong>{" "}
+                {paraCerrar.length}{" "}
+                {paraCerrar.length === 1 ? "pedido" : "pedidos"} de hoy y días
+                anteriores{driver ? ` de ${driver}` : ""}. Las cajas se toman de
+                la pesada. Los pedidos a cuenta no cambian la deuda: ya está
+                sumada.
+              </p>
+              {sinCobro > 0 && (
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={cobrados}
+                    onChange={(e) => setCobrados(e.target.checked)}
+                  />{" "}
+                  {sinCobro} en efectivo o transferencia sin cobro registrado:
+                  marcarlos como cobrados (si no, quedan pendientes)
+                </label>
+              )}
+              <div className="actions-row">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy}
+                  onClick={cerrar}
+                >
+                  <CheckCheck size={16} /> Confirmar
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => setConfirmando(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="hero-card" aria-label="Resumen del día">
         <div className="hero-metric">

@@ -936,7 +936,6 @@ export function createApi({
     });
   }
 
-
   const floor = createFloor({
     store,
     events,
@@ -960,7 +959,14 @@ export function createApi({
   });
 
   /** Enrutador. Devuelve { status, body, session?, redirect? } o null si la ruta no existe. */
-  return withRequestAudit(async function handle({ method, path, body, query, session, ip }) {
+  return withRequestAudit(async function handle({
+    method,
+    path,
+    body,
+    query,
+    session,
+    ip,
+  }) {
     const json = (status, body, extra = {}) => ({ status, body, ...extra });
     const fromDocuments = await documents.handle({
       method,
@@ -993,18 +999,37 @@ export function createApi({
 
     const activity = path.match(/^\/api\/orders\/([^/]+)\/movimientos$/);
     if (activity && method === "GET") {
-      if (!isStaff(session)) fail(403,"Solo el equipo.");
+      if (!isStaff(session)) fail(403, "Solo el equipo.");
       const o = store.orders.get(decodeURIComponent(activity[1]));
-      if (!o) fail(404,"Pedido no encontrado.");
-      if (session.role !== "admin" && o.driver && !mine(session,o)) fail(403,"Ese pedido es de otro camión.");
-      return json(200,store.audit.query({entidad:"order",entidadId:o.id,cursor:query.get("cursor"),limite:50}));
+      if (!o) fail(404, "Pedido no encontrado.");
+      if (session.role !== "admin" && o.driver && !mine(session, o))
+        fail(403, "Ese pedido es de otro camión.");
+      return json(
+        200,
+        store.audit.query({
+          entidad: "order",
+          entidadId: o.id,
+          cursor: query.get("cursor"),
+          limite: 50,
+        }),
+      );
     }
-    const customerActivity = path.match(/^\/api\/customers\/([^/]+)\/movimientos$/);
+    const customerActivity = path.match(
+      /^\/api\/customers\/([^/]+)\/movimientos$/,
+    );
     if (customerActivity && method === "GET") {
-      if (!isStaff(session)) fail(403,"Solo el equipo.");
+      if (!isStaff(session)) fail(403, "Solo el equipo.");
       const id = decodeURIComponent(customerActivity[1]);
-      if (!store.customers.get(id)) fail(404,"Cliente no encontrado.");
-      return json(200,store.audit.query({entidad:"customer",entidadId:id,cursor:query.get("cursor"),limite:50}));
+      if (!store.customers.get(id)) fail(404, "Cliente no encontrado.");
+      return json(
+        200,
+        store.audit.query({
+          entidad: "customer",
+          entidadId: id,
+          cursor: query.get("cursor"),
+          limite: 50,
+        }),
+      );
     }
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
@@ -1582,6 +1607,69 @@ export function createApi({
         sessionChanged ? { session: s } : {},
       );
     }
+    // Entrega en lote (administración): cierra de una vez los pedidos que ya salieron, mientras
+    // los preventistas no confirman desde la calle. Cajas = las de la pesada (o las pedidas).
+    // Los de efectivo o transferencia sin cobro quedan cobrados solo si se pide (`cobrados`);
+    // si no, se saltean y se informan. Los ya entregados o cancelados no se tocan.
+    if (path === "/api/orders/entregar" && method === "POST") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+      if (!ids.length || ids.length > 500)
+        fail(400, "Elegí entre 1 y 500 pedidos.");
+      const cobrados =
+        body.cobrados === undefined ? false : bool(body.cobrados);
+      const hechos = [];
+      const salteados = [];
+      store.transaction(() => {
+        for (const id of ids) {
+          const o = store.orders.get(id);
+          if (!o || ["entregado", "cancelado"].includes(o.status)) continue;
+          if (o.payment !== "cuenta" && !o.paid) {
+            if (!cobrados) {
+              salteados.push({ id, motivo: "sin cobro registrado" });
+              continue;
+            }
+            Object.assign(o, {
+              paid: true,
+              paidAt: now(),
+              paidBy: actorOf(session),
+              paidMethod:
+                o.payment === "transferencia" ? "transferencia" : "efectivo",
+            });
+          }
+          const crates = store.crates.forOrder(o.id).filter((c) => !c.voided);
+          const boxes = crates.length
+            ? crates.reduce((s, c) => s + (c.boxes ?? 1), 0)
+            : o.items.reduce((s, i) => s + (i.boxes || 0), 0);
+          o.boxBalanceBefore = accountSummary(
+            store.orders.forCustomer(o.customer),
+            store.customers.get(o.customer) || {},
+          ).boxes;
+          o.boxes = o.plan === "mayorista" ? boxes : 0;
+          const at = now();
+          for (const s of statuses.slice(statuses.indexOf(o.status) + 1))
+            o.history.push({ status: s, at });
+          if (!o.departedAt) o.departedAt = at;
+          o.status = "entregado";
+          o.deliveredAt = at;
+          o.deliveredBy = o.driver || "admin";
+          o.deliveredInBatch = actorOf(session);
+          delete o.eta;
+          store.orders.save(o);
+          hechos.push(o);
+        }
+        store.audit.log(session, "order.deliver.batch", "order", "lote", {
+          entregados: hechos.map((o) => o.id),
+          salteados: salteados.map((x) => x.id),
+          cobrados,
+        });
+      });
+      for (const o of hechos) events.orderChanged(o);
+      for (const phone of new Set(hechos.map((o) => o.customer)))
+        events.customerChanged({ phone });
+      return json(200, { entregados: hechos.length, salteados });
+    }
+
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
     if (orderMatch && method === "GET" && !orderMatch[2]) {
       const o = store.orders.get(decodeURIComponent(orderMatch[1]));

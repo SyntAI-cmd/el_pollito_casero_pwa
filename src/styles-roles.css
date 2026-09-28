@@ -2793,3 +2793,20 @@ dialog.wallet-dialog {
   gap: 10px;
   margin-left: auto;
 }
+/* Revisar entregas: filtro por preventista y entrega en lote */
+.deliver-batch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.deliver-batch > label {
+  flex: 0 1 220px;
+}
+.deliver-batch-confirm {
+  flex: 1 1 100%;
+}
+.deliver-batch-confirm p {
+  margin: 0 0 8px;
+}

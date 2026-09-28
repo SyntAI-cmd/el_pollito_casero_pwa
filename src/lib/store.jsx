@@ -945,6 +945,29 @@ export function StoreProvider({ children }) {
       },
       { onError: (e) => notify(e.message) },
     );
+  /** Administración: marca entregados varios pedidos de una vez. Devuelve el resultado o null. */
+  const deliverBatch = (list, { cobrados = false } = {}) =>
+    run(
+      async () => {
+        const r = await post("/orders/entregar", {
+          ids: list.map((o) => o.id),
+          cobrados,
+        });
+        await afterWrite({
+          orderIds: list.map((o) => o.id),
+          customers: [...new Set(list.map((o) => o.customer))],
+        });
+        notify(
+          `${r.entregados} ${r.entregados === 1 ? "pedido entregado" : "pedidos entregados"}` +
+            (r.salteados.length
+              ? ` · ${r.salteados.length} sin cobro registrado quedaron pendientes`
+              : "") +
+            ".",
+        );
+        return r;
+      },
+      { onError: (e) => notify(e.message) },
+    );
   const returnBoxes = (customer, boxes) =>
     run(
       async () => {
@@ -1064,6 +1087,7 @@ export function StoreProvider({ children }) {
     update,
     updateCustomer,
     registerPayment,
+    deliverBatch,
     returnBoxes,
     reportTransfer,
     payOnline,
