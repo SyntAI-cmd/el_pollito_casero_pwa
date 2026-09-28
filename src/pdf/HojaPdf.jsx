@@ -15,143 +15,187 @@ import { routeRows } from "../lib/routeRows.js";
  * Hoja de ruta · rendición de caja, según la plantilla entregada por Mauro el 23/09/2026
  * (`docs/produccion/plantilla-hoja-ruta.png`).
  *
- * Se imprimen los datos ya registrados; lo que se completa en la calle va como casillero vacío:
- * corrección, pagos y rendición. Los movimientos de cajas siempre se imprimen.
+ * Se imprime solo lo ya registrado: N° de remito, cliente, importe total (con el saldo, si
+ * lo hay) y el saldo que traía el cliente. Cajas, corrección, pagos y rendición salen en
+ * blanco: es el arqueo que completa el preventista en lapicera.
+ *
+ * Diseño: tres bloques separados (REMITO · CAJAS · PAGOS) con el mismo alto de fila, un
+ * contorno fino por bloque y líneas internas suaves. El reverso usa el mismo sistema.
  */
 const ROJO = "#c9262e";
+const MARCO = "#7a7a7a"; // contorno de cada bloque
+const LINEA = "#c4c4c4"; // divisiones internas
+const FONDO = "#f2f2f2"; // fila de títulos de columna
 const money = (n) =>
   Number(n || 0).toLocaleString("es-AR", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+const A_FAVOR = " a favor";
 const ALTO_PEDIDOS = 420;
+const SEPARACION = 8; // espacio blanco entre bloques
+// Nombres y zonas se cortan por palabra, nunca con guion ("Gran Men-doza").
+Font.registerHyphenationCallback((word) => [word]);
 
 const s = StyleSheet.create({
   page: {
     paddingTop: 22,
-    paddingBottom: 18,
+    paddingBottom: 16,
     paddingHorizontal: 24,
     fontFamily: "Helvetica",
     fontSize: 10,
-    color: "#111",
+    color: "#1a1a1a",
     backgroundColor: "#fff",
   },
-  // Cabecera: marca a la izquierda, título a la derecha
-  head: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10 },
-  logo: { width: 58, height: 30, objectFit: "contain", marginRight: 8 },
-  marca: { fontSize: 15, fontFamily: "Helvetica-Bold", color: ROJO },
-  lema: { fontSize: 6.5, fontFamily: "Helvetica-Bold", marginTop: 2 },
-  domicilio: { fontSize: 5.8, color: "#555", marginTop: 2 },
-  titulo: { fontSize: 14, fontFamily: "Helvetica-Bold", textAlign: "right" },
-  subtitulo: {
-    fontSize: 6,
-    color: "#555",
-    textAlign: "right",
-    marginTop: 3,
-    fontStyle: "italic",
-  },
-  // Datos del reparto
-  meta: {
+  // Cabecera: marca a la izquierda, título a la derecha, filete rojo abajo
+  head: {
     flexDirection: "row",
-    borderWidth: 0.5,
-    borderColor: "#999",
-    marginBottom: 6,
+    alignItems: "center",
+    marginBottom: 8,
+    paddingBottom: 7,
+    borderBottomWidth: 1.2,
+    borderColor: ROJO,
   },
-  metaCelda: {
-    flexDirection: "row",
-    paddingVertical: 4,
-    paddingHorizontal: 6,
-    borderRightWidth: 0.5,
-    borderColor: "#999",
+  logo: { width: 62, height: 32, objectFit: "contain", marginRight: 10 },
+  marca: { fontSize: 16, fontFamily: "Helvetica-Bold", color: ROJO },
+  lema: { fontSize: 7.5, fontFamily: "Helvetica-Bold", marginTop: 2 },
+  domicilio: { fontSize: 7.5, color: "#444", marginTop: 2 },
+  titulo: { fontSize: 15, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  // Datos del reparto: rótulo chico arriba y valor sobre una línea (como un formulario)
+  meta: { flexDirection: "row", gap: 14, marginBottom: 10 },
+  metaCampo: {
+    borderBottomWidth: 0.75,
+    borderColor: MARCO,
+    paddingBottom: 3,
   },
-  metaRotulo: { fontFamily: "Helvetica-Bold" },
+  metaRotulo: {
+    fontSize: 6.5,
+    fontFamily: "Helvetica-Bold",
+    color: "#666",
+    marginBottom: 2,
+  },
+  metaValor: { fontSize: 10.5, minHeight: 12 },
   // Tabla
-  grupo: { flexDirection: "row" },
-  grupoCelda: {
+  fila: { flexDirection: "row" },
+  banda: {
     backgroundColor: ROJO,
     color: "#fff",
     fontFamily: "Helvetica-Bold",
     fontSize: 9,
     textAlign: "center",
-    paddingVertical: 2.5,
-    marginRight: 1,
+    paddingVertical: 3.5,
   },
-  fila: { flexDirection: "row", minHeight: 16 },
   celda: {
-    borderWidth: 0.4,
-    borderColor: "#bbb",
-    paddingVertical: 6,
-    paddingHorizontal: 3,
+    borderRightWidth: 0.5,
+    borderBottomWidth: 0.5,
+    borderColor: LINEA,
+    paddingHorizontal: 5,
     justifyContent: "center",
   },
+  inicioBloque: { borderLeftWidth: 0.75, borderLeftColor: MARCO },
+  finBloque: { borderRightWidth: 0.75, borderRightColor: MARCO },
+  ultimaFila: { borderBottomWidth: 0.75, borderBottomColor: MARCO },
   th: {
+    height: 24,
+    paddingHorizontal: 1.5,
+    backgroundColor: FONDO,
+    alignItems: "center",
+    borderBottomWidth: 0.75,
+    borderBottomColor: MARCO,
+  },
+  thTexto: {
     fontFamily: "Helvetica-Bold",
-    fontSize: 8.5,
+    fontSize: 7.5,
+    color: "#333",
     textAlign: "center",
-    backgroundColor: "#f0f0f0",
   },
   num: { textAlign: "right" },
-  centro: { textAlign: "center" },
-  nota: { fontSize: 5.6, color: "#555", marginTop: 4, fontStyle: "italic" },
-  sectionTitle: {
-    backgroundColor: ROJO,
-    color: "#fff",
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    textAlign: "center",
-    paddingVertical: 5,
-  },
-  firmas: { flexDirection: "row", gap: 40, marginTop: 42 },
+  aFavor: { fontSize: 7, color: "#555", textAlign: "right", marginTop: 1 },
+  // Reverso
+  seccion: { width: 389 }, // (794 - 16 de separación) / 2
+  filaReverso: { height: 46 },
+  rotuloReverso: { fontSize: 11, fontFamily: "Helvetica-Bold" },
+  firmas: { flexDirection: "row", gap: 40, marginTop: 48 },
   firma: {
     flex: 1,
-    borderTopWidth: 0.6,
+    borderTopWidth: 0.75,
     borderColor: "#333",
     paddingTop: 6,
     textAlign: "center",
     fontFamily: "Helvetica-Bold",
-    fontSize: 10,
-  },
-  pie: {
-    position: "absolute",
-    bottom: 8,
-    left: 24,
-    right: 24,
-    textAlign: "center",
-    fontSize: 5.5,
-    color: "#777",
+    fontSize: 9.5,
   },
 });
 
-// Ancho de cada columna, agrupadas como en la plantilla (A4 apaisada, 786 pt útiles).
-const COLS = {
-  remito: [
-    ["Pedido /\nremito", 48],
-    ["Cliente / zona", 150],
-    ["Importe total $", 62],
-    ["Saldo cliente $", 62],
-    ["Corrección $", 56],
-  ],
-  cajas: [
-    ["Previas", 38],
-    ["Salientes", 44],
-    ["Devueltas", 46],
-    ["Saldo", 38],
-  ],
-  pagos: [
-    ["Efectivo $", 62],
-    ["Transfer. $", 62],
-    ["Cheque $", 56],
-    ["Saldo final $", 62],
-  ],
-};
-const TODAS = [...COLS.remito, ...COLS.cajas, ...COLS.pagos];
-const ancho = (cols) => cols.reduce((n, [, w]) => n + w, 0);
+/*
+ * Columnas por bloque (A4 apaisada: 794 pt útiles = columnas + contornos + separaciones).
+ * Los importes que se escriben a mano llevan casilleros anchos.
+ */
+const BLOQUES = [
+  {
+    titulo: "REMITO",
+    cols: [
+      ["N°\nremito", 40],
+      ["Cliente / zona", 128],
+      ["Importe\ntotal $", 64],
+      ["Saldo\ncliente $", 66],
+      ["Corrección $", 70],
+    ],
+  },
+  {
+    titulo: "CAJAS",
+    cols: [
+      ["Previas", 34],
+      ["Salientes", 38],
+      ["Devueltas", 40],
+      ["Saldo", 34],
+    ],
+  },
+  {
+    titulo: "PAGOS",
+    cols: [
+      ["Efectivo $", 66],
+      ["Transfer. $", 66],
+      ["Cheque $", 66],
+      ["Saldo final $", 66],
+    ],
+  },
+];
+// Una celda por columna, más un hueco entre bloques; cada celda sabe dónde cae.
+const CELDAS = BLOQUES.flatMap((b, bi) => [
+  ...(bi ? [{ hueco: true, ancho: SEPARACION }] : []),
+  ...b.cols.map(([rotulo, ancho], ci) => ({
+    rotulo,
+    ancho,
+    inicio: ci === 0,
+    fin: ci === b.cols.length - 1,
+  })),
+]);
+const COLUMNAS = CELDAS.filter((c) => !c.hueco);
+const anchoBloque = (b) => b.cols.reduce((n, [, w]) => n + w, 0);
+const IMPORTES = new Set([2, 3]);
 
-function Cabecera({ logo, preventistas, vehiculo, fecha, turno, cantidad }) {
+function Cabecera({
+  logo,
+  preventistas,
+  vehiculo,
+  fecha,
+  turno,
+  cantidad,
+  hoja,
+}) {
+  const datos = [
+    ["PREVENTISTA", preventistas || "", 3],
+    ["VEHÍCULO", vehiculo || "", 3.4],
+    ["FECHA", (fecha || "").split("-").reverse().join("/"), 1.4],
+    ["N° PEDIDOS", String(cantidad), 1.1],
+    ["TURNO", turno || "", 1.3],
+    ...(hoja ? [["HOJA", hoja, 1]] : []),
+  ];
   return (
     <>
       <View style={s.head}>
-        <View style={{ flexDirection: "row", flex: 1 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
           {logo && <Image style={s.logo} src={logo} />}
           <View>
             <Text style={s.marca}>EL POLLITO CASERO</Text>
@@ -162,31 +206,13 @@ function Cabecera({ logo, preventistas, vehiculo, fecha, turno, cantidad }) {
             </Text>
           </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={s.titulo}>HOJA DE RUTA · RENDICIÓN DE CAJA</Text>
-          <Text style={s.subtitulo}>
-            N° pedido = N° remito · Documento interno de control
-          </Text>
-        </View>
+        <Text style={s.titulo}>HOJA DE RUTA · RENDICIÓN DE CAJA</Text>
       </View>
       <View style={s.meta}>
-        {[
-          ["Preventista:", preventistas || "", 210],
-          ["Vehículo:", vehiculo || "", 190],
-          ["Fecha:", (fecha || "").split("-").reverse().join("/"), 130],
-          ["N° pedidos:", String(cantidad), 120],
-          ["Turno:", turno || "", 130],
-        ].map(([rotulo, valor, w], i, arr) => (
-          <View
-            key={rotulo}
-            style={[
-              s.metaCelda,
-              { width: w },
-              i === arr.length - 1 ? { borderRightWidth: 0 } : {},
-            ]}
-          >
-            <Text style={s.metaRotulo}>{rotulo} </Text>
-            <Text>{valor}</Text>
+        {datos.map(([rotulo, valor, flex]) => (
+          <View key={rotulo} style={[s.metaCampo, { flex }]}>
+            <Text style={s.metaRotulo}>{rotulo}</Text>
+            <Text style={s.metaValor}>{valor}</Text>
           </View>
         ))}
       </View>
@@ -196,44 +222,42 @@ function Cabecera({ logo, preventistas, vehiculo, fecha, turno, cantidad }) {
 
 function valoresFila(r) {
   const o = r.order;
-  // Lo ya registrado se imprime; lo que se completa en la calle va vacío.
   // IMPORTE TOTAL = lo del pedido + lo que el cliente ya debía: es lo que hay que cobrar
   // en esa parada. La deuda previa se suma UNA sola vez por cliente, así que si el cliente
-  // tiene dos pedidos, el segundo lleva solo lo suyo.
-  const deudaPrevia = r.firstCustomer ? r.moneyBefore || 0 : 0;
-  const aCobrar = (o.noPricing ? 0 : o.total || 0) + deudaPrevia;
+  // tiene dos pedidos, el segundo lleva solo lo suyo. Un saldo negativo es crédito del
+  // cliente: se muestra "a favor" y, si cubre el pedido, no hay nada que cobrar (0).
+  const saldo = r.firstCustomer ? r.moneyBefore || 0 : 0;
+  const deuda = Math.max(saldo, 0);
+  const aCobrar = Math.max((o.noPricing ? 0 : o.total || 0) + saldo, 0);
   return [
     orderNumber(o),
     `${r.customer?.alias || o.name}${o.zone ? " · " + o.zone : ""}`,
     o.noPricing
-      ? deudaPrevia
-        ? money(deudaPrevia)
+      ? deuda
+        ? money(deuda)
         : "Sin precio"
       : o.weighed
         ? money(aCobrar)
-        : deudaPrevia
-          ? `Sin pesar + ${money(deudaPrevia)}`
+        : deuda
+          ? `Sin pesar + ${money(deuda)}`
           : "Sin pesar",
-    // De ese importe, esto es deuda anterior.
-    r.firstCustomer ? money(deudaPrevia) : "Incl. anterior",
-    "",
-    r.before === null || r.before === undefined ? "" : String(r.before),
-    String(r.out),
-    String(r.back),
-    String(r.after),
-    "",
-    "",
-    "",
-    "",
+    // De ese importe, esto es lo que traía el cliente.
+    !r.firstCustomer
+      ? "Incl. anterior"
+      : saldo < 0
+        ? money(-saldo) + A_FAVOR
+        : money(saldo),
+    // Corrección, cajas y pagos: en blanco para el preventista.
+    ...Array(COLUMNAS.length - 4).fill(""),
   ];
 }
 
 // Reserva espacio para textos de varias líneas antes de repartir el alto sobrante.
 function altoFila(r, fontSize) {
+  const font = Font.getFont({ fontFamily: "Helvetica" }).data;
+  const width = (text) => (font.layout(text).advanceWidth * fontSize) / 1000;
   const lines = valoresFila(r).map((value, i) => {
-    const capacity = TODAS[i][1] - 8;
-    const font = Font.getFont({ fontFamily: "Helvetica" }).data;
-    const width = (text) => (font.layout(text).advanceWidth * fontSize) / 1000;
+    const capacity = COLUMNAS[i].ancho - 11;
     let count = 1,
       line = "";
     for (const word of String(value).split(/\s+/)) {
@@ -263,6 +287,39 @@ function partesAdaptadas(filas) {
   return partes;
 }
 
+// Bordes de una celda según su lugar en el bloque: contorno afuera, línea suave adentro.
+const bordes = (c, { ultima } = {}) => [
+  s.celda,
+  { width: c.ancho },
+  c.inicio ? s.inicioBloque : {},
+  c.fin ? s.finBloque : {},
+  ultima ? s.ultimaFila : {},
+];
+
+function Valor({ v, i, fontSize }) {
+  const texto = String(v);
+  if (texto.endsWith(A_FAVOR))
+    return (
+      <>
+        <Text style={[{ fontSize }, s.num]}>
+          {texto.slice(0, -A_FAVOR.length)}
+        </Text>
+        <Text style={s.aFavor}>a favor</Text>
+      </>
+    );
+  return (
+    <Text
+      style={[
+        { fontSize },
+        i === 0 ? { fontFamily: "Helvetica-Bold" } : {},
+        IMPORTES.has(i) ? s.num : {},
+      ]}
+    >
+      {texto}
+    </Text>
+  );
+}
+
 function Tabla({ filas }) {
   // Todo el alto útil se reparte entre los pedidos, sin agregar filas vacías.
   const fontSize =
@@ -277,149 +334,130 @@ function Tabla({ filas }) {
   return (
     <View>
       {/* Bandas rojas de grupo: REMITO · CAJAS · PAGOS */}
-      <View style={s.grupo}>
-        <Text style={[s.grupoCelda, { width: ancho(COLS.remito) - 1 }]}>
-          REMITO
-        </Text>
-        <Text style={[s.grupoCelda, { width: ancho(COLS.cajas) - 1 }]}>
-          CAJAS
-        </Text>
-        <Text style={[s.grupoCelda, { width: ancho(COLS.pagos) }]}>PAGOS</Text>
-      </View>
       <View style={s.fila}>
-        {TODAS.map(([rotulo, w]) => (
-          <View key={rotulo} style={[s.celda, s.th, { width: w }]}>
-            <Text style={s.th}>{rotulo}</Text>
-          </View>
+        {BLOQUES.map((b, bi) => (
+          <React.Fragment key={b.titulo}>
+            {bi > 0 && <View style={{ width: SEPARACION }} />}
+            <Text style={[s.banda, { width: anchoBloque(b) }]}>{b.titulo}</Text>
+          </React.Fragment>
         ))}
       </View>
+      <View style={s.fila}>
+        {CELDAS.map((c, i) =>
+          c.hueco ? (
+            <View key={i} style={{ width: c.ancho }} />
+          ) : (
+            <View key={i} style={[...bordes(c), s.th]}>
+              <Text style={s.thTexto}>{c.rotulo}</Text>
+            </View>
+          ),
+        )}
+      </View>
       {filas.map((r, rowIndex) => {
-        const o = r.order;
         const valores = valoresFila(r);
+        const ultima = rowIndex === filas.length - 1;
+        let col = 0;
         return (
           <View
-            style={[s.fila, { minHeight: heights[rowIndex] + extra }]}
-            key={o.id}
+            style={[s.fila, { height: heights[rowIndex] + extra }]}
+            key={r.order.id}
             wrap={false}
           >
-            {valores.map((v, i) => (
-              <View key={i} style={[s.celda, { width: TODAS[i][1] }]}>
-                <Text
-                  style={[
-                    { fontSize },
-                    i >= 2 && i !== 1
-                      ? i >= 5 && i <= 8
-                        ? s.centro
-                        : s.num
-                      : {},
-                  ]}
-                >
-                  {v}
-                </Text>
-              </View>
-            ))}
+            {CELDAS.map((c, i) => {
+              if (c.hueco) return <View key={i} style={{ width: c.ancho }} />;
+              const j = col++;
+              return (
+                <View key={i} style={bordes(c, { ultima })}>
+                  <Valor v={valores[j]} i={j} fontSize={fontSize} />
+                </View>
+              );
+            })}
           </View>
         );
       })}
-      <Text style={s.nota}>
-        Cajas: previas + salientes - devueltas = saldo (previsto hasta confirmar
-        la entrega). Importe total = pedido del día + saldo del cliente: es lo
-        que hay que cobrar en esa parada. Saldo final = importe total +
-        corrección - efectivo - transferencia - cheque. La columna Saldo cliente
-        muestra cuánto de ese importe es deuda anterior, y se cuenta una sola
-        vez por cliente.
-      </Text>
     </View>
   );
 }
 
-function Rendicion() {
+/** Bloque del reverso: mismo sistema que la tabla (banda roja, títulos, filas iguales). */
+function Seccion({ titulo, cols, filas }) {
+  const celdas = cols.map(([rotulo, ancho], i) => ({
+    rotulo,
+    ancho,
+    inicio: i === 0,
+    fin: i === cols.length - 1,
+  }));
+  const borde = (c, ultima) => [
+    s.celda,
+    { width: c.ancho },
+    c.inicio ? s.inicioBloque : {},
+    c.fin ? s.finBloque : {},
+    ultima ? s.ultimaFila : {},
+  ];
   return (
-    <View style={{ flex: 1.45, borderWidth: 0.6, borderColor: "#bbb" }}>
-      <Text style={s.sectionTitle}>RENDICIÓN</Text>
-      {[
-        "SUMA DE BOLETA CORRECTA",
-        "EFECTIVO TOTAL",
-        "TRANSFERENCIA",
-        "CHEQUE",
-        "GASTOS",
-        "PEN. SALDO DEL DÍA (CUENTA)",
-      ].map((label, i) => (
-        <View
-          key={label}
-          style={{
-            flexDirection: "row",
-            height: 52,
-            borderTopWidth: i ? 1 : 0,
-            borderColor: "#555",
-          }}
-        >
-          <View
-            style={{
-              width: "55%",
-              padding: 10,
-              justifyContent: "center",
-              borderRightWidth: 1,
-              borderColor: "#555",
-            }}
-          >
-            <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold" }}>
-              {label}
-            </Text>
+    <View style={s.seccion}>
+      <Text style={s.banda}>{titulo}</Text>
+      <View style={s.fila}>
+        {celdas.map((c) => (
+          <View key={c.rotulo} style={[...borde(c), s.th]}>
+            <Text style={s.thTexto}>{c.rotulo}</Text>
           </View>
-          <View style={{ width: "45%" }} />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function Gastos() {
-  return (
-    <View style={{ flex: 1, borderWidth: 0.6, borderColor: "#bbb" }}>
-      <Text style={s.sectionTitle}>GASTOS</Text>
-      <View style={{ flexDirection: "row", backgroundColor: "#f0f0f0" }}>
-        {[
-          ["Concepto", "50%"],
-          ["Importe $", "25%"],
-          ["Comprobante", "25%"],
-        ].map(([label, width]) => (
-          <Text
-            key={label}
-            style={{
-              width,
-              padding: 5,
-              fontSize: 9,
-              fontFamily: "Helvetica-Bold",
-              textAlign: "center",
-            }}
-          >
-            {label}
-          </Text>
         ))}
       </View>
-      {Array.from({ length: 6 }, (_, i) => (
-        <View
-          key={i}
-          style={{
-            flexDirection: "row",
-            height: 47,
-            borderTopWidth: 0.4,
-            borderColor: "#bbb",
-          }}
-        >
-          {["50%", "25%", "25%"].map((width, j) => (
+      {filas.map((rotulo, i) => (
+        <View key={i} style={[s.fila, s.filaReverso]}>
+          {celdas.map((c, j) => (
             <View
               key={j}
-              style={{
-                width,
-                borderLeftWidth: j ? 0.4 : 0,
-                borderColor: "#bbb",
-              }}
-            />
+              style={[
+                ...borde(c, i === filas.length - 1),
+                { paddingHorizontal: 10 },
+              ]}
+            >
+              {j === 0 && rotulo ? (
+                <Text style={s.rotuloReverso}>{rotulo}</Text>
+              ) : null}
+            </View>
           ))}
         </View>
       ))}
+    </View>
+  );
+}
+
+function Reverso() {
+  return (
+    <View wrap={false}>
+      <View style={{ flexDirection: "row", gap: 16, marginTop: 4 }}>
+        <Seccion
+          titulo="RENDICIÓN"
+          cols={[
+            ["Concepto", 216],
+            ["Importe $", 173],
+          ]}
+          filas={[
+            "SUMA DE BOLETA CORRECTA",
+            "EFECTIVO TOTAL",
+            "TRANSFERENCIA",
+            "CHEQUE",
+            "GASTOS",
+            "PEN. SALDO DEL DÍA (CUENTA)",
+          ]}
+        />
+        <Seccion
+          titulo="GASTOS"
+          cols={[
+            ["Concepto", 195],
+            ["Importe $", 97],
+            ["Comprobante", 97],
+          ]}
+          filas={Array(6).fill("")}
+        />
+      </View>
+      <View style={s.firmas}>
+        <Text style={s.firma}>FIRMA REPARTIDOR</Text>
+        <Text style={s.firma}>FIRMA CONTROL / ADMINISTRACIÓN</Text>
+      </View>
     </View>
   );
 }
@@ -444,6 +482,15 @@ export function HojaDocument({
     ),
   );
   const turno = shift || (turnos.size === 1 ? [...turnos][0] : "");
+  const cabecera = {
+    logo,
+    preventistas: drivers.join(" / "),
+    vehiculo: vehicle,
+    fecha: date,
+    turno: turno === "manana" ? "Mañana" : turno === "tarde" ? "Tarde" : "",
+  };
+  // Con varias hojas de pedidos, cada una lleva su número en la cabecera.
+  const hoja = (i) => (partes.length > 1 ? `${i + 1} de ${partes.length}` : "");
   return (
     <Document
       title={`Hoja de ruta ${date}`}
@@ -452,48 +499,13 @@ export function HojaDocument({
     >
       {partes.slice(0, 1).map((parte, i) => (
         <Page key={i} size="A4" orientation="landscape" style={s.page}>
-          <Cabecera
-            logo={logo}
-            preventistas={drivers.join(" / ")}
-            vehiculo={vehicle}
-            fecha={date}
-            turno={
-              turno === "manana" ? "Mañana" : turno === "tarde" ? "Tarde" : ""
-            }
-            cantidad={parte.length}
-          />
+          <Cabecera {...cabecera} cantidad={parte.length} hoja={hoja(0)} />
           <Tabla filas={parte} />
-          <Text style={s.pie} fixed>
-            El Pollito Casero · Documento no válido como factura · Uso interno
-            {partes.length > 1 ? ` · Hoja ${i + 1} de ${partes.length}` : ""}
-          </Text>
         </Page>
       ))}
       <Page size="A4" orientation="landscape" style={s.page}>
-        <Cabecera
-          logo={logo}
-          preventistas={drivers.join(" / ")}
-          vehiculo={vehicle}
-          fecha={date}
-          turno={
-            turno === "manana" ? "Mañana" : turno === "tarde" ? "Tarde" : ""
-          }
-          cantidad={filas.length}
-        />
-        <View
-          style={{ flexDirection: "row", gap: 14, marginTop: 12 }}
-          wrap={false}
-        >
-          <Rendicion />
-          <Gastos />
-        </View>
-        <View style={s.firmas} wrap={false}>
-          <Text style={s.firma}>FIRMA REPARTIDOR</Text>
-          <Text style={s.firma}>FIRMA CONTROL / ADMINISTRACIÓN</Text>
-        </View>
-        <Text style={s.pie} fixed>
-          El Pollito Casero · Totales de todo el reparto
-        </Text>
+        <Cabecera {...cabecera} cantidad={filas.length} />
+        <Reverso />
       </Page>
       {partes.slice(1).map((parte, i) => (
         <Page
@@ -502,21 +514,8 @@ export function HojaDocument({
           orientation="landscape"
           style={s.page}
         >
-          <Cabecera
-            logo={logo}
-            preventistas={drivers.join(" / ")}
-            vehiculo={vehicle}
-            fecha={date}
-            turno={
-              turno === "manana" ? "Mañana" : turno === "tarde" ? "Tarde" : ""
-            }
-            cantidad={parte.length}
-          />
+          <Cabecera {...cabecera} cantidad={parte.length} hoja={hoja(i + 1)} />
           <Tabla filas={parte} />
-          <Text style={s.pie} fixed>
-            Continuación de pedidos · Hoja {i + 2} de {partes.length} ·
-            Rendición única en el reverso de la principal
-          </Text>
         </Page>
       ))}
     </Document>

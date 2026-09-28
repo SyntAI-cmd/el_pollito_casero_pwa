@@ -180,7 +180,8 @@ test("remito sin precio ni saldo muestra solo las cajas adeudadas registradas", 
   assert.ok(!text(empty[0]).includes("0 cajas"));
   const routeTable = route[0].children.find((c) => text(c).includes("00001"));
   const row = routeTable.children.find((c) => text(c).startsWith("00001"));
-  assert.deepEqual(row.children.slice(5, 9).map(text), ["11", "6", "2", "15"]);
+  // Las cajas las completa el preventista: salen en blanco.
+  assert.deepEqual(row.children.slice(6, 10).map(text), ["", "", "", ""]);
   assert.ok(!text(remito[0]).includes("Saldo anterior"));
   assert.ok(!text(remito[0]).includes("100.000"));
 });
