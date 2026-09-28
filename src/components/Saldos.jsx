@@ -1,16 +1,7 @@
 import Activity from "./Activity.jsx";
 import Receipts from "./Receipts.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Wallet,
-  Package,
-  Plus,
-  Minus,
-  Check,
-  X,
-  Save,
-  RotateCcw,
-} from "lucide-react";
+import { Wallet, Package, Check, Save } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { money, dateText } from "../lib/format.js";
 import { ledger } from "../lib/ledger.js";
@@ -29,34 +20,49 @@ const parse = (v) =>
       .replace(",", "."),
   );
 const r2 = (n) => Math.round(n * 100) / 100;
+/** "$ 5.000" si debe, "$ 5.000 a favor" si es crédito del cliente, "al día" en cero. */
+const deudaText = (n) =>
+  n > 0 ? money(n) : n < 0 ? `${money(-n)} a favor` : "al día";
 
 /**
- * Saldos de un cliente: dinero y cajas, cada uno por su lado.
+ * Saldos de un cliente, en una sola pantalla y sin pasos intermedios.
  *
- * Se pueden hacer varias correcciones seguidas sin que la ventana se cierre: cada una entra
- * en una lista de "cambios pendientes" que muestra el estado anterior y el resultado previsto.
- * Recién al tocar "Guardar estado" se envía todo junto, en una sola operación (ni a medias ni
- * duplicada, aunque se reintente). Después de guardar la ventana sigue abierta.
+ * Dinero (el cliente debe = deuda anterior + pedidos a cuenta sin entregar):
+ *  - "Cobró": registra un pago. Cancela pedidos (del más viejo al más nuevo) y lo que sobra
+ *    queda a favor. Es la forma correcta de cargar cualquier cobro.
+ *  - "Corregir deuda anterior": se escribe lo que el cliente debía ANTES de los pedidos en
+ *    curso (saldo inicial, arreglo, error). La app guarda la diferencia como ajuste firmado.
+ *    Nunca toca los pedidos del día, así el remito y la hoja de ruta los siguen cobrando.
+ * Cajas: "Devolvió" o "Contar cajas" (conteo físico). Cada acción se guarda al tocar el botón.
  */
 export default function Saldos({ customer, order, initialTab = "dinero" }) {
   const ensureFieldVisible = useFieldVisibility();
-  const { saveBalances, busy, setModal, orders, customers, formError } =
-    useStore();
+  const {
+    saveBalances,
+    registerPayment,
+    busy,
+    setModal,
+    orders,
+    customers,
+    formError,
+  } = useStore();
   // Ficha fresca: después de guardar, los saldos de arriba tienen que mostrar lo nuevo.
   const c = customers.find((x) => x.phone === customer.phone) || customer;
   const actual = c.summary || { balance: 0, boxes: 0 };
 
-  const [saveError, setSaveError] = useState("");
-  const saving = useRef(false);
-  // Un solo teclado a la vista: con el de la app, el del teléfono no se abre y los botones
-  // de guardar quedan siempre visibles.
   const { tecladoApp, cambiar } = useTecladoApp("teclado-saldos");
   const [tab, setTab] = useState(initialTab);
+  // Dinero: "cobro" o "deuda"; cajas: "devolvio" o "total".
+  const [accion, setAccion] = useState(
+    initialTab === "cajas" ? "devolvio" : "cobro",
+  );
   const [amount, setAmount] = useState("");
+  const [aFavor, setAFavor] = useState(false);
+  const [method, setMethod] = useState("efectivo");
   const [note, setNote] = useState("");
-  const [pendientes, setPendientes] = useState([]);
-  const [guardado, setGuardado] = useState(false);
-  const [preguntando, setPreguntando] = useState(false);
+  const [error, setError] = useState("");
+  const [hecho, setHecho] = useState("");
+  const saving = useRef(false);
   const opId = useRef(crypto.randomUUID().slice(0, 20));
 
   const [receiptOrderId, setReceiptOrderId] = useState(order?.id || "");
@@ -67,23 +73,9 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
     customerOrders.find((o) => o.id === receiptOrderId) ||
     order ||
     customerOrders[0];
-  const n = parse(amount);
-  const esDinero = tab === "dinero";
-  const valido = esDinero
-    ? Number.isFinite(n) && n > 0 && n <= 100000000
-    : Number.isInteger(n) && n > 0 && n <= 10000;
 
-  const deltaDinero = r2(
-    pendientes.filter((p) => p.kind === "dinero").reduce((s, p) => s + p.n, 0),
-  );
-  const deltaCajas = pendientes
-    .filter((p) => p.kind === "cajas")
-    .reduce((s, p) => s + p.n, 0);
-  const hayCambios = pendientes.length > 0;
-  const previstoDinero = r2((actual.balance || 0) + deltaDinero);
-  // El saldo ya incluye los pedidos a cuenta que todavía no se entregaron. "Dejar deuda en…" y
-  // "Quitar deuda" corrigen la deuda ANTERIOR: si tocaran el total, el ajuste anularía el pedido
-  // del día y el remito y la hoja de ruta lo mostrarían como saldo a favor sin importe.
+  // Lo que debe hoy se parte en dos: lo de antes y los pedidos a cuenta que todavía viajan.
+  const total = r2(actual.balance || 0);
   const enCurso = r2(
     customerOrders
       .filter(
@@ -91,21 +83,51 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
       )
       .reduce((s, o) => s + (o.total || 0), 0),
   );
-  const deudaAnterior = r2((actual.balance || 0) - enCurso);
-  const previstoCajas = (actual.boxes || 0) + deltaCajas;
+  const anterior = r2(total - enCurso);
+  const cajas = actual.boxes || 0;
 
-  // Con cambios sin guardar, cerrar la ventana pregunta primero.
+  const esDinero = tab === "dinero";
+  const n = parse(amount);
+  const escrito = amount.trim() !== "";
+  const valido =
+    escrito &&
+    (esDinero
+      ? Number.isFinite(n) &&
+        n >= (accion === "deuda" ? 0 : 0.01) &&
+        n <= 100000000
+      : Number.isInteger(n) && n >= 0 && n <= 10000);
+
+  // Resultado de la acción, antes de guardarla.
+  const nuevaAnterior = aFavor ? -n : n;
+  const resultado = !valido
+    ? null
+    : esDinero
+      ? accion === "cobro"
+        ? { dinero: r2(total - n) }
+        : { dinero: r2(total + nuevaAnterior - anterior) }
+      : accion === "devolvio"
+        ? { cajas: cajas - n }
+        : { cajas: n };
+  const sinCambio =
+    !!resultado &&
+    ((esDinero && accion === "deuda" && nuevaAnterior === anterior) ||
+      (!esDinero && accion === "total" && n === cajas) ||
+      (!esDinero && accion === "devolvio" && n === 0));
+  const excede = valido && !esDinero && accion === "devolvio" && n > cajas;
+
+  // Con un importe escrito sin guardar, cerrar la ventana pregunta primero.
   useEffect(() => {
     modalGuard.check = () => {
       if (busy || saving.current) return false;
-      if (!hayCambios && !amount.trim()) return true;
-      setPreguntando(true);
-      return false;
+      if (!escrito) return true;
+      return window.confirm(
+        "Escribiste un importe sin guardar. ¿Cerrar igual?",
+      );
     };
     return () => {
       modalGuard.check = null;
     };
-  }, [hayCambios, amount, busy]);
+  }, [escrito, busy]);
 
   const moves = useMemo(
     () =>
@@ -115,77 +137,82 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
         c.balanceAdjustments || [],
       )
         .reverse()
-        .slice(0, 4),
+        .slice(0, 5),
     [orders, c],
   );
 
-  function agregar(signo) {
-    if (!valido || busy) return;
-    if (!esDinero && signo < 0 && n > previstoCajas) {
-      setSaveError("La devolución supera las cajas pendientes.");
-      return;
-    }
-    setSaveError("");
-    setPendientes((l) => [
-      ...l,
-      {
-        id: crypto.randomUUID().slice(0, 8),
-        kind: tab,
-        n: signo * n,
-        note: note.trim(),
-      },
-    ]);
+  function limpiar() {
     setAmount("");
-    setGuardado(false);
+    setAFavor(false);
+    setNote("");
+    setError("");
   }
-  const quitar = (id) => setPendientes((l) => l.filter((p) => p.id !== id));
+  function elegir(nextTab, nextAccion) {
+    setTab(nextTab);
+    if (nextAccion) setAccion(nextAccion);
+    limpiar();
+    setHecho("");
+  }
 
   async function guardar() {
-    if (!hayCambios || busy || saving.current) return;
-    if (amount.trim()) {
-      setSaveError("Agregá o borrá el importe escrito antes de guardar.");
-      return;
-    }
-    if (previstoCajas < 0) {
-      setSaveError("El saldo de cajas no puede ser negativo.");
-      return;
-    }
-    setSaveError("");
-    const notas = [...new Set(pendientes.map((p) => p.note).filter(Boolean))];
-    // Se manda el estado que el usuario tenía a la vista: si otro lo cambió, el servidor avisa
-    // en vez de pisarlo.
-    const data = {
-      opId: opId.current,
-      esperado: { balance: actual.balance || 0, boxes: actual.boxes || 0 },
-    };
-    if (deltaDinero !== 0) data.delta = deltaDinero;
-    if (deltaCajas !== 0) data.boxesDelta = deltaCajas;
-    if (notas.length) data.note = notas.join(" · ").slice(0, 200);
-    if (!data.delta && !data.boxesDelta) {
-      setPendientes([]);
-      setGuardado(true);
-      return;
-    }
+    if (!valido || sinCambio || excede || busy || saving.current) return;
+    setError("");
     saving.current = true;
-    const ok = await saveBalances(c, data);
-    saving.current = false;
-    if (!ok)
-      setSaveError(
-        "No se pudo guardar. Tus cambios siguen acá: mirá el aviso de arriba, revisá el estado y reintentá.",
-      );
-    // Si falla, lo escrito no se pierde: los cambios pendientes quedan como estaban.
-    if (ok) {
-      setPendientes([]);
-      setNote("");
-      setGuardado(true);
-      opId.current = crypto.randomUUID().slice(0, 20);
+    let ok;
+    let aviso;
+    if (esDinero && accion === "cobro") {
+      ok = await registerPayment(c, {
+        amount: n,
+        method,
+        note: note.trim() || undefined,
+      });
+      aviso = `Cobro de ${money(n)} registrado.`;
+    } else {
+      // Se manda el estado que se tenía a la vista: si otro lo cambió, el servidor avisa.
+      const data = {
+        opId: opId.current,
+        esperado: { balance: total, boxes: cajas },
+      };
+      if (esDinero) {
+        data.delta = r2(nuevaAnterior - anterior);
+        data.note = note.trim() || "Corrección de deuda anterior";
+        aviso = `Deuda anterior corregida: ${deudaText(nuevaAnterior)}.`;
+      } else {
+        data.boxesDelta = accion === "devolvio" ? -n : n - cajas;
+        data.note =
+          note.trim() ||
+          (accion === "devolvio" ? "Devolución de cajas" : "Conteo de cajas");
+        aviso =
+          accion === "devolvio"
+            ? `Devolvió ${n} ${n === 1 ? "caja" : "cajas"}.`
+            : `Cajas corregidas: tiene ${n}.`;
+      }
+      ok = await saveBalances(c, data);
     }
+    saving.current = false;
+    if (ok) {
+      limpiar();
+      setHecho(aviso);
+      opId.current = crypto.randomUUID().slice(0, 20);
+    } else
+      setError(
+        "No se guardó. Lo escrito sigue acá: mirá el aviso, revisá los números y reintentá.",
+      );
   }
 
-  const etiqueta = (p) =>
-    p.kind === "dinero"
-      ? `${p.n > 0 ? "Suma deuda" : "Resta deuda"} ${money(Math.abs(p.n))}`
-      : `${p.n > 0 ? "Suma" : "Devolvió"} ${Math.abs(p.n)} ${Math.abs(p.n) === 1 ? "caja" : "cajas"}`;
+  const opciones = esDinero
+    ? [
+        ["cobro", "Cobró", "El cliente pagó (efectivo, transferencia, cheque)"],
+        [
+          "deuda",
+          "Corregir deuda anterior",
+          "Saldo inicial o arreglo: lo que debía antes de los pedidos en curso",
+        ],
+      ]
+    : [
+        ["devolvio", "Devolvió cajas", "Cajas vacías que trajo de vuelta"],
+        ["total", "Contar cajas", "Cuántas cajas tiene en total ahora"],
+      ];
 
   return (
     <div className="saldos-edit">
@@ -194,67 +221,54 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
         <h2>{c.name}</h2>
       </div>
 
-      {/* Estado anterior · cambios pendientes · resultado previsto */}
+      {/* Estado: cuánto debe y de dónde sale; cajas aparte */}
       <div className="saldos-state" aria-label="Estado de la cuenta">
         <div>
-          <small>Estado anterior</small>
-          <strong className={actual.balance > 0 ? "red" : ""}>
-            {money(actual.balance || 0)}
+          <small>Debe en total</small>
+          <strong className={total > 0 ? "red" : total < 0 ? "green" : ""}>
+            {deudaText(total)}
           </strong>
-          <small>
-            {actual.boxes || 0} {actual.boxes === 1 ? "caja" : "cajas"}
-          </small>
           {enCurso !== 0 && (
             <small>
-              Anterior {money(deudaAnterior)} + pedidos sin entregar{" "}
+              Anterior {deudaText(anterior)} + pedidos sin entregar{" "}
               {money(enCurso)}
             </small>
           )}
         </div>
         <div>
-          <small>Cambios pendientes</small>
-          <strong>
-            {deltaDinero === 0
-              ? "—"
-              : (deltaDinero > 0 ? "+" : "−") + money(Math.abs(deltaDinero))}
-          </strong>
-          <small>
-            {deltaCajas === 0
-              ? "sin cajas"
-              : `${deltaCajas > 0 ? "+" : "−"}${Math.abs(deltaCajas)} cajas`}
-          </small>
+          <small>Cajas en su poder</small>
+          <strong>{cajas}</strong>
+          <small>{cajas === 1 ? "caja" : "cajas"}</small>
         </div>
-        <div className={hayCambios ? "previsto" : ""}>
-          <small>Resultado previsto</small>
-          <strong className={previstoDinero > 0 ? "red" : ""}>
-            {money(previstoDinero)}
-          </strong>
-          <small>
-            {previstoCajas} {previstoCajas === 1 ? "caja" : "cajas"}
-          </small>
-        </div>
+        {resultado && !sinCambio && !excede && (
+          <div className="previsto">
+            <small>Después de guardar</small>
+            <strong>
+              {"dinero" in resultado
+                ? deudaText(resultado.dinero)
+                : `${resultado.cajas} ${resultado.cajas === 1 ? "caja" : "cajas"}`}
+            </strong>
+            <small>
+              {"dinero" in resultado ? "debe en total" : "en su poder"}
+            </small>
+          </div>
+        )}
       </div>
 
-      <div className="saldos-tabs" role="tablist" aria-label="Qué corregir">
+      <div className="saldos-tabs" role="tablist" aria-label="Qué cargar">
         <button
           type="button"
           role="tab"
-          aria-selected={esDinero}
-          onClick={() => {
-            setTab("dinero");
-            setAmount("");
-          }}
+          aria-selected={tab === "dinero"}
+          onClick={() => elegir("dinero", "cobro")}
         >
-          <Wallet size={15} /> Saldo monetario
+          <Wallet size={15} /> Dinero
         </button>
         <button
           type="button"
           role="tab"
           aria-selected={tab === "cajas"}
-          onClick={() => {
-            setTab("cajas");
-            setAmount("");
-          }}
+          onClick={() => elegir("cajas", "devolvio")}
         >
           <Package size={15} /> Cajas
         </button>
@@ -262,11 +276,12 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
           type="button"
           role="tab"
           aria-selected={tab === "comprobantes"}
-          onClick={() => setTab("comprobantes")}
+          onClick={() => elegir("comprobantes")}
         >
           Comprobantes
         </button>
       </div>
+
       {tab === "comprobantes" ? (
         <section aria-label="Comprobantes del cliente">
           {customerOrders.length > 1 && (
@@ -289,23 +304,52 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
           ) : (
             <p>Para adjuntar comprobantes, abrí un pedido de este cliente.</p>
           )}
-          <p className="muted small">
-            Si existe deuda, la constancia incluye el saldo registrado al subir
-            el comprobante. Si corregís la deuda, guardá el estado antes de
-            adjuntar.
-          </p>
         </section>
       ) : (
         <div className="saldos-entry">
+          <div
+            className="saldos-entry-row"
+            role="radiogroup"
+            aria-label="Acción"
+          >
+            {opciones.map(([k, label, hint]) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={accion === k}
+                className={accion === k ? "primary" : "secondary"}
+                title={hint}
+                disabled={busy}
+                onClick={() => {
+                  setAccion(k);
+                  limpiar();
+                  setHecho("");
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <label>
-            {esDinero ? "Importe" : "Cantidad de cajas"}
+            {esDinero
+              ? accion === "cobro"
+                ? "Importe que pagó"
+                : "Deuda anterior real (sin los pedidos en curso)"
+              : accion === "devolvio"
+                ? "Cajas que devolvió"
+                : "Cajas que tiene en total"}
             <input
               type="text"
               /* Con el teclado de la app, el del teléfono no aparece: se ve lo que se escribe. */
               inputMode={tecladoApp ? "none" : esDinero ? "decimal" : "numeric"}
               enterKeyHint="done"
               autoFocus
-              placeholder="0"
+              placeholder={
+                esDinero && accion === "deuda"
+                  ? String(Math.abs(anterior))
+                  : "0"
+              }
               disabled={busy}
               onFocus={tecladoApp ? undefined : ensureFieldVisible}
               value={amount}
@@ -317,86 +361,36 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  agregar(+1);
+                  guardar();
                 }
               }}
               aria-label={esDinero ? "Importe" : "Cantidad de cajas"}
             />
           </label>
-          <div className="saldos-entry-row">
-            <button
-              type="button"
-              className="secondary"
-              disabled={!valido || busy}
-              onClick={() => agregar(+1)}
-            >
-              <Plus size={16} /> {esDinero ? "Suma deuda" : "Suma cajas"}
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              disabled={!valido || busy}
-              onClick={() => agregar(-1)}
-            >
-              <Minus size={16} /> {esDinero ? "Resta deuda" : "Devolvió cajas"}
-            </button>
-          </div>
-          {esDinero && (
-            <div className="saldos-entry-row">
-              <button
-                type="button"
-                className="secondary"
-                disabled={!valido || busy}
-                onClick={() => {
-                  const delta = r2(n - deudaAnterior);
-                  setPendientes((list) => [
-                    ...list.filter((p) => p.kind !== "dinero"),
-                    ...(delta
-                      ? [
-                          {
-                            id: crypto.randomUUID(),
-                            kind: "dinero",
-                            n: delta,
-                            note: note.trim() || "Corrección de deuda",
-                          },
-                        ]
-                      : []),
-                  ]);
-                  setAmount("");
-                  setGuardado(false);
-                }}
+          {esDinero && accion === "cobro" && (
+            <label>
+              Medio
+              <select
+                value={method}
+                disabled={busy}
+                onChange={(e) => setMethod(e.target.value)}
               >
-                {enCurso !== 0
-                  ? "Dejar deuda anterior en este importe"
-                  : "Dejar deuda en este importe"}
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy || deudaAnterior <= 0}
-                onClick={() => {
-                  const delta = -deudaAnterior;
-                  setPendientes((list) => [
-                    ...list.filter((p) => p.kind !== "dinero"),
-                    ...(delta
-                      ? [
-                          {
-                            id: crypto.randomUUID(),
-                            kind: "dinero",
-                            n: delta,
-                            note:
-                              note.trim() || "Deuda eliminada por el usuario",
-                          },
-                        ]
-                      : []),
-                  ]);
-                  setAmount("");
-                  setGuardado(false);
-                }}
-              >
-                Quitar deuda
-              </button>
-            </div>
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="cheque">Cheque</option>
+              </select>
+            </label>
+          )}
+          {esDinero && accion === "deuda" && (
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={aFavor}
+                disabled={busy}
+                onChange={(e) => setAFavor(e.target.checked)}
+              />{" "}
+              Es saldo a favor del cliente (no debe: le debemos)
+            </label>
           )}
           <CambiarTeclado tecladoApp={tecladoApp} cambiar={cambiar} />
           {tecladoApp && (
@@ -422,47 +416,37 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             maxLength="200"
-            placeholder="Motivo (opcional): saldo inicial, arreglo, conteo…"
-            aria-label="Motivo"
+            placeholder={
+              esDinero && accion === "cobro"
+                ? "Nota (opcional): recibo, comprobante…"
+                : "Motivo (opcional): saldo inicial, arreglo, conteo…"
+            }
+            aria-label="Nota o motivo"
           />
           <p className="muted small">
             {esDinero
-              ? enCurso !== 0
-                ? "“Dejar deuda en…” y “Quitar deuda” corrigen solo la deuda anterior: los pedidos a cuenta sin entregar se suman aparte. Los cobros de pedidos se registran desde el pedido (Registrar pago), no restando deuda."
-                : "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
-              : "Las cajas se cuentan aparte del dinero. Acá se corrige el conteo; las entregas y devoluciones de cada pedido se cargan desde el pedido."}
+              ? accion === "cobro"
+                ? "El cobro cancela los pedidos a cuenta del más viejo al más nuevo; si sobra, queda a favor."
+                : "Solo cambia la deuda de antes. Los pedidos a cuenta en curso siguen sumando aparte y se cobran en su remito."
+              : "Las cajas se cuentan aparte del dinero."}
           </p>
+          {excede && (
+            <p role="alert" className="saldos-error">
+              Tiene {cajas} {cajas === 1 ? "caja" : "cajas"}: no puede devolver{" "}
+              {n}.
+            </p>
+          )}
+          {sinCambio && (
+            <p className="muted small" role="status">
+              Es lo mismo que ya figura: no hay nada que guardar.
+            </p>
+          )}
         </div>
       )}
 
-      {hayCambios && (
-        <div className="saldos-pending">
-          <h3>Cambios pendientes de guardar</h3>
-          <ul>
-            {pendientes.map((p) => (
-              <li key={p.id}>
-                <span>
-                  {etiqueta(p)}
-                  {p.note ? ` · ${p.note}` : ""}
-                </span>
-                <button
-                  type="button"
-                  className="link-button"
-                  aria-label={"Quitar " + etiqueta(p)}
-                  disabled={busy}
-                  onClick={() => quitar(p.id)}
-                >
-                  <X size={14} /> quitar
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {saveError && (
+      {error && (
         <p role="alert" className="saldos-error">
-          {saveError}
+          {error}
         </p>
       )}
       {formError && (
@@ -470,59 +454,39 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
           {formError}
         </p>
       )}
-      {guardado && !hayCambios && (
+      {hecho && !escrito && (
         <p className="saldos-saved" role="status">
-          <Check size={16} /> Guardado. Podés seguir corrigiendo.
+          <Check size={16} /> {hecho}
         </p>
       )}
 
       <div className="saldos-actions">
-        <button
-          type="button"
-          className="primary"
-          disabled={!hayCambios || busy}
-          onClick={guardar}
-        >
-          <Save size={16} /> Guardar estado
-        </button>
+        {tab !== "comprobantes" && (
+          <button
+            type="button"
+            className="primary"
+            disabled={!valido || sinCambio || excede || busy}
+            onClick={guardar}
+          >
+            <Save size={16} />{" "}
+            {esDinero
+              ? accion === "cobro"
+                ? "Registrar cobro"
+                : "Guardar deuda anterior"
+              : "Guardar cajas"}
+          </button>
+        )}
         <button
           type="button"
           className="secondary"
           disabled={busy}
-          onClick={() =>
-            hayCambios || amount.trim() ? setPreguntando(true) : setModal(null)
-          }
+          onClick={() => {
+            if (modalGuard.check?.() !== false) setModal(null);
+          }}
         >
           Cerrar
         </button>
       </div>
-
-      {preguntando && (
-        <div className="saldos-pending" role="alertdialog">
-          <h3>Tenés cambios sin guardar</h3>
-          <div className="saldos-entry-row">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setPreguntando(false)}
-            >
-              <RotateCcw size={15} /> Seguir editando
-            </button>
-            <button
-              type="button"
-              className="link-button danger"
-              onClick={() => {
-                setPendientes([]);
-                setPreguntando(false);
-                modalGuard.check = null;
-                setModal(null);
-              }}
-            >
-              Descartar y cerrar
-            </button>
-          </div>
-        </div>
-      )}
 
       <Activity entity="customers" id={c.phone} revision={c} />
       <section className="wallet-moves">

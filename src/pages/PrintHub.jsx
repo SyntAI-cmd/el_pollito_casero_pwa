@@ -156,6 +156,13 @@ export default function PrintHub() {
                     small
                     label="Abrir PDF"
                   />
+                  <Link
+                    to={`/imprimir?tipo=remitos&fecha=${date}&repartidor=${encodeURIComponent(d)}`}
+                    className="link-button small"
+                    title="Ver sus remitos, elegir cuáles imprimir y corregir errores"
+                  >
+                    Revisar remitos
+                  </Link>
                 </div>
               );
             })}
@@ -170,8 +177,8 @@ export default function PrintHub() {
           </h2>
           <p className="muted">
             Un remito por hoja A6 (105 × 148 mm), en vertical. Al imprimir,
-            seleccioná papel A6 y una página por hoja. El respaldo queda en el
-            sistema.
+            seleccioná papel A6 y una página por hoja. En la vista previa podés
+            elegir qué remitos imprimir y corregir cualquiera antes.
           </p>
           <div className="actions-row">
             <Link

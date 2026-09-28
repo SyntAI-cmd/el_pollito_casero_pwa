@@ -43,6 +43,8 @@ export default function OrderEdit({ order: o }) {
   );
   const [docMode, setDocMode] = useState(docModeOf(o));
   const { noPricing, noBalance } = docModeFlags(docMode);
+  const [saveDocMode, setSaveDocMode] = useState(false);
+  const fichaMode = customer ? docModeOf(customer) : docMode;
   const [notes, setNotes] = useState(o.notes || "");
   const [deliveryDate, setDeliveryDate] = useState(o.deliveryDate || "");
   const [shift, setShift] = useState(o.shift || "");
@@ -100,6 +102,7 @@ export default function OrderEdit({ order: o }) {
           ),
       noPricing,
       noBalance,
+      saveDocMode: saveDocMode && docMode !== fichaMode,
       notes,
       deliveryDate: deliveryDate || undefined,
       shift,
@@ -221,6 +224,17 @@ export default function OrderEdit({ order: o }) {
           ))}
         </select>
       </label>
+      {customer && docMode !== fichaMode && (
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={saveDocMode}
+            onChange={(e) => setSaveDocMode(e.target.checked)}
+          />{" "}
+          Guardarlo también en la ficha de {customer.alias || customer.name}{" "}
+          (hoy dice “{DOC_MODES[fichaMode]}”)
+        </label>
+      )}
       <div className="qo-grid">
         <label>
           Fecha de reparto

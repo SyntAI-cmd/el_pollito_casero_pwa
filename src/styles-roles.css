@@ -2654,12 +2654,36 @@ dialog.wallet-dialog {
   border: 0;
   border-radius: 16px;
 }
-.qo-review-dialog::backdrop { background: rgba(20, 18, 14, 0.55); }
-.qo-review-dialog .qo-confirm-box { width: 100%; box-sizing: border-box; }
-.qo-review-lines { display: grid; gap: 10px; }
-.qo-review-account { display: block; padding: 12px; border-radius: 8px; background: #f5f5f5; line-height: 1.65; }
-.qo-review-dialog .qo-confirm-options button { flex-direction: column; align-items: flex-start; }
-.qo-review-lines > div { display: grid; gap: 4px; padding: 10px; border: 1px solid #ddd; border-radius: 8px; overflow-wrap: anywhere; }
+.qo-review-dialog::backdrop {
+  background: rgba(20, 18, 14, 0.55);
+}
+.qo-review-dialog .qo-confirm-box {
+  width: 100%;
+  box-sizing: border-box;
+}
+.qo-review-lines {
+  display: grid;
+  gap: 10px;
+}
+.qo-review-account {
+  display: block;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f5f5;
+  line-height: 1.65;
+}
+.qo-review-dialog .qo-confirm-options button {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.qo-review-lines > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
 .qo-confirm-backdrop {
   position: fixed;
   inset: 0;
@@ -2740,4 +2764,32 @@ dialog.wallet-dialog {
 .print-switches .toggle {
   font-size: 13px;
   white-space: nowrap;
+}
+/* Impresión de remitos: elegir hojas y corregir antes de imprimir */
+.print-review {
+  margin-bottom: 16px;
+}
+.print-review-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.print-review-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line, #e5e5e5);
+}
+.print-review-list li .toggle {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.print-review-actions {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: auto;
 }

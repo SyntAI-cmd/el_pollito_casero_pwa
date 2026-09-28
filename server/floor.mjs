@@ -273,7 +273,21 @@ export function createFloor({
         shift,
         boxes: o.items.reduce((s, i) => s + (i.boxes || 0), 0),
       });
-      return { order: o, created: true };
+      // "Guardar en la ficha": el modo elegido (con/sin precio, con/sin saldo) queda como el
+      // del cliente para los próximos pedidos y remitos, en la misma operación.
+      const fichaCambia =
+        b.saveDocMode === true &&
+        (!!customer.noPricing !== noPricing ||
+          !!customer.noBalance !== noBalance);
+      if (fichaCambia) {
+        Object.assign(customer, { noPricing, noBalance });
+        store.customers.save(customer);
+        store.audit.log(session, "customer.ficha", "customer", customer.phone, [
+          "noPricing",
+          "noBalance",
+        ]);
+      }
+      return { order: o, created: true, fichaCambia };
     });
   }
 
@@ -347,8 +361,9 @@ export function createFloor({
       isStaff(session) &&
       body.customer
     ) {
-      const { order, created } = createTeamOrder(body, session);
+      const { order, created, fichaCambia } = createTeamOrder(body, session);
       if (created) events.orderChanged(order);
+      if (fichaCambia) events.customerChanged({ phone: order.customer });
       return json(created ? 201 : 200, withCrates(order, session));
     }
 
@@ -456,6 +471,11 @@ export function createFloor({
             100;
           o.noPricing = noPricing;
           o.noBalance = noBalance;
+          // "Guardar en la ficha": el cliente queda con este modo para los próximos pedidos.
+          if (b.saveDocMode === true && customer) {
+            Object.assign(customer, { noPricing, noBalance });
+            store.customers.save(customer);
+          }
           if (b.payment) o.payment = payment;
           if (b.notes !== undefined)
             o.notes = str(b.notes, {

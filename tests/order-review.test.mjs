@@ -178,3 +178,52 @@ test("con precio, sin saldo: la ficha lo sugiere, el pedido lo guarda y se puede
     store.close();
   }
 });
+
+test("cargar pedido con otro modo y 'guardar en la ficha' actualiza al cliente", async () => {
+  const store = await openStore(":memory:");
+  try {
+    const api = createApi({
+      store,
+      events: createEvents(),
+      dataDir: process.env.DATA_DIR,
+    });
+    const call = (method, path, body = {}) =>
+      api({
+        method,
+        path,
+        body,
+        session: { role: "admin", staffId: 1, name: "Prueba" },
+        query: new URLSearchParams(),
+        ip: "127.0.0.1",
+      });
+    const phone = (await call("POST", "/api/customers", { name: "Ficha" })).body
+      .phone;
+    await call("PUT", `/api/customers/${phone}/prices`, {
+      prices: { entero: 1000 },
+    });
+    const pedido = (key, extra) =>
+      call("POST", "/api/orders", {
+        customer: phone,
+        key,
+        deliveryDate: "2026-09-28",
+        items: [{ id: "entero", kg: 10 }],
+        ...extra,
+      });
+    await pedido("a", { noBalance: true });
+    assert.equal(
+      !!store.customers.get(phone).noBalance,
+      false,
+      "sin tildar, la ficha no cambia",
+    );
+    await pedido("b", { noBalance: true, saveDocMode: true });
+    assert.equal(store.customers.get(phone).noBalance, true);
+    const c = await pedido("c", {});
+    assert.equal(
+      store.orders.get(c.body.id).noBalance,
+      true,
+      "el próximo pedido ya sale sin saldo",
+    );
+  } finally {
+    store.close();
+  }
+});

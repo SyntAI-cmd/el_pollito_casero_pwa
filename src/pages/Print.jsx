@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Printer, ArrowLeft, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Pencil, Wallet } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { orderShift } from "../lib/format.js";
 import { useRoute, Link } from "../lib/router.jsx";
@@ -7,7 +7,9 @@ import { today } from "../lib/report.js";
 import { EmptyState, PageHead } from "../components/ui.jsx";
 import PdfPreview from "../components/PdfPreview.jsx";
 import { pedidosPdfBlob, pedidosFileName, remitoPdfBlob } from "../lib/pdf.js";
-import { remitoFileName } from "../lib/remito.js";
+import { remitoFileName, orderNumber } from "../lib/remito.js";
+import { money } from "../lib/format.js";
+import { docModeTag } from "../lib/docMode.js";
 
 /**
  * Impresión (solo administración):
@@ -20,7 +22,13 @@ import { remitoFileName } from "../lib/remito.js";
  */
 export default function Print() {
   const { query } = useRoute();
-  const { session, orders: rawOrders, customers, config, loaded } = useStore();
+  const {
+    session,
+    orders: rawOrders,
+    customers,
+    config,
+    setModal,
+  } = useStore();
   // Turno efectivo (el del pedido o el de la ficha) para filtrar e imprimir.
   const orders = rawOrders.map((o) =>
     o.shift ? o : { ...o, shift: orderShift(o, customers) },
@@ -32,6 +40,8 @@ export default function Print() {
   // Opciones de impresión del remito: sin precios o sin saldo (además del cliente exclusivo).
   const [hidePrices, setHidePrices] = useState(false);
   const [hideBalance, setHideBalance] = useState(false);
+  // Remitos que el usuario sacó de esta impresión (para imprimir una sola hoja o unas pocas).
+  const [fuera, setFuera] = useState(() => new Set());
   if (session?.role !== "admin")
     return (
       <>
@@ -73,40 +83,139 @@ export default function Print() {
                 (a.driver || "").localeCompare(b.driver || "") ||
                 (a.number || 0) - (b.number || 0),
             );
-    const n = list.length;
+    const elegidos = list.filter((o) => !fuera.has(o.id));
+    const n = elegidos.length;
     const hojas = n;
+    const clienteDe = (o) => customers.find((c) => c.phone === o.customer);
+    // La vista previa se rehace cuando cambia algo que sale impreso: pedido o saldo del cliente.
+    const firma = elegidos
+      .map((o) =>
+        [
+          o.id,
+          o.updated,
+          o.total,
+          o.noPricing,
+          o.noBalance,
+          o.notes,
+          clienteDe(o)?.summary?.balance,
+          clienteDe(o)?.summary?.boxes,
+        ].join(":"),
+      )
+      .join(",");
+    const alternar = (id) =>
+      setFuera((prev) => {
+        const next = new Set(prev);
+        next.has(id) ? next.delete(id) : next.add(id);
+        return next;
+      });
+    const revisar = (
+      <section className="panel print-review" aria-label="Revisar remitos">
+        <div className="section-line">
+          <h2>Revisar antes de imprimir</h2>
+          {list.length > 1 && (
+            <span className="print-switches">
+              <button
+                type="button"
+                className="link-button small"
+                onClick={() => setFuera(new Set())}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                className="link-button small"
+                onClick={() => setFuera(new Set(list.map((o) => o.id)))}
+              >
+                Ninguno
+              </button>
+            </span>
+          )}
+        </div>
+        <p className="muted small">
+          Tildá los remitos que querés imprimir. Si uno tiene un error, tocá
+          Corregir: al guardar, la vista previa se actualiza sola.
+        </p>
+        <ul className="print-review-list">
+          {list.map((o) => {
+            const c = clienteDe(o);
+            return (
+              <li key={o.id}>
+                <label className="toggle">
+                  <input
+                    type="checkbox"
+                    checked={!fuera.has(o.id)}
+                    onChange={() => alternar(o.id)}
+                    aria-label={`Imprimir remito ${orderNumber(o)}`}
+                  />{" "}
+                  <b>N° {orderNumber(o)}</b> · {c?.alias || o.name}
+                </label>
+                <small className="muted">
+                  {o.noPricing
+                    ? "sin precio"
+                    : o.weighed
+                      ? money(o.total)
+                      : "sin pesar"}
+                  {docModeTag(o) ? ` · ${docModeTag(o)}` : ""}
+                </small>
+                <span className="print-review-actions">
+                  <button
+                    type="button"
+                    className="link-button small"
+                    onClick={() => setModal({ type: "edit-order", order: o })}
+                  >
+                    <Pencil size={13} /> Corregir
+                  </button>
+                  {c && (
+                    <button
+                      type="button"
+                      className="link-button small"
+                      onClick={() =>
+                        setModal({ type: "saldos", customer: c, order: o })
+                      }
+                    >
+                      <Wallet size={13} /> Saldo
+                    </button>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    );
     return (
       <div className="print-page">
+        {list.length > 0 && revisar}
         {n === 0 ? (
           <>
             <div className="print-toolbar">{back}</div>
-            <p className="muted">No hay pedidos para imprimir.</p>
+            <p className="muted">
+              {list.length
+                ? "Elegí al menos un remito para imprimir."
+                : "No hay pedidos para imprimir."}
+            </p>
           </>
         ) : (
           <PdfPreview
-            key={list.map((o) => o.id).join(",")}
-            deps={[
-              list.map((o) => o.id + ":" + o.total).join(","),
-              hidePrices,
-              hideBalance,
-            ]}
+            key={elegidos.map((o) => o.id).join(",")}
+            deps={[firma, hidePrices, hideBalance]}
             generate={(signal) =>
               remitoPdfBlob({
                 signal,
-                orders: list,
+                orders: elegidos,
                 customers,
                 fiscal: config?.fiscal || {},
                 hidePrices,
                 hideBalance,
               })
             }
-            fileName={remitoFileName(list, {
+            fileName={remitoFileName(elegidos, {
               date: fecha,
               driver: tipo === "remitos" ? repartidor : "",
             })}
             shareText={
               n === 1
-                ? `Remito de ${list[0].name} · El Pollito Casero`
+                ? `Remito de ${elegidos[0].name} · El Pollito Casero`
                 : "Remitos del día · El Pollito Casero"
             }
             summary={`${n} remito${n === 1 ? "" : "s"} · ${hojas} hoja${hojas === 1 ? "" : "s"} A6 · uno por hoja, solo original`}

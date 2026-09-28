@@ -80,6 +80,8 @@ export default function QuickOrder() {
   // (viene de la ficha; se puede cambiar por pedido).
   const [docMode, setDocMode] = useState("completo");
   const noPricing = docMode === "exclusivo";
+  // Si el modo elegido no es el de la ficha, se guarda en la ficha junto con el pedido.
+  const [saveDocMode, setSaveDocMode] = useState(true);
   const [otherLabel, setOtherLabel] = useState("");
   const [created, setCreated] = useState(null);
   // Antes de cargar se confirma cómo va el pedido: con precio y saldo, o sin precio ni saldo
@@ -133,6 +135,7 @@ export default function QuickOrder() {
     setZone(c.zone || "");
     setPayment(c.credit ? "cuenta" : "entrega");
     setDocMode(docModeOf(c));
+    setSaveDocMode(true);
     setTimeout(() => document.querySelector(".qo-box input")?.focus(), 0);
   }
   function reset() {
@@ -294,6 +297,7 @@ export default function QuickOrder() {
         prices: editedPrices,
         noPricing,
         noBalance,
+        saveDocMode: saveDocMode && mode !== docModeOf(picked),
         items: items.map((r) => ({
           id: r.p.id,
           ...(r.boxes !== null ? { boxes: r.boxes } : {}),
@@ -442,6 +446,15 @@ export default function QuickOrder() {
               saldo.
             </div>
             {notes && <p>Observaciones: {notes}</p>}
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={saveDocMode}
+                onChange={(e) => setSaveDocMode(e.target.checked)}
+              />{" "}
+              Si elijo otra opción que la de la ficha, guardarla en la ficha de{" "}
+              {picked.name} (próximos pedidos y remitos)
+            </label>
             <div className="qo-confirm-options">
               {[
                 [
@@ -466,9 +479,7 @@ export default function QuickOrder() {
                   <button
                     key={mode}
                     type="button"
-                    className={
-                      docModeOf(picked) === mode ? "primary" : "secondary"
-                    }
+                    className={docMode === mode ? "primary" : "secondary"}
                     disabled={busy || reviewLoading || !!reviewError || blocked}
                     title={blocked ? "Falta el precio de algún producto" : hint}
                     onClick={() => confirmAndSubmit(mode)}
@@ -763,6 +774,12 @@ export default function QuickOrder() {
                   </option>
                 ))}
               </select>
+              {picked && docMode !== docModeOf(picked) && (
+                <small>
+                  La ficha dice “{DOC_MODES[docModeOf(picked)]}”. Al confirmar
+                  podés guardar el cambio en la ficha.
+                </small>
+              )}
             </label>
             <label className="wide">
               Observaciones <small>(salen en el remito)</small>
