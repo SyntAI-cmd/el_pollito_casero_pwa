@@ -81,6 +81,17 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
     .reduce((s, p) => s + p.n, 0);
   const hayCambios = pendientes.length > 0;
   const previstoDinero = r2((actual.balance || 0) + deltaDinero);
+  // El saldo ya incluye los pedidos a cuenta que todavía no se entregaron. "Dejar deuda en…" y
+  // "Quitar deuda" corrigen la deuda ANTERIOR: si tocaran el total, el ajuste anularía el pedido
+  // del día y el remito y la hoja de ruta lo mostrarían como saldo a favor sin importe.
+  const enCurso = r2(
+    customerOrders
+      .filter(
+        (o) => o.payment === "cuenta" && !o.paid && o.status !== "entregado",
+      )
+      .reduce((s, o) => s + (o.total || 0), 0),
+  );
+  const deudaAnterior = r2((actual.balance || 0) - enCurso);
   const previstoCajas = (actual.boxes || 0) + deltaCajas;
 
   // Con cambios sin guardar, cerrar la ventana pregunta primero.
@@ -193,6 +204,12 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
           <small>
             {actual.boxes || 0} {actual.boxes === 1 ? "caja" : "cajas"}
           </small>
+          {enCurso !== 0 && (
+            <small>
+              Anterior {money(deudaAnterior)} + pedidos sin entregar{" "}
+              {money(enCurso)}
+            </small>
+          )}
         </div>
         <div>
           <small>Cambios pendientes</small>
@@ -331,7 +348,7 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
                 className="secondary"
                 disabled={!valido || busy}
                 onClick={() => {
-                  const delta = r2(n - (actual.balance || 0));
+                  const delta = r2(n - deudaAnterior);
                   setPendientes((list) => [
                     ...list.filter((p) => p.kind !== "dinero"),
                     ...(delta
@@ -349,14 +366,16 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
                   setGuardado(false);
                 }}
               >
-                Dejar deuda en este importe
+                {enCurso !== 0
+                  ? "Dejar deuda anterior en este importe"
+                  : "Dejar deuda en este importe"}
               </button>
               <button
                 type="button"
                 className="secondary"
-                disabled={busy || previstoDinero <= 0}
+                disabled={busy || deudaAnterior <= 0}
                 onClick={() => {
-                  const delta = -(actual.balance || 0);
+                  const delta = -deudaAnterior;
                   setPendientes((list) => [
                     ...list.filter((p) => p.kind !== "dinero"),
                     ...(delta
@@ -408,7 +427,9 @@ export default function Saldos({ customer, order, initialTab = "dinero" }) {
           />
           <p className="muted small">
             {esDinero
-              ? "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
+              ? enCurso !== 0
+                ? "“Dejar deuda en…” y “Quitar deuda” corrigen solo la deuda anterior: los pedidos a cuenta sin entregar se suman aparte. Los cobros de pedidos se registran desde el pedido (Registrar pago), no restando deuda."
+                : "“Suma deuda” aumenta el saldo; “resta deuda” lo baja (saldo a favor, nota de crédito). Los cobros de pedidos se registran desde el pedido."
               : "Las cajas se cuentan aparte del dinero. Acá se corrige el conteo; las entregas y devoluciones de cada pedido se cargan desde el pedido."}
           </p>
         </div>

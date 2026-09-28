@@ -75,3 +75,16 @@ test("cajas: pedidos repetidos sin precio trasladan el saldo una sola vez", () =
     ],
   );
 });
+
+test("remito con precio, sin saldo: precios y total del pedido, sin deuda", () => {
+  const data = remitoData({ ...order, noBalance: true }, customer);
+  assert.equal(data.lines[0].unit !== "", true, "lleva precio");
+  assert.equal(data.saldo, "", "no lleva la deuda de 60.000");
+  assert.equal(data.balance, "");
+  assert.equal(
+    data.lines.some((l) => l.virtual),
+    false,
+    "sin renglón de saldo anterior",
+  );
+  assert.match(data.total, /10\.000/, "el total es solo el pedido");
+});

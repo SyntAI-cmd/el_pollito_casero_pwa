@@ -91,6 +91,9 @@ const FICHA = {
   credit: (v) => bool(v, "crédito"),
   // Cliente exclusivo (familiares, facturación propia): sus pedidos van sin precio ni saldo.
   noPricing: (v) => bool(v, "sin precio"),
+  // Con precio pero sin saldo: el remito y la hoja de ruta llevan el importe del pedido, nunca
+  // la deuda ni el saldo a favor del cliente. La cuenta corriente sigue igual.
+  noBalance: (v) => bool(v, "sin saldo"),
   driver: (v) =>
     str(v, { max: 60, name: "el repartidor habitual", optional: true }),
 };
@@ -136,11 +139,21 @@ export function createFloor({
     // El saldo visto en la confirmación puede cambiar mientras viaja la petición.
     // La lectura y la creación son síncronas, sin ceder a otra escritura.
     if (b.expectedSummary !== undefined) {
-      const current = accountSummary(store.orders.forCustomer(customer.phone), customer);
-      if (!Number.isFinite(b.expectedSummary?.balance) || !Number.isFinite(b.expectedSummary?.boxes) ||
-          Math.round(current.balance * 100) !== Math.round(b.expectedSummary.balance * 100) ||
-          current.boxes !== b.expectedSummary.boxes)
-        fail(409, "El saldo del cliente cambió. Volvé a editar y revisar el resumen antes de cargar el pedido.");
+      const current = accountSummary(
+        store.orders.forCustomer(customer.phone),
+        customer,
+      );
+      if (
+        !Number.isFinite(b.expectedSummary?.balance) ||
+        !Number.isFinite(b.expectedSummary?.boxes) ||
+        Math.round(current.balance * 100) !==
+          Math.round(b.expectedSummary.balance * 100) ||
+        current.boxes !== b.expectedSummary.boxes
+      )
+        fail(
+          409,
+          "El saldo del cliente cambió. Volvé a editar y revisar el resumen antes de cargar el pedido.",
+        );
     }
     const prices = Object.fromEntries(
       store.prices
@@ -186,6 +199,10 @@ export function createFloor({
     // Sin precio ni saldo: por ficha (cliente exclusivo) o marcado en este pedido.
     const noPricing =
       b.noPricing === undefined ? !!customer.noPricing : bool(b.noPricing);
+    // Con precio, sin saldo: por ficha o marcado en este pedido (sin precio ya va sin saldo).
+    const noBalance =
+      !noPricing &&
+      (b.noBalance === undefined ? !!customer.noBalance : bool(b.noBalance));
     const locality = localities.find((l) => l.id === customer.localityId) || {
       id: customer.localityId || "otra",
       name: customer.zone || "Sin localidad",
@@ -216,6 +233,7 @@ export function createFloor({
       const o = {
         ...priced,
         noPricing,
+        noBalance,
         locality,
         id: "PC-" + randomUUID().slice(0, 8).toUpperCase(),
         key,
@@ -373,6 +391,9 @@ export function createFloor({
           }
         const noPricing =
           b.noPricing === undefined ? !!o.noPricing : bool(b.noPricing);
+        const noBalance =
+          !noPricing &&
+          (b.noBalance === undefined ? !!o.noBalance : bool(b.noBalance));
         // Sin renglones nuevos se reusan los del pedido. Ojo: lo pedido por kilo y todavía sin
         // pesar guarda kg = 0 y los kilos pedidos en `ordered`; hay que devolverle esos kilos,
         // si no el pedido no se puede editar (ni cambiarle el preventista o la fecha).
@@ -434,6 +455,7 @@ export function createFloor({
               Math.round((o.shipping || 0) * 100)) /
             100;
           o.noPricing = noPricing;
+          o.noBalance = noBalance;
           if (b.payment) o.payment = payment;
           if (b.notes !== undefined)
             o.notes = str(b.notes, {
@@ -703,6 +725,8 @@ export function createFloor({
         notes: FICHA.notes(body.notes),
         plan: FICHA.plan(body.plan),
         credit: body.credit === undefined ? true : bool(body.credit, "crédito"),
+        noPricing: body.noPricing === true,
+        noBalance: body.noBalance === true && body.noPricing !== true,
         creditBalance: 0,
         status: cuit ? "ok" : "incompleto",
         created: now(),

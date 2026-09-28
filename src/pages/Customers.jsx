@@ -16,6 +16,7 @@ import { CajasChip } from "../components/CajasBox.jsx";
 import ImportCustomers from "../components/ImportCustomers.jsx";
 import { money, normalize, waLink } from "../lib/format.js";
 import { Link } from "../lib/router.jsx";
+import { DOC_MODES, docModeOf, docModeFlags } from "../lib/docMode.js";
 
 export const shiftNames = { manana: "Mañana", tarde: "Tarde", "": "—" };
 export const statusNames = {
@@ -503,7 +504,8 @@ export function FichaForm({ customer, onSubmit, submitting }) {
         e.preventDefault();
         const f = Object.fromEntries(new FormData(e.target));
         f.credit = f.credit === "on";
-        f.noPricing = f.noPricing === "on";
+        Object.assign(f, docModeFlags(f.docMode || "completo"));
+        delete f.docMode;
         onSubmit(f);
       }}
     >
@@ -652,14 +654,15 @@ export function FichaForm({ customer, onSubmit, submitting }) {
           />{" "}
           Cuenta corriente habilitada
         </label>
-        <label className="toggle wide">
-          <input
-            type="checkbox"
-            name="noPricing"
-            defaultChecked={!!c.noPricing}
-          />{" "}
-          Cliente exclusivo: sin precio ni saldo (el remito sale solo con kilos
-          y detalle)
+        <label className="wide">
+          Remito
+          <select name="docMode" defaultValue={docModeOf(c)}>
+            {Object.entries(DOC_MODES).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="wide">
           Notas

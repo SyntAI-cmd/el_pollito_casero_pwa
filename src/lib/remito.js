@@ -75,7 +75,8 @@ export function remitoData(
   // Si el cliente DEBE, el saldo anterior entra al cuerpo del remito como un renglón virtual (sin
   // kilos ni precio unitario) y el TOTAL impreso es productos + saldo anterior: lo que debe con este
   // remito. Sin deuda (o con saldo a favor) el remito no menciona saldo.
-  const owes = previous > 0 && !hideBalance;
+  // Pedido "con precio, sin saldo": el remito nunca lleva la deuda del cliente.
+  const owes = previous > 0 && !hideBalance && !o.noBalance;
   // Sin precios, el total impreso es solo el saldo adeudado: la mercadería va sin importes.
   const goods = sinPrecios ? 0 : o.total;
   if (owes)
@@ -100,7 +101,7 @@ export function remitoData(
     after: after !== 0 ? money(after) : "",
     previous: previous !== 0 ? money(previous) : "",
     balance:
-      previous !== 0
+      previous !== 0 && !o.noBalance
         ? `Saldo anterior: ${money(previous)} · Saldo con este remito: ${money(after)}`
         : "",
   };

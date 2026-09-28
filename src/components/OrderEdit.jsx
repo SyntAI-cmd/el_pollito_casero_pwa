@@ -4,6 +4,7 @@ import { useStore } from "../lib/store.jsx";
 import { useFieldVisibility } from "../lib/media.js";
 import { orderNumber, money, kgText } from "../lib/format.js";
 import { shiftNames } from "../pages/Customers.jsx";
+import { DOC_MODES, docModeOf, docModeFlags } from "../lib/docMode.js";
 
 const parse = (v) =>
   Number(
@@ -40,7 +41,8 @@ export default function OrderEdit({ order: o }) {
   const [prices, setPrices] = useState(() =>
     Object.fromEntries(o.items.map((i) => [i.id, String(i.price || "")])),
   );
-  const [noPricing, setNoPricing] = useState(!!o.noPricing);
+  const [docMode, setDocMode] = useState(docModeOf(o));
+  const { noPricing, noBalance } = docModeFlags(docMode);
   const [notes, setNotes] = useState(o.notes || "");
   const [deliveryDate, setDeliveryDate] = useState(o.deliveryDate || "");
   const [shift, setShift] = useState(o.shift || "");
@@ -97,6 +99,7 @@ export default function OrderEdit({ order: o }) {
               .filter(([, v]) => Number.isFinite(v) && v > 0),
           ),
       noPricing,
+      noBalance,
       notes,
       deliveryDate: deliveryDate || undefined,
       shift,
@@ -208,14 +211,15 @@ export default function OrderEdit({ order: o }) {
           </tbody>
         </table>
       </div>
-      <label className="toggle">
-        <input
-          type="checkbox"
-          checked={noPricing}
-          onChange={(e) => setNoPricing(e.target.checked)}
-        />{" "}
-        Sin precio ni saldo (cliente exclusivo): el remito sale solo con kilos y
-        detalle
+      <label>
+        Remito
+        <select value={docMode} onChange={(e) => setDocMode(e.target.value)}>
+          {Object.entries(DOC_MODES).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
       </label>
       <div className="qo-grid">
         <label>

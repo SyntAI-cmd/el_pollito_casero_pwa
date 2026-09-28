@@ -29,6 +29,12 @@ import {
 import { PageHead } from "../components/ui.jsx";
 import { shiftNames } from "./Customers.jsx";
 import { businessDate as todayKey } from "../lib/businessDate.js";
+import {
+  DOC_MODES,
+  docModeOf,
+  docModeFlags,
+  docModeTag,
+} from "../lib/docMode.js";
 
 /**
  * Carga de pedidos para el reparto (administración y preventistas): se elige el cliente de la
@@ -70,8 +76,10 @@ export default function QuickOrder() {
   );
   const [payment, setPayment] = useState("");
   const [notes, setNotes] = useState("");
-  // Cliente exclusivo: sin precio ni saldo (viene de la ficha; se puede marcar por pedido).
-  const [noPricing, setNoPricing] = useState(false);
+  // Cómo sale el remito: con precio y saldo, con precio sin saldo, o sin precio ni saldo
+  // (viene de la ficha; se puede cambiar por pedido).
+  const [docMode, setDocMode] = useState("completo");
+  const noPricing = docMode === "exclusivo";
   const [otherLabel, setOtherLabel] = useState("");
   const [created, setCreated] = useState(null);
   // Antes de cargar se confirma cómo va el pedido: con precio y saldo, o sin precio ni saldo
@@ -124,7 +132,7 @@ export default function QuickOrder() {
     setDriver2("");
     setZone(c.zone || "");
     setPayment(c.credit ? "cuenta" : "entrega");
-    setNoPricing(!!c.noPricing);
+    setDocMode(docModeOf(c));
     setTimeout(() => document.querySelector(".qo-box input")?.focus(), 0);
   }
   function reset() {
@@ -135,7 +143,7 @@ export default function QuickOrder() {
     setPicked(null);
     setLines({});
     setNotes("");
-    setNoPricing(false);
+    setDocMode("completo");
     setOtherLabel("");
     setCreated(null);
     setQuery("");
@@ -227,6 +235,7 @@ export default function QuickOrder() {
       c.prices,
       c.credit,
       c.noPricing,
+      c.noBalance,
     ]);
   async function submit(e) {
     e?.preventDefault();
@@ -244,7 +253,7 @@ export default function QuickOrder() {
       reviewLock.current = false;
     }
   }
-  async function confirmAndSubmit(withoutPricing) {
+  async function confirmAndSubmit(mode) {
     if (
       reviewLock.current ||
       reviewError ||
@@ -254,7 +263,7 @@ export default function QuickOrder() {
       otroSinNombre
     )
       return;
-    if (!withoutPricing && missingPrice.length) return;
+    if (mode !== "exclusivo" && missingPrice.length) return;
     reviewLock.current = true;
     setReviewLoading(true);
     try {
@@ -266,8 +275,8 @@ export default function QuickOrder() {
         );
         return;
       }
-      setNoPricing(withoutPricing);
-      const noPricing = withoutPricing;
+      setDocMode(mode);
+      const { noPricing, noBalance } = docModeFlags(mode);
       // Siempre se manda el precio de cada renglón activo (propio o tipeado): el servidor no usa listas.
       const editedPrices = noPricing
         ? {}
@@ -284,6 +293,7 @@ export default function QuickOrder() {
         },
         prices: editedPrices,
         noPricing,
+        noBalance,
         items: items.map((r) => ({
           id: r.p.id,
           ...(r.boxes !== null ? { boxes: r.boxes } : {}),
@@ -367,8 +377,8 @@ export default function QuickOrder() {
             <p className="muted">
               {items.length} {items.length === 1 ? "renglón" : "renglones"} ·{" "}
               {deliveryDate.split("-").reverse().join("/")}
-              {picked.noPricing
-                ? " · en la ficha figura como cliente exclusivo (sin precio ni saldo)"
+              {docModeTag(picked)
+                ? ` · en la ficha figura ${docModeTag(picked)}`
                 : ""}
             </p>
             <p>
@@ -433,42 +443,48 @@ export default function QuickOrder() {
             </div>
             {notes && <p>Observaciones: {notes}</p>}
             <div className="qo-confirm-options">
-              <button
-                type="button"
-                className={picked.noPricing ? "secondary" : "primary"}
-                disabled={
-                  busy ||
-                  reviewLoading ||
-                  !!reviewError ||
-                  missingPrice.length > 0
-                }
-                title={
-                  missingPrice.length
-                    ? "Falta el precio de algún producto"
-                    : "Precio del cliente y cuenta corriente"
-                }
-                onClick={() => confirmAndSubmit(false)}
-              >
-                Confirmar y cargar con precio y saldo
-                <small>
-                  {missingPrice.length
-                    ? "Falta precio de " +
-                      missingPrice.map((r) => r.p.name.toLowerCase()).join(", ")
-                    : "Remito con precios, total y saldo"}
-                </small>
-              </button>
-              <button
-                type="button"
-                className={picked.noPricing ? "primary" : "secondary"}
-                disabled={busy || reviewLoading || !!reviewError}
-                onClick={() => confirmAndSubmit(true)}
-              >
-                Confirmar sin precio ni saldo
-                <small>
-                  Cliente exclusivo: remito con kilos, detalle y control de
-                  cajas
-                </small>
-              </button>
+              {[
+                [
+                  "completo",
+                  "Confirmar y cargar con precio y saldo",
+                  "Remito con precios, total y saldo",
+                ],
+                [
+                  "sinSaldo",
+                  "Confirmar con precio, sin saldo",
+                  "Remito con precios y total del pedido, sin deuda ni saldo a favor",
+                ],
+                [
+                  "exclusivo",
+                  "Confirmar sin precio ni saldo",
+                  "Cliente exclusivo: remito con kilos, detalle y control de cajas",
+                ],
+              ].map(([mode, text, hint]) => {
+                const needsPrice = mode !== "exclusivo";
+                const blocked = needsPrice && missingPrice.length > 0;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={
+                      docModeOf(picked) === mode ? "primary" : "secondary"
+                    }
+                    disabled={busy || reviewLoading || !!reviewError || blocked}
+                    title={blocked ? "Falta el precio de algún producto" : hint}
+                    onClick={() => confirmAndSubmit(mode)}
+                  >
+                    {text}
+                    <small>
+                      {blocked
+                        ? "Falta precio de " +
+                          missingPrice
+                            .map((r) => r.p.name.toLowerCase())
+                            .join(", ")
+                        : hint}
+                    </small>
+                  </button>
+                );
+              })}
             </div>
             <button
               type="button"
@@ -540,7 +556,7 @@ export default function QuickOrder() {
                           {c.summary?.balance > 0
                             ? ` · debe ${money(c.summary.balance)}`
                             : ""}
-                          {c.noPricing ? " · sin precio ni saldo" : ""}
+                          {docModeTag(c) ? ` · ${docModeTag(c)}` : ""}
                           {c.status && c.status !== "ok"
                             ? ` · ${c.status}`
                             : ""}
@@ -735,14 +751,18 @@ export default function QuickOrder() {
                 )}
               </select>
             </label>
-            <label className="toggle wide">
-              <input
-                type="checkbox"
-                checked={noPricing}
-                onChange={(e) => setNoPricing(e.target.checked)}
-              />{" "}
-              Sin precio ni saldo (cliente exclusivo): el remito sale solo con
-              kilos y detalle
+            <label className="wide">
+              Remito
+              <select
+                value={docMode}
+                onChange={(e) => setDocMode(e.target.value)}
+              >
+                {Object.entries(DOC_MODES).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="wide">
               Observaciones <small>(salen en el remito)</small>

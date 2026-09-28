@@ -124,3 +124,57 @@ test("crear sin precio ni saldo conserva las cajas al cargar y confirmar entrega
     store.close();
   }
 });
+
+test("con precio, sin saldo: la ficha lo sugiere, el pedido lo guarda y se puede cambiar", async () => {
+  const store = await openStore(":memory:");
+  try {
+    const api = createApi({
+      store,
+      events: createEvents(),
+      dataDir: process.env.DATA_DIR,
+    });
+    const call = (method, path, body = {}) =>
+      api({
+        method,
+        path,
+        body,
+        session: { role: "admin", staffId: 1, name: "Prueba" },
+        query: new URLSearchParams(),
+        ip: "127.0.0.1",
+      });
+    const alta = await call("POST", "/api/customers", {
+      name: "Ensayo sin saldo",
+      noBalance: true,
+    });
+    const phone = alta.body.phone;
+    assert.equal(store.customers.get(phone).noBalance, true);
+    assert.equal(store.customers.get(phone).noPricing, false);
+    await call("PUT", `/api/customers/${phone}/prices`, {
+      prices: { entero: 1000 },
+    });
+    const created = await call("POST", "/api/orders", {
+      customer: phone,
+      key: "sin-saldo",
+      deliveryDate: "2026-09-28",
+      items: [{ id: "entero", kg: 10 }],
+    });
+    const id = created.body.id;
+    assert.equal(store.orders.get(id).noBalance, true, "viene de la ficha");
+    assert.equal(store.orders.get(id).noPricing, false, "con precio");
+    await call("PUT", `/api/orders/${id}/editar`, { noBalance: false });
+    assert.equal(store.orders.get(id).noBalance, false);
+    await call("PUT", `/api/orders/${id}/editar`, {
+      noPricing: true,
+      noBalance: true,
+    });
+    assert.equal(
+      store.orders.get(id).noBalance,
+      false,
+      "sin precio ya va sin saldo",
+    );
+    await call("PATCH", `/api/customers/${phone}/ficha`, { noBalance: false });
+    assert.equal(store.customers.get(phone).noBalance, false);
+  } finally {
+    store.close();
+  }
+});

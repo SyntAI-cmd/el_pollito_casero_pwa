@@ -48,7 +48,11 @@ test("con dos pedidos del mismo cliente, la deuda se suma una sola vez", () => {
   const filas = routeRows([pedido(3, "c3"), pedido(4, "c3")], [cliente]);
   assert.equal(filas[0].firstCustomer, true);
   assert.equal(filas[1].firstCustomer, false);
-  assert.equal(importeTotal(filas[0]), 35000, "el primero lleva pedido + deuda");
+  assert.equal(
+    importeTotal(filas[0]),
+    35000,
+    "el primero lleva pedido + deuda",
+  );
   assert.equal(importeTotal(filas[1]), 10000, "el segundo, solo su pedido");
   const total = filas.reduce((n, r) => n + importeTotal(r), 0);
   assert.equal(total, 45000, "20.000 de pedidos + 25.000 de deuda, una vez");
@@ -62,7 +66,10 @@ test("un cliente con saldo a favor descuenta del importe a cobrar", () => {
 
 test("un cliente sin precio con deuda muestra al menos su deuda", () => {
   const cliente = { phone: "c5", summary: { balance: 8000, boxes: 0 } };
-  const [r] = routeRows([pedido(6, "c5", { noPricing: true, total: 0 })], [cliente]);
+  const [r] = routeRows(
+    [pedido(6, "c5", { noPricing: true, total: 0 })],
+    [cliente],
+  );
   assert.equal(importeTotal(r), 8000, "el pedido no vale, pero la deuda sí");
 });
 
@@ -74,7 +81,37 @@ test("la deuda previa no incluye el pedido a cuenta que todavía está en la hoj
     [cliente],
   );
   assert.equal(r.moneyBefore, 20000, "se descuenta el pedido de hoy");
-  assert.equal(importeTotal(r), 30000, "coincide con el saldo real del cliente");
+  assert.equal(
+    importeTotal(r),
+    30000,
+    "coincide con el saldo real del cliente",
+  );
+});
+
+test("sin ficha o sin saldo conocido, un pedido a cuenta no sale como saldo a favor", () => {
+  // Antes: 0 − 10.000 = "10.000 a favor" e importe 0 (cliente archivado o fichas sin cargar).
+  const pedidoCuenta = pedido(8, "c8", { payment: "cuenta", paid: false });
+  for (const clientes of [[], [{ phone: "c8" }]]) {
+    const [r] = routeRows([pedidoCuenta], clientes);
+    assert.equal(r.moneyBefore, 0);
+    assert.equal(importeTotal(r), 10000);
+  }
+});
+
+test("con precio, sin saldo: solo el importe del pedido; el saldo pasa al siguiente pedido", () => {
+  const cliente = { phone: "c9", summary: { balance: 25000, boxes: 0 } };
+  const filas = routeRows(
+    [pedido(9, "c9", { noBalance: true }), pedido(10, "c9")],
+    [cliente],
+  );
+  assert.equal(filas[0].firstCustomer, false, "no lleva la deuda");
+  assert.equal(importeTotal(filas[0]), 10000);
+  assert.equal(
+    filas[1].firstCustomer,
+    true,
+    "la deuda va una vez, en el otro pedido",
+  );
+  assert.equal(importeTotal(filas[1]), 35000);
 });
 
 test("la hoja se divide en partes sin perder pedidos", () => {

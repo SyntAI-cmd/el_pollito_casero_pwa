@@ -90,6 +90,9 @@ export default function OrderDetail({ order: abierto, role }) {
               Sucursal · {customer.branch}
             </span>
           )}
+          {o.noBalance && (
+            <span className="ui-tag">Remito con precio, sin saldo</span>
+          )}
         </div>
         <StatusBadge status={o.status} />
       </header>

@@ -50,6 +50,7 @@ const PERMITIDOS = new Set([
   "shipping",
   "number",
   "noPricing",
+  "noBalance",
   "items",
   "removed",
   "loaded",

@@ -18,9 +18,12 @@ export function routeRows(orders, customers) {
     const charge = group
       .filter((x) => x.payment === "cuenta" && !x.paid)
       .reduce((n, x) => n + (x.total || 0), 0);
+    // Sin ficha o sin saldo conocido (cliente archivado, lista sin cargar) no hay saldo
+    // anterior: restarle los pedidos a un saldo desconocido inventaba un "a favor".
+    const balance = c?.summary?.balance;
     balances.set(o.customer, {
       boxes: (c?.summary?.boxes || 0) - included,
-      money: (c?.summary?.balance || 0) - charge,
+      money: Number.isFinite(balance) ? balance - charge : 0,
     });
   }
   return list.map((o) => {
@@ -30,8 +33,9 @@ export function routeRows(orders, customers) {
     const back = o.returned || 0,
       before = b.boxes,
       after = before + out - back;
-    const firstCustomer = !seen.has(o.customer);
-    seen.add(o.customer);
+    // El saldo va en la primera fila del cliente que lo lleva ("con precio, sin saldo" no).
+    const firstCustomer = !o.noBalance && !seen.has(o.customer);
+    if (!o.noBalance) seen.add(o.customer);
     b.boxes = after;
     return {
       order: o,

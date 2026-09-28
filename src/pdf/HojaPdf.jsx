@@ -226,7 +226,8 @@ function valoresFila(r) {
   // en esa parada. La deuda previa se suma UNA sola vez por cliente, así que si el cliente
   // tiene dos pedidos, el segundo lleva solo lo suyo. Un saldo negativo es crédito del
   // cliente: se muestra "a favor" y, si cubre el pedido, no hay nada que cobrar (0).
-  const saldo = r.firstCustomer ? r.moneyBefore || 0 : 0;
+  // Pedido "con precio, sin saldo": solo el importe del pedido; la columna saldo va vacía.
+  const saldo = r.firstCustomer && !o.noBalance ? r.moneyBefore || 0 : 0;
   const deuda = Math.max(saldo, 0);
   const aCobrar = Math.max((o.noPricing ? 0 : o.total || 0) + saldo, 0);
   return [
@@ -242,11 +243,13 @@ function valoresFila(r) {
           ? `Sin pesar + ${money(deuda)}`
           : "Sin pesar",
     // De ese importe, esto es lo que traía el cliente.
-    !r.firstCustomer
-      ? "Incl. anterior"
-      : saldo < 0
-        ? money(-saldo) + A_FAVOR
-        : money(saldo),
+    o.noBalance
+      ? ""
+      : !r.firstCustomer
+        ? "Incl. anterior"
+        : saldo < 0
+          ? money(-saldo) + A_FAVOR
+          : money(saldo),
     // Corrección, cajas y pagos: en blanco para el preventista.
     ...Array(COLUMNAS.length - 4).fill(""),
   ];
