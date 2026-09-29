@@ -2129,6 +2129,10 @@ export function createEvents() {
         if (c.session.role === "admin" || c.session.role === "repartidor")
           send(c, "news", { at: now() });
     },
+    /** Catálogo cambiado (producto nuevo): todas las pantallas vuelven a pedir /api/config. */
+    productsChanged() {
+      for (const c of clients) send(c, "config", { at: now() });
+    },
     fleetChanged(trip) {
       for (const c of clients)
         if (c.session.role === "admin" || c.session.role === "repartidor")

@@ -92,7 +92,7 @@ export const put = (path, body) =>
  * Devuelve una función para desuscribirse; la conexión se cierra cuando no queda nadie.
  */
 const hub = { source: null, retry: 2000, timer: null, listeners: new Set() };
-const EVENT_TYPES = ["orders", "customer", "news", "fleet"];
+const EVENT_TYPES = ["orders", "customer", "news", "fleet", "config"];
 let hubLive = false;
 let hubDropped = false;
 function hubOpen() {

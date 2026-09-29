@@ -12,6 +12,7 @@ import {
   Pencil,
   Users,
   MapPin,
+  Plus,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { vehicleLabel } from "../components/Vehicles.jsx";
@@ -47,6 +48,8 @@ export default function QuickOrder() {
     config,
     customers,
     createStaffOrder,
+    createProduct,
+    notify,
     busy,
     formError,
     setModal,
@@ -83,6 +86,32 @@ export default function QuickOrder() {
   // Si el modo elegido no es el de la ficha, se guarda en la ficha junto con el pedido.
   const [saveDocMode, setSaveDocMode] = useState(true);
   const [otherLabel, setOtherLabel] = useState("");
+  const [addingProduct, setAddingProduct] = useState(false);
+  /**
+   * "Otro" con nombre → producto nuevo del catálogo, en el momento y para todos. Lo que ya se
+   * había cargado en el renglón "Otro" (cajas, kilos, precio) pasa al renglón del producto.
+   */
+  async function addOtherProduct() {
+    const name = otherLabel.trim();
+    if (name.length < 2 || addingProduct) return;
+    setAddingProduct(true);
+    try {
+      const p = await createProduct(name);
+      const move = (m) => {
+        if (m.otro === undefined) return m;
+        const { otro, ...rest } = m;
+        return { ...rest, [p.id]: rest[p.id] ?? otro };
+      };
+      setLines(move);
+      setPriceEdits(move);
+      setOtherLabel("");
+      notify(`${p.name} ya está en los productos.`);
+    } catch (e) {
+      notify(e.message);
+    } finally {
+      setAddingProduct(false);
+    }
+  }
   const [created, setCreated] = useState(null);
   // Antes de cargar se confirma cómo va el pedido: con precio y saldo, o sin precio ni saldo
   // (cliente exclusivo: familiares, facturación propia). La ficha sugiere la opción.
@@ -816,16 +845,33 @@ export default function QuickOrder() {
                   >
                     <td>
                       {p.id === "otro" ? (
-                        <input
-                          type="text"
-                          className="qo-other"
-                          value={otherLabel}
-                          disabled={!picked}
-                          maxLength="60"
-                          placeholder="Otro producto: escribí qué es"
-                          aria-label="Nombre del otro producto"
-                          onChange={(e) => setOtherLabel(e.target.value)}
-                        />
+                        <span className="qo-other-row">
+                          <input
+                            type="text"
+                            className="qo-other"
+                            value={otherLabel}
+                            maxLength="60"
+                            placeholder="Producto nuevo: escribí el nombre"
+                            aria-label="Nombre del producto nuevo"
+                            onChange={(e) => setOtherLabel(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                void addOtherProduct();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="secondary small"
+                            disabled={
+                              otherLabel.trim().length < 2 || addingProduct
+                            }
+                            onClick={() => void addOtherProduct()}
+                          >
+                            <Plus size={14} /> Agregar
+                          </button>
+                        </span>
                       ) : (
                         p.name
                       )}
@@ -970,7 +1016,7 @@ export default function QuickOrder() {
           )}
           {otroSinNombre && (
             <p className="form-error" role="alert">
-              Escribí qué es el otro producto.
+              Escribí el nombre del producto nuevo y tocá Agregar.
             </p>
           )}
         </section>

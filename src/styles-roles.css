@@ -2447,6 +2447,15 @@ dialog label.check input {
     width: 100%;
   }
 }
+.qo-other-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.qo-other-row .qo-other {
+  flex: 1 1 140px;
+}
 .qo-other {
   min-height: 36px;
   padding: 4px 8px;

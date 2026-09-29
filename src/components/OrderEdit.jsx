@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pencil, ArrowRight } from "lucide-react";
+import { Pencil, ArrowRight, Plus } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { useFieldVisibility } from "../lib/media.js";
 import { orderNumber, money, kgText } from "../lib/format.js";
@@ -20,8 +20,17 @@ const parse = (v) =>
  */
 export default function OrderEdit({ order: o }) {
   const ensureFieldVisible = useFieldVisibility();
-  const { products, config, customers, editOrder, busy, setModal, session } =
-    useStore();
+  const {
+    products,
+    config,
+    customers,
+    editOrder,
+    createProduct,
+    notify,
+    busy,
+    setModal,
+    session,
+  } = useStore();
   const customer = customers.find((c) => c.phone === o.customer);
   const admin = session?.role === "admin";
   const drivers = config?.drivers || [];
@@ -51,6 +60,30 @@ export default function OrderEdit({ order: o }) {
   const [driver, setDriver] = useState(o.driver || "");
   const [driver2, setDriver2] = useState(o.driver2 || "");
   const [error, setError] = useState("");
+  const [addingProduct, setAddingProduct] = useState(false);
+  const otroPesado = o.items.some((i) => i.id === "otro" && i.weighed);
+  /** "Otro" con nombre → producto nuevo del catálogo; lo cargado en "Otro" pasa a su renglón. */
+  async function addOtherProduct() {
+    const name = label.trim();
+    if (name.length < 2 || addingProduct || otroPesado) return;
+    setAddingProduct(true);
+    try {
+      const p = await createProduct(name);
+      const move = (m) => {
+        if (m.otro === undefined) return m;
+        const { otro, ...rest } = m;
+        return { ...rest, [p.id]: rest[p.id] ?? otro };
+      };
+      setLines(move);
+      setPrices(move);
+      setLabel("");
+      notify(`${p.name} ya está en los productos.`);
+    } catch (e) {
+      notify(e.message);
+    } finally {
+      setAddingProduct(false);
+    }
+  }
 
   const rows = products.map((p) => {
     const l = lines[p.id] || {};
@@ -140,14 +173,33 @@ export default function OrderEdit({ order: o }) {
               >
                 <td>
                   {p.id === "otro" ? (
-                    <input
-                      type="text"
-                      value={label}
-                      onChange={(e) => setLabel(e.target.value)}
-                      placeholder="Otro producto: ¿qué es?"
-                      maxLength="60"
-                      aria-label="Nombre del otro producto"
-                    />
+                    <span className="qo-other-row">
+                      <input
+                        type="text"
+                        className="qo-other"
+                        value={label}
+                        onChange={(e) => setLabel(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !otroPesado) {
+                            e.preventDefault();
+                            void addOtherProduct();
+                          }
+                        }}
+                        placeholder="Producto nuevo: escribí el nombre"
+                        maxLength="60"
+                        aria-label="Nombre del producto nuevo"
+                      />
+                      {!otroPesado && (
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={label.trim().length < 2 || addingProduct}
+                          onClick={() => void addOtherProduct()}
+                        >
+                          <Plus size={14} /> Agregar
+                        </button>
+                      )}
+                    </span>
                   ) : (
                     p.name
                   )}
@@ -308,7 +360,7 @@ export default function OrderEdit({ order: o }) {
       )}
       {otroSinNombre && (
         <p className="form-error" role="alert">
-          Escribí qué es el otro producto.
+          Escribí el nombre del producto nuevo y tocá Agregar.
         </p>
       )}
       {error && (

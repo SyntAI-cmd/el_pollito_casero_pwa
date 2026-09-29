@@ -11,6 +11,9 @@ import {
   validateLists,
   accountSummary,
   remitoNumber,
+  productByName,
+  registerProduct,
+  newProductFrom,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
 import { readFile } from "node:fs/promises";
@@ -121,6 +124,62 @@ export function createFloor({
     if (!c) fail(404, "Cliente no encontrado.");
     return c;
   };
+  // Productos creados desde la app (renglón "Otro" con nombre): viven en settings y se suman al catálogo.
+  for (const p of store.settings.get("customProducts", [])) registerProduct(p);
+  /** Busca el producto por nombre o lo crea (y avisa a todas las pantallas para que aparezca ya). */
+  function ensureProduct(name, session) {
+    const found = productByName(name);
+    if (found) return { product: found, created: false };
+    let data;
+    try {
+      data = newProductFrom(name);
+    } catch (e) {
+      fail(400, e.message);
+    }
+    const saved = { ...data, category: "trozado", created: now() };
+    store.settings.set("customProducts", [
+      ...store.settings.get("customProducts", []),
+      saved,
+    ]);
+    const product = registerProduct(saved);
+    store.audit.log(session, "product.create", "product", product.id, {
+      name: product.name,
+    });
+    events.productsChanged?.();
+    return { product, created: true };
+  }
+  /**
+   * Renglón "otro" con nombre en un pedido del equipo: pasa a ser ese producto (existente o nuevo),
+   * con el precio que se le haya puesto a "otro". Cambia `b.items` y `prices` en el lugar.
+   */
+  function promoteOther(b, prices, customerKey, session) {
+    if (!Array.isArray(b.items)) return;
+    const item = b.items.find((i) => i?.id === "otro");
+    if (!item) return;
+    const label = String(item.label ?? item.name ?? "").trim();
+    if (label.length < 2) fail(400, "Escribí el nombre del producto nuevo.");
+    const { product } = ensureProduct(label, session);
+    if (b.items.some((i) => i !== item && i?.id === product.id))
+      fail(400, `${product.name} ya está en el pedido: sumalo en su renglón.`);
+    item.id = product.id;
+    delete item.label;
+    const otherPrice = b.prices?.otro ?? prices.otro;
+    if (prices[product.id] === undefined && otherPrice !== undefined) {
+      prices[product.id] = otherPrice;
+      if (customerKey)
+        store.prices.set(customerKey, product.id, otherPrice, actorOf(session));
+    }
+    // El precio tipeado en "otro" era para este producto: el renglón libre vuelve a quedar vacío.
+    if (customerKey && prices.otro !== undefined) {
+      store.prices.set(customerKey, "otro", null);
+      delete prices.otro;
+    }
+    if (b.prices && b.prices.otro !== undefined) {
+      if (b.prices[product.id] === undefined)
+        b.prices[product.id] = b.prices.otro;
+      delete b.prices.otro;
+    }
+  }
   const summarize = (c) => ({
     ...c,
     prices: Object.fromEntries(
@@ -160,6 +219,7 @@ export function createFloor({
         .forCustomer(customer.phone)
         .map((p) => [p.productId, p.price]),
     );
+    promoteOther(b, prices, customer.phone, session);
     const deliveryDate = str(b.deliveryDate, {
       min: 10,
       max: 10,
@@ -354,6 +414,16 @@ export function createFloor({
   return async function floor({ method, path, body, query, session }) {
     const json = (status, b, extra = {}) => ({ status, body: b, ...extra });
 
+    // ---- Producto nuevo (equipo): se crea con solo el nombre y aparece en todas las pantallas ----
+    if (path === "/api/products" && method === "POST") {
+      staffOnly(session);
+      const { product, created } = ensureProduct(
+        str(body?.name, { min: 2, max: 60, name: "el nombre del producto" }),
+        session,
+      );
+      return json(created ? 201 : 200, product);
+    }
+
     // ---- Pedido de reparto (equipo, por clave de cliente) ----
     if (
       path === "/api/orders" &&
@@ -392,6 +462,9 @@ export function createFloor({
             .forCustomer(o.customer)
             .map((p) => [p.productId, p.price]),
         );
+        // Un "otro" viejo ya pesado se deja como está: pasarlo a producto le sacaría los cajones.
+        if (!o.items.some((i) => i.id === "otro" && i.weighed))
+          promoteOther(b, prices, o.customer, session);
         if (b.prices && typeof b.prices === "object")
           for (const [pid, price] of Object.entries(b.prices)) {
             if (!products.some((p) => p.id === pid))

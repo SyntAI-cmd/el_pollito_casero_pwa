@@ -369,6 +369,8 @@ export function StoreProvider({ children }) {
             if (data.customer) void customerBatch.add(data.customer);
           } else void customerBatch.add("*");
         }
+        // Producto nuevo en el catálogo: se baja la configuración para que aparezca ya.
+        if (type === "config") void refreshConfig().catch(() => {});
         if (type === "customer") {
           if (data?.phone && data.phone !== "*")
             void customerBatch.add(data.phone);
@@ -813,6 +815,12 @@ export function StoreProvider({ children }) {
     persist("pc-config-v3", rest);
     return rest;
   };
+  /** Producto nuevo con solo el nombre (renglón "Otro"): queda en el catálogo de todos al instante. */
+  const createProduct = async (name) => {
+    const product = await post("/products", { name });
+    await refreshConfig();
+    return product;
+  };
   /** Borra un pedido (administración). Lo cobrado con efectivo/transferencia vuelve como saldo a favor. */
   const deleteOrder = (o, reason) =>
     run(
@@ -981,7 +989,9 @@ export function StoreProvider({ children }) {
         });
         notify(
           `${r.desmarcados} ${r.desmarcados === 1 ? "pedido volvió" : "pedidos volvieron"} a pendiente` +
-            (r.salteados.length ? ` · ${r.salteados.length} no estaban entregados` : "") +
+            (r.salteados.length
+              ? ` · ${r.salteados.length} no estaban entregados`
+              : "") +
             ".",
         );
         return r;
@@ -1092,6 +1102,7 @@ export function StoreProvider({ children }) {
     reload,
     saveDriver,
     refreshConfig,
+    createProduct,
     deleteOrder,
     saveProfile,
     emailLogin,

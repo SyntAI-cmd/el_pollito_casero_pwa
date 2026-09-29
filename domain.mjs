@@ -16,6 +16,61 @@ export const products = business.products.map((p) => ({
   ...business.prices[p.id],
   unit: "Por kg",
 }));
+const productKey = (name) =>
+  String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+/** Producto del catálogo con ese nombre (sin mirar mayúsculas ni tildes); no cuenta el renglón libre "otro". */
+export const productByName = (name) =>
+  products.find(
+    (p) => p.id !== "otro" && productKey(p.name) === productKey(name),
+  );
+/**
+ * Suma al catálogo un producto creado desde la app (el renglón "Otro" con nombre). Va antes de "otro"
+ * para que el renglón libre siga último. Si ya existe ese id, no hace nada. Devuelve el producto.
+ */
+export function registerProduct(p) {
+  const found = products.find((x) => x.id === p.id);
+  if (found) return found;
+  const product = {
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    category: p.category || "trozado",
+    description: p.description || "",
+    image: p.image || null,
+    unit: "Por kg",
+    created: true,
+  };
+  const at = products.findIndex((x) => x.id === "otro");
+  products.splice(at < 0 ? products.length : at, 0, product);
+  return product;
+}
+/** Datos de un producto nuevo a partir del nombre: id legible y único, y el código siguiente (sin el 99 de "otro"). */
+export function newProductFrom(name) {
+  const clean = String(name || "")
+    .trim()
+    .replace(/\s+/g, " ");
+  if (clean.length < 2 || clean.length > 60)
+    throw Error("El nombre del producto va de 2 a 60 letras.");
+  const base =
+    productKey(clean)
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "producto";
+  let id = base;
+  for (let n = 2; products.some((p) => p.id === id); n++) id = `${base}-${n}`;
+  const code =
+    Math.max(
+      0,
+      ...products
+        .filter((p) => p.id !== "otro")
+        .map((p) => Number(p.code) || 0),
+    ) + 1;
+  return { id, code, name: clean.charAt(0).toUpperCase() + clean.slice(1) };
+}
 export const localities = business.localities;
 /** Repartidores iniciales (business.json); en producción viven en la tabla drivers. */
 export const drivers = business.drivers;
@@ -147,7 +202,7 @@ export function priceOrder(
       throw Error("Elegí productos válidos, sin repetir.");
     let name = p.name;
     if (p.id === "otro") {
-      const label = String(item.label || "").trim();
+      const label = String(item.label ?? item.name ?? "").trim();
       if (!staff || label.length < 2 || label.length > 60)
         throw Error("Escribí qué es el otro producto (2 a 60 letras).");
       name = label;
