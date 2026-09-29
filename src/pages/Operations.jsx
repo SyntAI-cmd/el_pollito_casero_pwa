@@ -56,6 +56,8 @@ export default function Operations() {
       : todayKey(),
   );
   const [shiftFilter, setShiftFilter] = useState(query.get("turno") || "");
+  // Estado: "" todos · "pendientes" no entregados · "entregados".
+  const [statusFilter, setStatusFilter] = useState(query.get("estado") || "");
   // Datos frescos cada vez que se entra a Pedidos (además del canal en vivo).
   useEffect(() => {
     reload();
@@ -68,13 +70,14 @@ export default function Operations() {
     if (dateFilter !== todayKey()) params.set("fecha", dateFilter || "todas");
     if (shiftFilter) params.set("turno", shiftFilter);
     if (showAll) params.set("todo", "1");
+    if (statusFilter) params.set("estado", statusFilter);
     const next = params.toString();
     if (next !== location.search.replace(/^\?/, ""))
       navigate("/operacion" + (next ? "?" + next : ""), {
         replace: true,
         scroll: false,
       });
-  }, [search, driverFilter, dateFilter, shiftFilter, showAll, path]);
+  }, [search, driverFilter, dateFilter, shiftFilter, showAll, statusFilter, path]);
   if (session?.role !== "admin")
     return (
       <>
@@ -101,6 +104,7 @@ export default function Operations() {
     (dateFilter && dateFilter !== todayKey() ? 1 : 0) +
     (shiftFilter ? 1 : 0) +
     (driverFilter ? 1 : 0) +
+    (statusFilter ? 1 : 0) +
     (showAll ? 1 : 0);
   const otherDates = dateFilter
     ? Object.entries(
@@ -121,6 +125,9 @@ export default function Operations() {
       o.driver2 === driverFilter) &&
     (!dateFilter || dayOf(o) === dateFilter) &&
     (!shiftFilter || shiftOf(o) === shiftFilter) &&
+    (statusFilter !== "pendientes" ||
+      ["recibido", "preparando", "en_camino"].includes(o.status)) &&
+    (statusFilter !== "entregados" || o.status === "entregado") &&
     (!q ||
       normalize(
         `${o.id} ${orderNumber(o)} ${o.name} ${o.phone} ${o.customer} ${o.address} ${o.locality?.name || ""}`,
@@ -146,7 +153,10 @@ export default function Operations() {
     .filter((o) => matches(o) && (showAll || o.status !== "cancelado"))
     .filter(
       (o) =>
-        showAll || o.status !== "entregado" || recent([o], "entregado").length,
+        showAll ||
+        statusFilter === "entregados" ||
+        o.status !== "entregado" ||
+        recent([o], "entregado").length,
     )
     .sort(
       (a, b) =>
@@ -158,6 +168,7 @@ export default function Operations() {
     setDateFilter(todayKey());
     setShiftFilter("");
     setDriverFilter("");
+    setStatusFilter("");
     setShowAll(false);
   };
   // Filtros puestos, cada uno con su "quitar": se ve qué está recortando la lista.
@@ -175,6 +186,13 @@ export default function Operations() {
       : null,
     driverFilter
       ? ["Preventista", driverFilter, () => setDriverFilter("")]
+      : null,
+    statusFilter
+      ? [
+          "Estado",
+          statusFilter === "pendientes" ? "no entregados" : "entregados",
+          () => setStatusFilter(""),
+        ]
       : null,
     showAll
       ? ["Incluye", "entregados y anteriores", () => setShowAll(false)]
@@ -307,6 +325,15 @@ export default function Operations() {
                   <option key={d}>{d}</option>
                 ))}
               </select>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filtrar por estado"
+              >
+                <option value="">Todos los estados</option>
+                <option value="pendientes">No entregados</option>
+                <option value="entregados">Entregados</option>
+              </select>
               <label className="toggle">
                 <input
                   type="checkbox"
@@ -323,6 +350,7 @@ export default function Operations() {
                     setDateFilter("");
                     setShiftFilter("");
                     setDriverFilter("");
+                    setStatusFilter("");
                     setShowAll(false);
                   }}
                 >
