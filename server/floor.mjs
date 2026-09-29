@@ -163,7 +163,11 @@ export function createFloor({
       fail(400, `${product.name} ya está en el pedido: sumalo en su renglón.`);
     item.id = product.id;
     delete item.label;
-    const otherPrice = b.prices?.otro ?? prices.otro;
+    // Precio: el tipeado ahora, el propio de "otro" del cliente o el que ya traía el renglón.
+    const otherPrice =
+      b.prices?.otro ??
+      prices.otro ??
+      (item.price > 0 ? item.price : undefined);
     if (prices[product.id] === undefined && otherPrice !== undefined) {
       prices[product.id] = otherPrice;
       if (customerKey)
@@ -463,8 +467,17 @@ export function createFloor({
             .map((p) => [p.productId, p.price]),
         );
         // Un "otro" viejo ya pesado se deja como está: pasarlo a producto le sacaría los cajones.
-        if (!o.items.some((i) => i.id === "otro" && i.weighed))
+        // Sin renglones nuevos (p. ej. solo se cambia el preventista) también se pasa el "otro"
+        // de un pedido viejo a su producto: se trabaja sobre una copia de los renglones.
+        if (!o.items.some((i) => i.id === "otro" && i.weighed)) {
+          if (!Array.isArray(b.items) && o.items.some((i) => i.id === "otro"))
+            b.items = o.items.map((i) =>
+              i.boxes === undefined && !i.weighed && i.ordered !== undefined
+                ? { ...i, kg: i.ordered }
+                : { ...i },
+            );
           promoteOther(b, prices, o.customer, session);
+        }
         if (b.prices && typeof b.prices === "object")
           for (const [pid, price] of Object.entries(b.prices)) {
             if (!products.some((p) => p.id === pid))

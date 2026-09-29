@@ -67,6 +67,38 @@ test("producto nuevo: 'Otro' con nombre queda en el catálogo y el pedido lo usa
     assert.equal(precios.otro, undefined, "'otro' queda libre otra vez");
     assert.equal(pedido.body.driver, "Ensayo", "preventista asignado");
 
+    // Pedido viejo con "otro" (cargado antes de este cambio): asignarle el preventista no falla
+    // y el renglón pasa al producto con ese nombre.
+    const viejo = (
+      await call("POST", "/api/orders", {
+        customer: phone,
+        key: "p2",
+        deliveryDate: "2026-09-29",
+        items: [{ id: "entero", boxes: 1 }],
+      })
+    ).body;
+    const guardado = store.orders.get(viejo.id);
+    guardado.items.push({
+      id: "otro",
+      name: "Pata de muslo",
+      kg: 0,
+      boxes: 2,
+      price: 3200,
+      lineTotal: 0,
+    });
+    store.orders.save(guardado);
+    const asignado = await call("PUT", `/api/orders/${viejo.id}/editar`, {
+      driver: "Ensayo",
+    });
+    assert.equal(asignado.status, 200);
+    assert.equal(store.orders.get(viejo.id).driver, "Ensayo");
+    const renglon = store.orders
+      .get(viejo.id)
+      .items.find((i) => i.name === "Pata de muslo");
+    assert.equal(renglon.id, creado.body.id, "usa el producto existente");
+    assert.equal(renglon.boxes, 2);
+    assert.equal(renglon.price, 3200, "conserva el precio que tenía");
+
     // Queda guardado: al reabrir la app (otro createApi) sigue en el catálogo.
     const guardados = store.settings.get("customProducts", []);
     assert.deepEqual(
