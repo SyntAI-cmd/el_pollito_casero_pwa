@@ -11,6 +11,7 @@ import {
   Truck,
   Printer,
   SlidersHorizontal,
+  RotateCcw,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
@@ -35,6 +36,7 @@ export default function Operations() {
     live,
     setModal,
     reload,
+    undeliver,
   } = useStore();
   const { path, query, navigate } = useRoute();
   const tab =
@@ -58,6 +60,7 @@ export default function Operations() {
   const [shiftFilter, setShiftFilter] = useState(query.get("turno") || "");
   // Estado: "" todos · "pendientes" no entregados · "entregados".
   const [statusFilter, setStatusFilter] = useState(query.get("estado") || "");
+  const [desmarcando, setDesmarcando] = useState(false);
   // Datos frescos cada vez que se entra a Pedidos (además del canal en vivo).
   useEffect(() => {
     reload();
@@ -163,6 +166,7 @@ export default function Operations() {
         (a.deliveryDate || "").localeCompare(b.deliveryDate || "") ||
         (a.number || 0) - (b.number || 0),
     );
+  const entregadosVisibles = visibles.filter((o) => o.status === "entregado");
   const limpiar = () => {
     setSearch("");
     setDateFilter(todayKey());
@@ -386,6 +390,52 @@ export default function Operations() {
             {search.trim() ? ` con “${search.trim()}”` : ""}
           </span>
         </div>
+      )}
+      {tab === "pedidos" && statusFilter === "entregados" && entregadosVisibles.length > 0 && (
+        <section className="panel deliver-batch" aria-label="Desmarcar entregados">
+          {!desmarcando ? (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setDesmarcando(true)}
+              title="Para entregas marcadas por error: vuelven a pendiente"
+            >
+              <RotateCcw size={16} /> Desmarcar entregados ({entregadosVisibles.length})
+            </button>
+          ) : (
+            <div className="deliver-batch-confirm" role="alertdialog">
+              <p>
+                {entregadosVisibles.length === 1
+                  ? "El pedido de la lista vuelve"
+                  : `Los ${entregadosVisibles.length} pedidos de la lista vuelven`}{" "}
+                a <strong>pendiente</strong>, como antes de marcarlos. Se quitan
+                las cajas que habían dejado y, si la entrega en lote los dio por
+                cobrados, ese cobro. Usá los filtros para elegir cuáles.
+              </p>
+              <div className="actions-row">
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (await undeliver(entregadosVisibles)) setDesmarcando(false);
+                  }}
+                >
+                  <RotateCcw size={16} /> Confirmar
+                </button>
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => setDesmarcando(false)}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       )}
       {tab === "pedidos" && dateFilter && otherDates.length > 0 && (
         <p className="notice other-dates">

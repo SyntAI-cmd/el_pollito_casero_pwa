@@ -58,3 +58,34 @@ test("deshacer entregas en lote: vuelven a pedido normal con saldo y cajas como 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("API desentregar: solo admin, vuelve a pendiente y saltea los no entregados", async () => {
+  const store = await openStore(":memory:");
+  try {
+    const api = createApi({ store, events: createEvents(), dataDir: process.env.DATA_DIR });
+    store.drivers.save({ name: "Ensayo", active: true, zones: [] });
+    const call = (method, path, body = {}, role = "admin") =>
+      api({ method, path, body, session: { role, staffId: 1, name: "Prueba", driver: "Ensayo" },
+        query: new URLSearchParams(), ip: "127.0.0.1" });
+    const phone = (await call("POST", "/api/customers", { name: "Cliente" })).body.phone;
+    await call("PUT", `/api/customers/${phone}/prices`, { prices: { entero: 1000 } });
+    const id = (await call("POST", "/api/orders", { customer: phone, key: "x", driver: "Ensayo",
+      payment: "cuenta", deliveryDate: "2026-09-28", items: [{ id: "entero", boxes: 3 }] })).body.id;
+    const otro = (await call("POST", "/api/orders", { customer: phone, key: "y", driver: "Ensayo",
+      payment: "cuenta", deliveryDate: "2026-09-28", items: [{ id: "entero", boxes: 1 }] })).body.id;
+    const cajas = () => accountSummary(store.orders.forCustomer(phone), store.customers.get(phone)).boxes;
+    const antes = cajas();
+    await call("POST", "/api/orders/entregar", { ids: [id] });
+    assert.equal(cajas(), antes + 3);
+    await assert.rejects(() => call("POST", "/api/orders/desentregar", { ids: [id] }, "repartidor"),
+      (e) => e.status === 403);
+    const r = await call("POST", "/api/orders/desentregar", { ids: [id, otro] });
+    assert.equal(r.body.desmarcados, 1);
+    assert.deepEqual(r.body.salteados.map((x) => x.id), [otro]);
+    assert.equal(store.orders.get(id).status, "recibido");
+    assert.equal(cajas(), antes);
+    assert.ok(store.audit.for("order", id).some((a) => a.action === "order.deliver.undo"));
+  } finally {
+    store.close();
+  }
+});

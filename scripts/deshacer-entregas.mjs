@@ -21,7 +21,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const AUTO_PAID_WINDOW_MS = 10_000;
+import { planDesentrega, aplicarDesentrega } from "../server/desentregar.mjs";
 
 /**
  * Tandas de "Marcar entregados del día". El registro de auditoría de la tanda no guardaba la lista
@@ -77,39 +77,12 @@ export function deshacerEntregas(
   { aplicar = false, dir = "data", log = console.log } = {},
 ) {
   const targets = pick(db, scope);
-  const getOrder = db.prepare("SELECT * FROM orders WHERE id = ?");
-  const events = db.prepare(
-    "SELECT id, status, at FROM order_events WHERE order_id = ? ORDER BY id",
-  );
   const plan = [];
   const skipped = [];
   for (const id of targets) {
-    const o = getOrder.get(id);
-    if (!o) {
-      skipped.push(`${id}: no existe`);
-      continue;
-    }
-    if (o.status !== "entregado" || !o.delivered_at) {
-      skipped.push(`${id}: ya no está entregado (${o.status})`);
-      continue;
-    }
-    const ev = events.all(id);
-    const keep = ev.filter((e) => e.at < o.delivered_at);
-    const drop = ev.filter((e) => e.at >= o.delivered_at);
-    const prev = keep.at(-1)?.status || "recibido";
-    // Cobro puesto solo por la tanda ("cobrados"): mismo actor, sin pago asociado, segundos antes.
-    const inBatch = JSON.parse(o.data || "{}").deliveredInBatch;
-    const unpay =
-      !!inBatch &&
-      o.paid &&
-      o.paid_by === inBatch &&
-      o.payment !== "cuenta" &&
-      !o.payment_id &&
-      o.paid_at &&
-      Math.abs(Date.parse(o.delivered_at) - Date.parse(o.paid_at)) <=
-        AUTO_PAID_WINDOW_MS;
-    const unDepart = o.departed_at && o.departed_at >= o.delivered_at;
-    plan.push({ o, prev, drop, unpay, unDepart });
+    const p = planDesentrega(db, id);
+    if (p.error) skipped.push(`${id}: ${p.error}`);
+    else plan.push(p);
   }
 
   log(`Pedidos a volver atrás: ${plan.length}`);
@@ -132,36 +105,14 @@ export function deshacerEntregas(
   db.exec(`VACUUM INTO '${backup.replace(/'/g, "''")}'`);
   log(`Respaldo: ${backup}`);
 
-  const delEvent = db.prepare("DELETE FROM order_events WHERE id = ?");
-  const delBoxes = db.prepare(
-    "DELETE FROM box_movements WHERE order_id = ? AND kind = 'left'",
-  );
-  const upd = db.prepare(`UPDATE orders SET status = ?, delivered_at = NULL, delivered_by = NULL,
-    boxes = 0, departed_at = ?, paid = ?, paid_at = ?, paid_by = ?, data = ?, updated = ? WHERE id = ?`);
   const audit = db.prepare(`INSERT INTO audit_log(at, actor_role, actor, actor_name, action, entity,
     entity_id, category, detail) VALUES(?,?,?,?,?,?,?,?,?)`);
   const at = new Date().toISOString();
   db.exec("BEGIN IMMEDIATE");
   try {
-    for (const { o, prev, drop, unpay, unDepart } of plan) {
-      for (const e of drop) delEvent.run(e.id);
-      delBoxes.run(o.id);
-      const data = JSON.parse(o.data || "{}");
-      delete data.deliveredInBatch;
-      delete data.boxBalanceBefore;
-      if (unpay) {
-        delete data.paidMethod;
-      }
-      upd.run(
-        prev,
-        unDepart ? null : o.departed_at,
-        unpay ? 0 : o.paid,
-        unpay ? null : o.paid_at,
-        unpay ? null : o.paid_by,
-        Object.keys(data).length ? JSON.stringify(data) : null,
-        at,
-        o.id,
-      );
+    for (const p of plan) {
+      const { o, prev, unpay } = p;
+      aplicarDesentrega(db, p);
       audit.run(
         at,
         "admin",

@@ -30,6 +30,7 @@ import { createFloor } from "./floor.mjs";
 import { createFleet } from "./fleet.mjs";
 import { createDocuments } from "./documents.mjs";
 import { createReceipts } from "./receipts.mjs";
+import { planDesentrega, aplicarDesentrega } from "./desentregar.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
 import {
@@ -1668,6 +1669,34 @@ export function createApi({
       for (const phone of new Set(hechos.map((o) => o.customer)))
         events.customerChanged({ phone });
       return json(200, { entregados: hechos.length, salteados });
+    }
+    // Desmarcar entregados (administración): deshace una entrega hecha por error, suelta o en
+    // lote. El pedido vuelve al estado anterior; cajas, historial y cobro automático también.
+    if (path === "/api/orders/desentregar" && method === "POST") {
+      if (session?.role !== "admin") fail(403, "Solo administración.");
+      const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
+      if (!ids.length || ids.length > 500)
+        fail(400, "Elegí entre 1 y 500 pedidos.");
+      const hechos = [];
+      const salteados = [];
+      store.transaction(() => {
+        for (const id of ids) {
+          const plan = planDesentrega(store.db, id);
+          if (plan.error) {
+            salteados.push({ id, motivo: plan.error });
+            continue;
+          }
+          const antes = aplicarDesentrega(store.db, plan);
+          store.audit.log(session, "order.deliver.undo", "order", id, antes, {
+            motivo: "entrega marcada por error",
+          });
+          hechos.push(store.orders.get(id));
+        }
+      });
+      for (const o of hechos) events.orderChanged(o);
+      for (const phone of new Set(hechos.map((o) => o.customer)))
+        events.customerChanged({ phone });
+      return json(200, { desmarcados: hechos.length, salteados });
     }
 
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);

@@ -968,6 +968,26 @@ export function StoreProvider({ children }) {
       },
       { onError: (e) => notify(e.message) },
     );
+  // Deshace entregas marcadas por error: vuelven al estado anterior.
+  const undeliver = (list) =>
+    run(
+      async () => {
+        const r = await post("/orders/desentregar", {
+          ids: list.map((o) => o.id),
+        });
+        await afterWrite({
+          orderIds: list.map((o) => o.id),
+          customers: [...new Set(list.map((o) => o.customer))],
+        });
+        notify(
+          `${r.desmarcados} ${r.desmarcados === 1 ? "pedido volvió" : "pedidos volvieron"} a pendiente` +
+            (r.salteados.length ? ` · ${r.salteados.length} no estaban entregados` : "") +
+            ".",
+        );
+        return r;
+      },
+      { onError: (e) => notify(e.message) },
+    );
   const returnBoxes = (customer, boxes) =>
     run(
       async () => {
@@ -1088,6 +1108,7 @@ export function StoreProvider({ children }) {
     updateCustomer,
     registerPayment,
     deliverBatch,
+    undeliver,
     returnBoxes,
     reportTransfer,
     payOnline,

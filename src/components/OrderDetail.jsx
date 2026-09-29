@@ -13,6 +13,7 @@ import {
   FileText,
   Users,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import {
@@ -46,6 +47,7 @@ export default function OrderDetail({ order: abierto, role }) {
     update,
     editOrder,
     deleteOrder,
+    undeliver,
     config,
   } = useStore();
   // Pedido fresco: si se cambia el preventista o se pesa mientras la ficha está abierta,
@@ -393,6 +395,23 @@ export default function OrderDetail({ order: abierto, role }) {
 
         {admin && o.status !== "cancelado" && (
           <div className="op-actions-danger">
+            {o.status === "entregado" && (
+              <button
+                type="button"
+                className="link-button"
+                disabled={busy}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `¿Desmarcar la entrega del pedido N° ${orderNumber(o)} de ${o.name}? Vuelve a pendiente y se quitan las cajas que había dejado.`,
+                    )
+                  )
+                    undeliver([o]);
+                }}
+              >
+                <RotateCcw size={14} /> Desmarcar entregado
+              </button>
+            )}
             <button
               type="button"
               className="link-button danger"
