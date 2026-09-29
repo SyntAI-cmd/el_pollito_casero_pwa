@@ -30,8 +30,14 @@ export function routeRows(orders, customers) {
     const customer = customers.find((c) => c.phone === o.customer),
       b = balances.get(o.customer);
     const out = outgoingBoxes(o);
+    // Previas: en un pedido entregado, las que registró la entrega (lo mismo que muestra el
+    // panel de envases del pedido); si no, el saldo de cajas del cliente, el que imprime el
+    // remito como "cajas adeudadas", descontando lo que ya movieron sus pedidos de la hoja.
     const back = o.returned || 0,
-      before = b.boxes,
+      before =
+        o.status === "entregado" && Number.isFinite(o.boxBalanceBefore)
+          ? o.boxBalanceBefore
+          : b.boxes,
       after = before + out - back;
     // El saldo va en la primera fila del cliente que lo lleva ("con precio, sin saldo" no).
     const firstCustomer = !o.noBalance && !seen.has(o.customer);

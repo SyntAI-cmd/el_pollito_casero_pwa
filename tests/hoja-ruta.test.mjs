@@ -127,3 +127,30 @@ test("la hoja se divide en partes sin perder pedidos", () => {
   );
   assert.equal(partes.flat().length, 31);
 });
+
+test("cajas: pendiente → previas = cajas adeudadas del remito, salientes = cajas del remito", async () => {
+  const { remitoData } = await import("../src/lib/remito.js");
+  const cliente = { phone: "k1", summary: { balance: 0, boxes: 7 } };
+  const o = pedido(20, "k1", {
+    items: [{ id: "entero", name: "Pollo", kg: 20, boxes: 2 }, { id: "p", name: "Pata", kg: 5, boxes: 1 }],
+  });
+  const [r] = routeRows([o], [cliente]);
+  assert.equal(r.before, remitoData(o, cliente).owedBoxes);
+  assert.equal(r.out, 3);
+});
+
+test("cajas: entregado → previas y salientes = las del panel de envases del pedido", async () => {
+  const { orderBoxes } = await import("../src/lib/cajas.js");
+  const cliente = { phone: "k2", summary: { balance: 0, boxes: 9 } };
+  const o = pedido(21, "k2", { status: "entregado", boxes: 4, returned: 1, boxBalanceBefore: 6 });
+  const [r] = routeRows([o], [cliente]);
+  const panel = orderBoxes(o, 9);
+  assert.equal(r.before, panel.previas);
+  assert.equal(r.out, panel.salientes);
+});
+
+test("cajas: el segundo pedido del cliente arranca con el saldo que deja el primero", () => {
+  const cliente = { phone: "k3", summary: { balance: 0, boxes: 5 } };
+  const [a, b] = routeRows([pedido(22, "k3"), pedido(23, "k3")], [cliente]);
+  assert.deepEqual([a.before, a.out, b.before, b.out], [5, 2, 7, 2]);
+});

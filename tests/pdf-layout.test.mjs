@@ -180,8 +180,24 @@ test("remito sin precio ni saldo muestra solo las cajas adeudadas registradas", 
   assert.ok(!text(empty[0]).includes("0 cajas"));
   const routeTable = route[0].children.find((c) => text(c).includes("00001"));
   const row = routeTable.children.find((c) => text(c).startsWith("00001"));
-  // Las cajas las completa el preventista: salen en blanco.
-  assert.deepEqual(row.children.slice(6, 10).map(text), ["", "", "", ""]);
+  // Previas (9 de saldo + 2 ya devueltas en este pedido) y salientes (3 × 2) salen de la
+  // página; devueltas y saldo de cajas los completa el preventista.
+  assert.deepEqual(row.children.slice(6, 10).map(text), ["11", "6", "", ""]);
   assert.ok(!text(remito[0]).includes("Saldo anterior"));
   assert.ok(!text(remito[0]).includes("100.000"));
+});
+
+test("hoja: las cajas previas nunca salen negativas", async () => {
+  const o = order(1);
+  const pages = await render(
+    HojaDocument({
+      orders: [o],
+      customers: [{ phone: o.customer, summary: { boxes: -3, balance: 0 } }],
+      date: o.deliveryDate,
+      logo: null,
+    }),
+  );
+  const table = pages[0].children.find((c) => text(c).includes("00001"));
+  const row = table.children.find((c) => text(c).startsWith("00001"));
+  assert.deepEqual(row.children.slice(6, 10).map(text), ["0", "6", "", ""]);
 });

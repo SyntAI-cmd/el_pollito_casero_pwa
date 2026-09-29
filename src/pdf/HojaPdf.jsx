@@ -16,8 +16,9 @@ import { routeRows } from "../lib/routeRows.js";
  * (`docs/produccion/plantilla-hoja-ruta.png`).
  *
  * Se imprime solo lo ya registrado: N° de remito, cliente, importe total (con el saldo, si
- * lo hay) y el saldo que traía el cliente. Cajas, corrección, pagos y rendición salen en
- * blanco: es el arqueo que completa el preventista en lapicera.
+ * lo hay), el saldo que traía el cliente y las cajas previas y salientes. Corrección, cajas
+ * devueltas y su saldo, pagos y rendición salen en blanco: es el arqueo que completa el
+ * preventista en lapicera.
  *
  * Diseño: tres bloques separados (REMITO · CAJAS · PAGOS) con el mismo alto de fila, un
  * contorno fino por bloque y líneas internas suaves. El reverso usa el mismo sistema.
@@ -174,6 +175,7 @@ const CELDAS = BLOQUES.flatMap((b, bi) => [
 const COLUMNAS = CELDAS.filter((c) => !c.hueco);
 const anchoBloque = (b) => b.cols.reduce((n, [, w]) => n + w, 0);
 const IMPORTES = new Set([2, 3]);
+const CAJAS_IMPRESAS = new Set([5, 6]);
 
 function Cabecera({
   logo,
@@ -250,8 +252,14 @@ function valoresFila(r) {
         : saldo < 0
           ? money(-saldo) + A_FAVOR
           : money(saldo),
-    // Corrección, cajas y pagos: en blanco para el preventista.
-    ...Array(COLUMNAS.length - 4).fill(""),
+    // Corrección: en blanco.
+    "",
+    // Cajas previas (lo que el cliente ya debía) y salientes (las de este pedido): salen
+    // de la página. Devueltas, saldo de cajas y pagos: en blanco para el preventista.
+    // El cliente debe cajas o no debe ninguna: nunca hay previas negativas (como el remito).
+    String(Math.max(0, r.before)),
+    String(r.out),
+    ...Array(COLUMNAS.length - 7).fill(""),
   ];
 }
 
@@ -316,6 +324,7 @@ function Valor({ v, i, fontSize }) {
         { fontSize },
         i === 0 ? { fontFamily: "Helvetica-Bold" } : {},
         IMPORTES.has(i) ? s.num : {},
+        CAJAS_IMPRESAS.has(i) ? { textAlign: "center" } : {},
       ]}
     >
       {texto}
