@@ -61,6 +61,10 @@ const PERMITIDOS = new Set([
   "deliveredBy",
   "reason",
   "motivo",
+  // entrega en lote
+  "entregados",
+  "salteados",
+  "cobrados",
   // cliente y cuenta
   "name",
   "alias",

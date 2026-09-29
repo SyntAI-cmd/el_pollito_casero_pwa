@@ -18,13 +18,13 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/server.mjs /app/domain.mjs /app/business.json /app/package.json ./
 COPY --from=build /app/server ./server
-COPY --from=build /app/scripts/limpiar.mjs /app/scripts/prueba.mjs /app/scripts/importar-gc.mjs /app/scripts/reset.mjs /app/scripts/limpiar-semana.mjs /app/scripts/restaurar-historicos.mjs /app/scripts/verificar-integridad.mjs ./scripts/
+COPY --from=build /app/scripts/limpiar.mjs /app/scripts/prueba.mjs /app/scripts/importar-gc.mjs /app/scripts/reset.mjs /app/scripts/limpiar-semana.mjs /app/scripts/restaurar-historicos.mjs /app/scripts/verificar-integridad.mjs /app/scripts/deshacer-entregas.mjs ./scripts/
 COPY --from=build /app/seed ./seed
 # Corre como root: Railway monta el volumen de /data como root y el usuario "node" no podría escribir la base.
 RUN mkdir -p /data
 # Verificación: los módulos del servidor resuelven todas sus importaciones dentro de la imagen
 # (si falta un archivo, falla el build en vez de caerse el servicio ya desplegado).
-RUN node --input-type=module -e "await import('./server/api.mjs'); await import('./server/floor.mjs'); await import('./server/fleet.mjs'); await import('./server/receipts.mjs'); await import('./server/auth.mjs'); await import('./server/store.mjs'); await import('./server/documents.mjs')"
+RUN node --input-type=module -e "await import('./server/api.mjs'); await import('./server/floor.mjs'); await import('./server/fleet.mjs'); await import('./server/receipts.mjs'); await import('./server/auth.mjs'); await import('./server/store.mjs'); await import('./server/documents.mjs'); await import('./scripts/deshacer-entregas.mjs')"
 # El volumen se monta desde Railway (Settings → Volumes → /data); Railway rechaza la instrucción VOLUME.
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD wget -qO- http://127.0.0.1:8080/api/health || exit 1

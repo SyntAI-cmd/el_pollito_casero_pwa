@@ -130,6 +130,13 @@ if (process.env.RESET_DATOS) {
       else if (name === "limpiar-semana" || name === "semana") {
         const { limpiarSemana } = await import("./scripts/limpiar-semana.mjs");
         limpiarSemana(store, { log: rlog, dir });
+      } else if (name === "deshacer-entregas") {
+        // deshacer-entregas:<alcance>[:aplicar] · alcance: lotes | lote:N | fecha:AAAA-MM-DD | ids:A,B
+        const { deshacerEntregas } = await import("./scripts/deshacer-entregas.mjs");
+        const rest = step.slice(name.length + 1);
+        const aplicar = rest.endsWith(":aplicar");
+        const scope = aplicar ? rest.slice(0, -":aplicar".length) : rest;
+        deshacerEntregas(store.db, scope || "lotes", { aplicar, dir, log: rlog });
       }
     }
   } catch (e) {
