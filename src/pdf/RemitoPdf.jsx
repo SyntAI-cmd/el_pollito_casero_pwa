@@ -14,7 +14,8 @@ import { remitoData } from "../lib/remito.js";
 Font.registerHyphenationCallback((word) => [word]);
 
 /**
- * Un remito por página A6 vertical (105 × 148 mm), sin marcas de corte.
+ * Un remito por página, 105 mm de ancho, sin marcas de corte. Mide A6 (148 mm) como mínimo y se
+ * alarga con los renglones: un pedido con muchos productos no se pisa con el total ni la firma.
  * Margen interno de 4 mm para impresión en papel precortado.
  */
 const MM = 72 / 25.4;
@@ -26,13 +27,15 @@ const RED = "#dc2626";
 const INK = "#111111";
 const MUTED = "#555555";
 const LINE = "#c8c8c8";
+const GREEN = "#15803d";
 
 const s = StyleSheet.create({
   page: { backgroundColor: "#ffffff" },
   cell: {
     width: PAGE_W,
-    height: PAGE_H,
+    minHeight: PAGE_H,
     padding: 4 * MM,
+    paddingBottom: 5 * MM,
     fontFamily: "Helvetica",
     fontSize: 8,
     color: INK,
@@ -91,6 +94,18 @@ const s = StyleSheet.create({
   kilos: { width: 34, textAlign: "right" },
   // Renglón virtual (saldo anterior): se distingue de los productos físicos.
   virtual: { color: "#666", fontFamily: "Helvetica-Oblique" },
+  // Deuda en rojo, saldo a favor en verde: el cliente tiene que verlo de un vistazo.
+  debt: { color: RED, fontFamily: "Helvetica-Bold" },
+  credit: { color: GREEN, fontFamily: "Helvetica-Bold" },
+  debtRow: { backgroundColor: "#fef2f2" },
+  creditRow: { backgroundColor: "#f0fdf4" },
+  creditLeft: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: GREEN,
+    textAlign: "right",
+    marginTop: 3,
+  },
   detail: { flex: 1, borderLeftWidth: 0.6, borderLeftColor: LINE },
   unit: {
     width: 60,
@@ -111,23 +126,21 @@ const s = StyleSheet.create({
     alignItems: "stretch",
   },
   totalLine: { fontSize: 13, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  // Empuja la firma al pie del A6; si el remito es más largo, la firma va después del total.
+  spacer: { flexGrow: 1, minHeight: 22 },
+  bottom: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+  },
   sign: {
-    position: "absolute",
-    left: 4 * MM,
-    bottom: 5 * MM,
     width: 110,
     borderTopWidth: 0.6,
     borderTopColor: MUTED,
     paddingTop: 2.5,
   },
   signText: { fontSize: 7.2, color: MUTED, textAlign: "center" },
-  preventista: {
-    position: "absolute",
-    right: 4 * MM,
-    bottom: 5 * MM,
-    fontSize: 7,
-    color: MUTED,
-  },
+  preventista: { fontSize: 7, color: MUTED },
 });
 
 function Remito({ data: d, fiscal, logo }) {
@@ -199,16 +212,17 @@ function Remito({ data: d, fiscal, logo }) {
         {Array.from({ length: rows }, (_, i) => {
           const l = d.lines[i];
           const td = tight ? [s.td, s.tdTight] : [s.td];
+          const tone = l?.virtual ? s[l.tone] || s.virtual : null;
+          const rowTone = l?.tone ? s[l.tone + "Row"] : null;
           return (
-            <View key={i} style={[s.tr, i === rows - 1 ? s.trLast : null]}>
+            <View
+              key={i}
+              style={[s.tr, rowTone, i === rows - 1 ? s.trLast : null]}
+            >
               <Text style={[...td, s.kilos]}>{l ? l.kg : " "}</Text>
-              <Text style={[...td, s.detail, l?.virtual ? s.virtual : null]}>
-                {l ? l.detail : " "}
-              </Text>
+              <Text style={[...td, s.detail, tone]}>{l ? l.detail : " "}</Text>
               <Text style={[...td, s.unit]}>{l ? l.unit : " "}</Text>
-              <Text style={[...td, s.total, l?.virtual ? s.virtual : null]}>
-                {l ? l.total : " "}
-              </Text>
+              <Text style={[...td, s.total, tone]}>{l ? l.total : " "}</Text>
             </View>
           );
         })}
@@ -245,13 +259,19 @@ function Remito({ data: d, fiscal, logo }) {
           </Text>
         </View>
         <Text style={s.totalLine}>TOTAL: {d.total || " "}</Text>
+        {d.creditLeft ? (
+          <Text style={s.creditLeft}>Le queda a favor: {d.creditLeft}</Text>
+        ) : null}
       </View>
-      <View style={s.sign}>
-        <Text style={s.signText}>Firma Conforme</Text>
+      <View style={s.spacer} />
+      <View style={s.bottom} wrap={false}>
+        <View style={s.sign}>
+          <Text style={s.signText}>Firma Conforme</Text>
+        </View>
+        <Text style={s.preventista}>
+          {d.driver ? `Preventista: ${d.driver}` : " "}
+        </Text>
       </View>
-      {d.driver ? (
-        <Text style={s.preventista}>Preventista: {d.driver}</Text>
-      ) : null}
     </View>
   );
 }
@@ -275,7 +295,8 @@ export function RemitoDocument({
       language="es-AR"
     >
       {orders.map((o) => (
-        <Page key={o.id} size={[PAGE_W, PAGE_H]} style={s.page} wrap={false}>
+        // Solo ancho: la altura sale del contenido (mínimo A6, ver s.cell).
+        <Page key={o.id} size={{ width: PAGE_W }} style={s.page} wrap={false}>
           <Remito
             data={remitoData(
               o,

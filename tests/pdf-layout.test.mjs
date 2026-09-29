@@ -121,8 +121,8 @@ test("hoja: pedidos largos continúan después del reverso sin perder ninguno", 
   pages.forEach(fits);
 });
 
-test("remito: tipografía ampliada conserva A6 y el total queda antes de la firma", async () => {
-  for (const count of [1, 6, 8, 14]) {
+test("remito: mínimo A6, se alarga con los productos y el total queda antes de la firma", async () => {
+  for (const count of [1, 6, 8, 14, 30]) {
     const pages = await render(
       RemitoDocument({
         orders: [{ ...order(1, count), notes: "Entregar por la mañana." }],
@@ -131,17 +131,45 @@ test("remito: tipografía ampliada conserva A6 y el total queda antes de la firm
     );
     assert.equal(pages.length, 1);
     assert.ok(Math.abs(pages[0].box.width - (105 * 72) / 25.4) < 0.1);
-    assert.ok(Math.abs(pages[0].box.height - (148 * 72) / 25.4) < 0.1);
+    const a6 = (148 * 72) / 25.4;
+    if (count <= 6) assert.ok(Math.abs(pages[0].box.height - a6) < 0.1);
+    else assert.ok(pages[0].box.height >= a6 - 0.1);
+    fits(pages[0]);
     const children = pages[0].children[0].children;
     const sign = children.find((c) => text(c).includes("Firma Conforme"));
-    for (const child of children.filter(
-      (c) => c.style?.position !== "absolute",
-    ))
-      assert.ok(
-        child.box.top + child.box.height < sign.box.top,
-        "sin superposición con firma",
-      );
+    const total = children.find((c) => text(c).includes("TOTAL:"));
+    assert.ok(
+      total.box.top + total.box.height < sign.box.top,
+      "total antes de la firma",
+    );
+    assert.ok(
+      sign.box.top + sign.box.height <= pages[0].box.height,
+      "firma dentro del papel",
+    );
   }
+});
+
+test("remito: deuda en rojo, saldo a favor en verde y descontado del total", async () => {
+  const o = { ...order(1, 1), total: 76375, payment: "cuenta" };
+  const remito = (balance) =>
+    render(
+      RemitoDocument({
+        orders: [o],
+        customers: [
+          { phone: o.customer, summary: { balance: balance + 76375 } },
+        ],
+        logo: null,
+      }),
+    );
+  const favor = text((await remito(-40000))[0]);
+  assert.ok(favor.includes("Saldo a favor"));
+  assert.ok(favor.includes("36.375,00"));
+  const cubre = text((await remito(-200000))[0]).replace(/\s+/g, " ");
+  assert.ok(cubre.includes("TOTAL: $ 0,00"));
+  assert.ok(cubre.includes("Le queda a favor: $ 123.625,00"));
+  const debe = text((await remito(50000))[0]);
+  assert.ok(debe.includes("Saldo anterior (deuda)"));
+  assert.ok(debe.includes("126.375,00"));
 });
 
 test("remito sin precio ni saldo muestra solo las cajas adeudadas registradas", async () => {

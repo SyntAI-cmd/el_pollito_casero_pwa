@@ -72,32 +72,55 @@ export function remitoData(
     ? Math.round(((c.summary?.balance || 0) - onAccount) * 100) / 100
     : 0;
   const after = Math.round((previous + onAccount) * 100) / 100;
-  // Si el cliente DEBE, el saldo anterior entra al cuerpo del remito como un renglón virtual (sin
-  // kilos ni precio unitario) y el TOTAL impreso es productos + saldo anterior: lo que debe con este
-  // remito. Sin deuda (o con saldo a favor) el remito no menciona saldo.
-  // Pedido "con precio, sin saldo": el remito nunca lleva la deuda del cliente.
-  const owes = previous > 0 && !hideBalance && !o.noBalance;
+  // El saldo anterior entra al cuerpo del remito como un renglón virtual (sin kilos ni precio
+  // unitario). Si el cliente DEBE, el TOTAL impreso es productos + deuda (renglón en rojo). Si tiene
+  // saldo A FAVOR, el cliente tiene que verlo: renglón en verde y el crédito se descuenta del total
+  // (nunca menos de cero; lo que sobra queda a favor y se imprime bajo el total).
+  // Pedido "con precio, sin saldo": el remito nunca lleva el saldo del cliente.
+  const showBalance = !hideBalance && !o.noBalance;
+  const owes = previous > 0 && showBalance;
+  const credit = previous < 0 && showBalance ? -previous : 0;
   // Sin precios, el total impreso es solo el saldo adeudado: la mercadería va sin importes.
   const goods = sinPrecios ? 0 : o.total;
   if (owes)
     lines.push({
       id: SALDO_ANTERIOR,
       virtual: true,
+      tone: "debt",
       kg: "",
-      detail: "Saldo anterior",
+      detail: "Saldo anterior (deuda)",
       unit: "",
       total: money(previous),
     });
-  const printedTotal = Math.round((goods + (owes ? previous : 0)) * 100) / 100;
+  if (credit)
+    lines.push({
+      id: SALDO_ANTERIOR,
+      virtual: true,
+      tone: "credit",
+      kg: "",
+      detail: "Saldo a favor",
+      unit: "",
+      total: `- ${money(credit)}`,
+    });
+  const printedTotal = Math.max(
+    0,
+    Math.round((goods + (owes ? previous : 0) - credit) * 100) / 100,
+  );
+  // Crédito que sobra después de este remito (solo si la mercadería lleva precio).
+  const leftover = credit && !sinPrecios ? Math.max(0, credit - goods) : 0;
   return {
     ...remitoHeader(o, c),
     lines,
     ...boxesData,
-    /** Total impreso: productos (si llevan precio) + saldo anterior. */
-    total: printedTotal ? money(printedTotal) : "",
+    /** Total impreso: productos (si llevan precio) + deuda anterior − saldo a favor. */
+    total: printedTotal || credit ? money(printedTotal) : "",
     productsTotal: money(o.total),
-    /** Saldo anterior (solo deuda); el TOTAL ya lo incluye. El remito no lleva línea de saldo al pie. */
+    /** Saldo anterior (solo deuda); el TOTAL ya lo incluye. */
     saldo: owes ? money(previous) : "",
+    /** Saldo a favor que trae el cliente (positivo, sin signo). */
+    credit: credit ? money(credit) : "",
+    /** Lo que le sigue quedando a favor después de este remito. */
+    creditLeft: leftover ? money(leftover) : "",
     after: after !== 0 ? money(after) : "",
     previous: previous !== 0 ? money(previous) : "",
     balance:
