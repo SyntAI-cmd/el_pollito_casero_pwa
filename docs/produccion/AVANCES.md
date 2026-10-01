@@ -86,4 +86,4 @@ El trabajo local incompleto de retirada del chat tenía una referencia a UnreadB
 - Verificación pública: /api/health HTTP 200; la app sirve /assets/index-AZlth6zw.js (misma compilación verificada en local); /reparto/pesada responde 404 y la app redirige a /reparto.
 - No se crearon pedidos ni se tocaron datos reales durante la verificación.
 - Reversión: redesplegar la versión previa 117a63fb-bbb0-4460-914c-3e40d2994fc3; este lote no cambia el esquema.
-- Pendiente: probar en el teléfono de un repartidor real.
+- Teléfono real: probado por el usuario el 01/10/2026, funciona. PC-023 cerrado.
