@@ -79,3 +79,11 @@ El trabajo local incompleto de retirada del chat tenía una referencia a UnreadB
 - No se crearon pedidos ni se tocaron saldos reales durante la verificación de producción. Datos sintéticos solo en pruebas locales.
 - Reversión operativa: redesplegar la versión previa 139da24a-2788-4dda-a54f-47bae8de44c4 si fuera necesario; este lote no cambia el esquema.
 - Próximo trabajo pendiente del backlog: completar limpieza/regresión PC-013 y PC-017 (recargas); luego PC-006 y sus dependientes. No se declaran cerrados los tickets aún pendientes.
+
+## PC-023 — Permisos del repartidor (01/10/2026)
+- Código: e6c537a en main (GitHub).
+- Railway: despliegue e1b4f8f8-62fd-4ef9-95f7-04d1aad30c8d, estado SUCCESS. Sin migraciones ni cambios de usuarios (Franco y Maxi siguen como administradores).
+- Verificación pública: /api/health HTTP 200; la app sirve /assets/index-AZlth6zw.js (misma compilación verificada en local); /reparto/pesada responde 404 y la app redirige a /reparto.
+- No se crearon pedidos ni se tocaron datos reales durante la verificación.
+- Reversión: redesplegar la versión previa 117a63fb-bbb0-4460-914c-3e40d2994fc3; este lote no cambia el esquema.
+- Pendiente: probar en el teléfono de un repartidor real.
