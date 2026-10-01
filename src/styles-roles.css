@@ -1314,6 +1314,75 @@
   color: #1c6b34;
 }
 
+/* Entrega: cuenta de cajas previas + salientes − devueltas = saldo */
+.box-calc {
+  border: 1px solid #e3e3e3;
+  border-radius: 10px;
+  padding: 6px 14px 12px;
+  margin: 12px 0 16px;
+}
+.box-calc legend {
+  font-weight: 700;
+  padding: 0 6px;
+}
+.box-calc label {
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  margin: 0;
+}
+.box-calc label span {
+  font-weight: 600;
+  font-size: 15px;
+}
+.box-calc label small {
+  grid-row: 2;
+  color: #777;
+  font-size: 12px;
+}
+.box-calc label input {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px;
+}
+.box-calc label input[aria-invalid="true"] {
+  border-color: var(--red);
+  background: #fff0ed;
+}
+.box-calc-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0 0;
+  font-weight: 700;
+  font-size: 16px;
+}
+.box-calc-total strong {
+  font-size: 26px;
+  min-width: 92px;
+  text-align: center;
+}
+.box-calc-total.bad strong {
+  color: var(--red);
+}
+.box-calc-error {
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: #fff0ed;
+  color: #a51c25;
+  font-size: 13px;
+}
+
 /* ---- Cargar pedido (pantalla rápida) ---- */
 .quick-order {
   display: grid;

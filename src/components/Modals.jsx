@@ -40,6 +40,7 @@ import {
 } from "../lib/format.js";
 import { CartLines, CartTotals } from "./Cart.jsx";
 import { ledger } from "../lib/ledger.js";
+import { outgoingBoxes } from "../lib/cajas.js";
 
 const phonePattern = "[+0-9 \\(\\)\\-]{8,25}";
 
@@ -987,16 +988,39 @@ function Payment({ order }) {
 
 /** Entrega: envases que quedan y, en la calle, foto del remito firmado si el pedido no tiene comprobante. */
 function Boxes({ order, kind }) {
-  const { busy, update, setModal, formError, session, customers } = useStore();
+  const {
+    busy,
+    update,
+    setModal,
+    formError,
+    session,
+    customers,
+    saveBalances,
+  } = useStore();
   const returning = kind === "return";
   const customer = customers.find((c) => c.phone === order.customer);
   const pending = Math.max(
     0,
     Math.min(order.boxes - order.returned, customer?.summary?.boxes || 0),
   );
-  const [outgoing, setOutgoing] = useState(0);
-  const [returned, setReturned] = useState(0);
   const wholesale = order.plan === "mayorista";
+  // Cajas: previas (lo que ya tenía el cliente, nunca negativo) + salientes − devueltas = saldo.
+  const previasActual = Math.max(0, customer?.summary?.boxes || 0);
+  const [previasText, setPreviasText] = useState(String(previasActual));
+  const [outgoingText, setOutgoingText] = useState(
+    String(wholesale ? outgoingBoxes(order) : 0),
+  );
+  const [returnedText, setReturnedText] = useState("0");
+  const entero = (t) => Math.max(0, Math.floor(Number(t) || 0));
+  const previas = entero(previasText);
+  const outgoing = entero(outgoingText);
+  const returned = entero(returnedText);
+  const maxDevueltas = previas + outgoing;
+  const saldoCajas = maxDevueltas - returned;
+  const cajasError =
+    !returning && wholesale && saldoCajas < 0
+      ? `El cliente tiene ${maxDevueltas} cajas (${previas} previas + ${outgoing} salientes): no puede devolver ${returned}. No existe saldo de cajas a favor.`
+      : "";
   const driver = session?.role === "repartidor";
   const [receipts, setReceipts] = useState(null);
   const [photo, setPhoto] = useState(null);
@@ -1048,7 +1072,10 @@ function Boxes({ order, kind }) {
         onSubmit={async (e) => {
           e.preventDefault();
           setError("");
-          const count = Number(new FormData(e.target).get("boxes") || 0);
+          const count = returning
+            ? Number(new FormData(e.target).get("boxes") || 0)
+            : outgoing;
+          if (cajasError) return setError(cajasError);
           if (needsPhoto && !photo)
             return setError(
               "Sacá la foto del remito firmado (o del comprobante) para cerrar la entrega.",
@@ -1063,6 +1090,19 @@ function Boxes({ order, kind }) {
             }
             setUploading(false);
           }
+          // Previas corregidas a mano: primero se ajusta el saldo de cajas del cliente.
+          if (
+            !returning &&
+            wholesale &&
+            customer &&
+            previas !== previasActual &&
+            !(await saveBalances(customer, {
+              boxes: previas,
+              note: `Corrección en la entrega N° ${orderNumber(order)}`,
+              esperado: { boxes: customer.summary?.boxes || 0 },
+            }))
+          )
+            return;
           const ok = await update(
             order,
             returning
@@ -1083,50 +1123,82 @@ function Boxes({ order, kind }) {
             ? " · Falta registrar el cobro"
             : ""}
         </p>
-        {returning || wholesale ? (
+        {returning ? (
           <label>
-            {returning
-              ? `Envases devueltos (pendientes: ${pending})`
-              : "Envases que dejás al cliente"}
+            {`Envases devueltos (pendientes: ${pending})`}
             <input
               name="boxes"
               type="number"
               inputMode="numeric"
-              defaultValue={returning ? pending : outgoing}
-              onChange={(e) => setOutgoing(Number(e.target.value) || 0)}
-              min={returning ? 1 : 0}
-              max={returning ? pending : 100}
+              defaultValue={pending}
+              min={1}
+              max={pending}
               step="1"
               required
             />
           </label>
-        ) : (
-          <p>Pedido minorista: sin envases retornables.</p>
-        )}
-        {!returning && wholesale && (
-          <>
+        ) : wholesale ? (
+          <fieldset className="box-calc">
+            <legend>Cajas</legend>
             <label>
-              Cajas devueltas en esta entrega
+              <span>Previas</span>
+              <small>las que ya tenía el cliente</small>
               <input
-                name="returned"
+                aria-label="Cajas previas"
                 type="number"
                 inputMode="numeric"
                 min="0"
-                max={outgoing}
                 step="1"
-                value={returned}
-                onChange={(e) => setReturned(Number(e.target.value) || 0)}
+                value={previasText}
+                onChange={(e) => setPreviasText(e.target.value)}
               />
             </label>
-            <p className="notice">
-              {customer?.summary?.boxes || 0} anteriores + {outgoing} salientes
-              − {returned} devueltas ={" "}
-              <strong>
-                {(customer?.summary?.boxes || 0) + outgoing - returned} cajas
-                pendientes
-              </strong>
+            <label>
+              <span>+ Salientes</span>
+              <small>las que dejás hoy</small>
+              <input
+                aria-label="Cajas salientes"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="100"
+                step="1"
+                value={outgoingText}
+                onChange={(e) => setOutgoingText(e.target.value)}
+              />
+            </label>
+            <label>
+              <span>− Devueltas</span>
+              <small>las que te da el cliente (máx. {maxDevueltas})</small>
+              <input
+                aria-label="Cajas devueltas"
+                aria-invalid={!!cajasError}
+                type="number"
+                inputMode="numeric"
+                min="0"
+                step="1"
+                value={returnedText}
+                onChange={(e) => setReturnedText(e.target.value)}
+              />
+            </label>
+            <p className={"box-calc-total" + (cajasError ? " bad" : "")}>
+              <span>= Saldo de cajas</span>
+              <strong>{cajasError ? "—" : saldoCajas}</strong>
             </p>
-          </>
+            {cajasError && (
+              <p className="box-calc-error" role="alert">
+                {cajasError}
+              </p>
+            )}
+            {previas !== previasActual && (
+              <p className="muted small">
+                Las previas cambian de {previasActual} a {previas}: se corrige
+                el saldo de cajas del cliente al confirmar.
+              </p>
+            )}
+          </fieldset>
+        ) : (
+          <p>Pedido minorista: sin envases retornables.</p>
         )}
         {!returning && receipts?.length > 0 && (
           <ReceiptList
@@ -1170,7 +1242,10 @@ function Boxes({ order, kind }) {
             {error || formError}
           </p>
         )}
-        <button className="primary full" disabled={busy || uploading}>
+        <button
+          className="primary full"
+          disabled={busy || uploading || !!cajasError}
+        >
           {uploading ? "Subiendo la foto…" : "Confirmar"} <Check size={16} />
         </button>
       </form>

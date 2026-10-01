@@ -535,6 +535,8 @@ export function createApi({
   async function updateOrder(o, b, session) {
     const role = session.role;
     const after = [];
+    // Otros pedidos tocados (cajas previas devueltas al entregar): se guardan en la misma transacción.
+    after.related = [];
     if (role === "cliente") {
       if (b.cancel === true) {
         if (o.status !== "recibido")
@@ -830,7 +832,11 @@ export function createApi({
         integer: true,
         name: "envases",
       });
-      if (n > o.boxes - o.returned || o.status !== "entregado")
+      if (o.status !== "entregado")
+        fail(400, "La devolución supera los envases pendientes.");
+      // Al entregar, el cliente puede devolver cajas previas además de las de este pedido.
+      const delivering = b.status === "entregado";
+      if (!delivering && n > o.boxes - o.returned)
         fail(400, "La devolución supera los envases pendientes.");
       const boxCustomer = store.customers.get(o.customer);
       const otherOrders = store.orders
@@ -840,13 +846,31 @@ export function createApi({
         [...otherOrders, o],
         boxCustomer || {},
       ).boxes;
+      // Sin saldo de cajas a favor: nunca se devuelven más cajas de las que tiene el cliente.
       if (n > available)
-        fail(400, "La devolución supera el saldo de cajas del cliente.");
-      o.returned += n;
-      o.returns = [
-        ...(o.returns || []),
-        { boxes: n, at: now(), by: actorOf(session) },
-      ];
+        fail(
+          400,
+          `La devolución supera las cajas del cliente (tiene ${Math.max(0, available)}).`,
+        );
+      // Primero las entregas más viejas; lo que sobra queda en este pedido.
+      let remaining = n;
+      const older = delivering
+        ? otherOrders
+            .filter((x) => x.status === "entregado" && x.boxes > x.returned)
+            .sort((x, y) => x.created.localeCompare(y.created))
+        : [];
+      for (const x of [...older, o]) {
+        const take =
+          x === o ? remaining : Math.min(remaining, x.boxes - x.returned);
+        if (!take) continue;
+        x.returned += take;
+        x.returns = [
+          ...(x.returns || []),
+          { boxes: take, at: now(), by: actorOf(session) },
+        ];
+        if (x !== o) after.related.push(x);
+        remaining -= take;
+      }
     }
     return after;
   }
@@ -1782,6 +1806,7 @@ export function createApi({
         // La modificación y su registro van en la misma transacción: si falla una, no queda la otra.
         store.transaction(() => {
           store.orders.save(o);
+          for (const x of after.related) store.orders.save(x);
           store.audit.log(
             session,
             before.status !== o.status && o.status === "entregado"
@@ -1801,6 +1826,7 @@ export function createApi({
           );
         });
         events.orderChanged(o);
+        for (const x of after.related) events.orderChanged(x);
         for (const task of after)
           Promise.resolve()
             .then(task)

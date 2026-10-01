@@ -127,9 +127,11 @@ try {
     path: "test-results/evidence-admin.png",
     fullPage: true,
   });
-  await ap.getByRole("spinbutton", { name: "Envases que dejás al cliente" }).fill("3");
+  await ap.getByRole("spinbutton", { name: "Cajas salientes" }).fill("3");
   await ap.getByRole("button", { name: "Confirmar", exact: true }).click();
-  await ap.getByRole("heading", { name: "Completar entrega" }).waitFor({ state: "hidden" });
+  await ap
+    .getByRole("heading", { name: "Completar entrega" })
+    .waitFor({ state: "hidden" });
   const delivered = await call(admin, `/orders/${o.id}`);
   assert.equal(delivered.status, "entregado");
   assert.equal(delivered.boxes, 3);
