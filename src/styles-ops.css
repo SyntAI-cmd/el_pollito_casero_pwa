@@ -779,6 +779,24 @@ dialog form .delivery-point-status {
   background: #e7f5ea;
   border-color: #bfe6c6;
 }
+.photo-pick {
+  margin: 8px 0;
+}
+.photo-pick-label {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.photo-pick-label.ok {
+  color: #1e7a34;
+}
+.photo-pick-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.photo-pick-buttons .receipt-button {
+  justify-content: center;
+}
 .receipt-button.busy {
   opacity: 0.7;
 }

@@ -23,9 +23,37 @@ import {
   Trash2,
   Fingerprint,
   Camera,
+  Image as ImageIcon,
   Minus,
   Plus,
 } from "lucide-react";
+
+// Foto obligatoria: cámara o galería (el repartidor suele sacarla antes y
+// subirla después de la entrega).
+function PhotoPick({ photo, setPhoto, label }) {
+  const pick = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (f) setPhoto({ file: f, name: f.name || "foto" });
+  };
+  return (
+    <div className="photo-pick">
+      <p className={"photo-pick-label" + (photo ? " ok" : "")}>
+        {photo ? `Foto lista: ${photo.name}` : label}
+      </p>
+      <div className="photo-pick-buttons">
+        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
+          <Camera size={15} /> Sacar foto
+          <input type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+        </label>
+        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
+          <ImageIcon size={15} /> Galería
+          <input type="file" accept="image/*" hidden onChange={pick} />
+        </label>
+      </div>
+    </div>
+  );
+}
 import { useStore } from "../lib/store.jsx";
 import { puedeCerrar } from "../lib/guard.js";
 import { useBodyClass } from "../lib/media.js";
@@ -954,22 +982,11 @@ function Payment({ order }) {
           : "Pago mixto (efectivo + transferencia, cheque…)"}
       </button>
       {needsPhoto && (
-        <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
-          <Camera size={15} />{" "}
-          {photo
-            ? `Foto lista: ${photo.name}`
-            : `Foto del ${photoKind === "cheque" ? "cheque" : "comprobante de transferencia"} (obligatoria)`}
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPhoto({ file: f, name: f.name || "foto" });
-            }}
-          />
-        </label>
+        <PhotoPick
+          photo={photo}
+          setPhoto={setPhoto}
+          label={`Foto del ${photoKind === "cheque" ? "cheque" : "comprobante de transferencia"} (obligatoria)`}
+        />
       )}
       {error && (
         <p className="form-error" role="alert">
@@ -1283,24 +1300,15 @@ function Boxes({ order, kind }) {
           </p>
         )}
         {!returning && (
-          <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
-            <Camera size={15} />{" "}
-            {photo
-              ? `Foto lista: ${photo.name}`
-              : needsPhoto
+          <PhotoPick
+            photo={photo}
+            setPhoto={setPhoto}
+            label={
+              needsPhoto
                 ? "Foto del remito firmado (obligatoria)"
-                : "Agregar foto del remito firmado"}
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) setPhoto({ file: f, name: f.name || "foto" });
-              }}
-            />
-          </label>
+                : "Agregar foto del remito firmado"
+            }
+          />
         )}
         {(formError || error) && (
           <p className="form-error" role="alert">
