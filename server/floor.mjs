@@ -435,6 +435,9 @@ export function createFloor({
       isStaff(session) &&
       body.customer
     ) {
+      // PC-023: los pedidos nuevos los carga solo administración.
+      if (session.role !== "admin")
+        fail(403, "Solo administración puede cargar pedidos.");
       const { order, created, fichaCambia } = createTeamOrder(body, session);
       if (created) events.orderChanged(order);
       if (fichaCambia) events.customerChanged({ phone: order.customer });
@@ -454,7 +457,6 @@ export function createFloor({
           fail(400, "Un pedido entregado o cancelado ya no se edita.");
         if (
           session.role === "repartidor" &&
-          o.driver &&
           o.driver !== session.driver &&
           o.driver2 !== session.driver
         )
@@ -1189,9 +1191,11 @@ export function createFloor({
     }
 
     // ---- Pesada por cajón ----
+    // PC-023: los cajones solo se usan desde Pesaje y Carga del camión, que son de administración.
+    // El repartidor corrige kilos con "Corregir peso" (PATCH /api/orders/:id con weights).
     const crateAdd = path.match(/^\/api\/orders\/([^/]+)\/crates$/);
     if (crateAdd && method === "POST") {
-      staffOnly(session);
+      adminOnly(session);
       const id = decodeURIComponent(crateAdd[1]);
       return withOrderLock(id, async () => {
         const o = store.orders.get(id);
@@ -1310,7 +1314,7 @@ export function createFloor({
     }
     const crateOne = path.match(/^\/api\/crates\/([^/]+)(?:\/(load|unload))?$/);
     if (crateOne) {
-      staffOnly(session);
+      adminOnly(session);
       const c = store.crates.get(decodeURIComponent(crateOne[1]));
       if (!c) fail(404, "Cajón no encontrado.");
       return withOrderLock(c.orderId, async () => {
@@ -1394,7 +1398,7 @@ export function createFloor({
 
     // ---- Cierre del camión: todo lo pesado de ese camión y fecha sale a reparto ----
     if (path === "/api/dia/cerrar-camion" && method === "POST") {
-      staffOnly(session);
+      adminOnly(session); // PC-023: Carga del camión es de administración.
       const date = str(body.date, { min: 10, max: 10, name: "la fecha" });
       if (!dateRe.test(date)) fail(400, "Fecha inválida.");
       const driver = oneOf(body.driver, driverNames(), "repartidor");

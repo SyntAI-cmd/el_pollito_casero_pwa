@@ -107,8 +107,6 @@ const meta = {
   "/operacion/flota": ["Flota en vivo", "Panel interno."],
   "/operacion/imprimir": ["Imprimir", "Panel interno."],
   "/reparto/clientes": ["Clientes", "Panel interno."],
-  "/reparto/pesada": ["Pesada", "Cajones en balanza."],
-  "/reparto/carga": ["Carga del camión", "Panel interno."],
   "/operacion/clientes": ["Clientes", "Panel interno."],
   "/operacion/equipo": ["Equipo", "Panel interno."],
   "/admin": [

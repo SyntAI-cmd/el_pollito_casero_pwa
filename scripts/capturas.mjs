@@ -37,7 +37,6 @@ const pages = {
   repartidor: [
     ["entregas", "/reparto"],
     ["clientes", "/reparto/clientes"],
-    ["pesaje", "/reparto/pesada"],
   ],
 };
 

@@ -51,12 +51,12 @@ try {
 
   browser = await chromium.launch({ headless: true, executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  await ctx.addCookies([{ name: franco.split("=")[0], value: franco.split("=").slice(1).join("="), url: base }]);
+  await ctx.addCookies([{ name: admin.split("=")[0], value: admin.split("=").slice(1).join("="), url: base }]); // PC-023: pesa administración
   await ctx.addInitScript(() => localStorage.setItem("teclado-pesaje", "sistema"));
   const page = await ctx.newPage();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  const url = `${base}/reparto/pesada?fecha=${today}&pedido=${o.id}`;
+  const url = `${base}/operacion/pesada?fecha=${today}&pedido=${o.id}`;
   await page.goto(url);
   // Que el service worker tome el control (para abrir sin red en el paso 3).
   await page.evaluate(async () => {

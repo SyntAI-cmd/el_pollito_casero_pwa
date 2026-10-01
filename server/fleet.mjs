@@ -131,7 +131,7 @@ export function createFleet({ store, events, isStaff, actorOf, driverNames }) {
       return json(200, store.trips.forDate(date).map(withLive));
     }
     if (path === "/api/salidas" && method === "PUT") {
-      staffOnly(session);
+      adminOnly(session); // PC-023: las salidas las arma administración.
       const date = str(body.date, { min: 10, max: 10, name: "la fecha" });
       if (!dateRe.test(date)) fail(400, "Fecha inválida.");
       const vehicle = vehicleOr404(

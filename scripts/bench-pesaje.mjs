@@ -157,7 +157,7 @@ try {
     await new Promise((r) => setTimeout(r, 250));
   }
   const adminCookie = await login("admin");
-  const phoneCookie = await login("franco");
+  const phoneCookie = await login("admin"); // PC-023: pesa administración
   browser = await chromium.launch({
     headless: true,
     executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -243,7 +243,7 @@ try {
   const dia = await (await fetch(`${base}/api/dia?fecha=${today}`, { headers: { Cookie: phoneCookie } })).json();
   const target = dia.orders.find((o) => o.driver === "Franco" && !(o.crates || []).length);
   const loadStart = Date.now();
-  await phone.goto(`${base}/reparto/pesada?fecha=${today}&pedido=${target.id}`);
+  await phone.goto(`${base}/operacion/pesada?fecha=${today}&pedido=${target.id}`);
   await phone.waitForSelector(".weigh-confirm", { timeout: 60000 }).catch(async (e) => {
     console.error("Errores de la página:", pageErrors, (await phone.content()).slice(0, 1500));
     throw e;

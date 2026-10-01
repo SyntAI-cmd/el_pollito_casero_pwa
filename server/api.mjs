@@ -1616,10 +1616,7 @@ export function createApi({
     }
     if (path === "/api/orders" && method === "POST") {
       if (session?.role === "repartidor")
-        fail(
-          403,
-          "Los repartidores cargan pedidos eligiendo un cliente de la lista.",
-        );
+        fail(403, "Solo administración puede cargar pedidos.");
       if (session?.role !== "admin") orderLimit(ip);
       const { order, session: s, created } = createOrder(body, session);
       if (created) afterCreate(order);

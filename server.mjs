@@ -293,11 +293,7 @@ const pages = {
   "/operacion/precios": ["Listas de precios", "Panel interno."],
   "/operacion/documentos": ["Documentos", "Panel interno."],
   "/operacion/movimientos": ["Movimientos", "Panel interno."],
-  "/reparto/pesada": ["Pesaje", "Panel interno."],
-  "/reparto/carga": ["Carga del camión", "Panel interno."],
-  "/reparto/nuevo": ["Cargar pedido", "Panel interno."],
   "/reparto/clientes": ["Clientes", "Panel interno."],
-  "/reparto/documentos": ["Documentos", "Panel interno."],
 };
 const indexable = ["/", "/planes", "/ayuda"];
 const internal = [
@@ -318,11 +314,7 @@ const internal = [
   "/operacion/precios",
   "/operacion/documentos",
   "/operacion/movimientos",
-  "/reparto/pesada",
-  "/reparto/carga",
-  "/reparto/nuevo",
   "/reparto/clientes",
-  "/reparto/documentos",
 ];
 const esc = (s) =>
   String(s).replace(

@@ -73,11 +73,11 @@ try {
   const login = await fetch(base + "/api/session/staff", {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: base },
-    body: JSON.stringify({ username: "franco", password: env.ADMIN_PASSWORD }),
+    body: JSON.stringify({ username: "admin", password: env.ADMIN_PASSWORD }),
   });
   const cookie = login.headers.get("set-cookie").split(";")[0];
   browser = await chromium.launch({ headless: true, executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
-  const url = `${base}/reparto/pesada?fecha=${today}&pedido=${target}`;
+  const url = `${base}/operacion/pesada?fecha=${today}&pedido=${target}`;
 
   async function open(ctx, page) {
     const cdp = await ctx.newCDPSession(page);

@@ -115,12 +115,10 @@ function DriverCustomers() {
     </>
   );
 }
+// PC-023: el repartidor solo usa Mis entregas y Clientes. Cargar pedido, Pesaje, Carga del
+// camión y Documentos son de administración; la boleta se corrige desde el detalle del pedido.
 const DRIVER_ROUTES = {
-  "/reparto/documentos": Documents,
   "/reparto": Delivery,
-  "/reparto/nuevo": QuickOrder,
-  "/reparto/pesada": Weighing,
-  "/reparto/carga": TruckLoading,
   "/reparto/clientes": DriverCustomers,
   "/ayuda": Help,
 };
@@ -479,8 +477,6 @@ function seccionesDe(role) {
       "Mi día",
       [
         ["/reparto", "Mis entregas", Truck, "Entregas"],
-        ["/reparto/nuevo", "Cargar pedido", Plus, "Nuevo"],
-        ["/reparto/pesada", "Pesaje", Scale, "Pesaje"],
         ["/reparto/clientes", "Clientes", Users, "Clientes"],
       ],
     ],
@@ -688,7 +684,7 @@ function StaffShell({ Page, path }) {
 
 export default function App() {
   const { path, navigate } = useRoute();
-  const { session, loaded, config } = useStore();
+  const { session, loaded, config, notify } = useStore();
   useDocumentMeta(path);
   // Alto realmente visible con el teclado abierto: lo usan las ventanas para no dejar
   // los botones de guardar debajo del teclado.
@@ -712,8 +708,11 @@ export default function App() {
     }
     if (role === "admin" && !inAdmin && !inLogin)
       navigate(homeFor("admin"), { replace: true });
-    else if (role === "repartidor" && !inDriver && !inLogin)
+    else if (role === "repartidor" && !inDriver && !inLogin) {
+      if (path.startsWith("/reparto/") || inAdmin)
+        notify("Esa sección es solo para administración.");
       navigate("/reparto", { replace: true });
+    }
     else if (role === "cliente" && (inAdmin || inDriver) && !inClient)
       navigate("/", { replace: true });
     else if (role === "anon" && (inAdmin || inDriver) && !inClient)

@@ -5,8 +5,21 @@ export const requestAudit = new AsyncLocalStorage();
 export function withRequestAudit(handle, store) {
   return (request) =>
     requestAudit.run({ logged: false }, async () => {
-      const result = await handle(request);
       const { method, path, session, body } = request;
+      let result;
+      try {
+        result = await handle(request);
+      } catch (e) {
+        // Acceso denegado por rol a alguien del equipo (PC-023): queda en Movimientos → Accesos.
+        if (e?.status === 403 && ["admin", "repartidor"].includes(session?.role))
+          try {
+            store.audit.log(session, "auth.denegado", "operation", `${method} ${path}`, null, {
+              motivo: e.message,
+              resultado: "rechazado",
+            });
+          } catch {}
+        throw e;
+      }
       if (
         result?.status >= 200 &&
         result.status < 300 &&
