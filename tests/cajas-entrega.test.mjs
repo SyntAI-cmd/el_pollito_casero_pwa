@@ -86,6 +86,20 @@ test("entrega: devuelve cajas previas + salientes, sin saldo de cajas a favor", 
     });
     await d.res();
     assert.equal(cajas(), 0);
+
+    // Devolución suelta en un pedido ya entregado: puede superar lo que se dejó en ese pedido.
+    await (await entregar("e", { status: "entregado", boxes: 5 })).res();
+    const f = await entregar("f", { status: "entregado", boxes: 3 });
+    await f.res();
+    assert.equal(cajas(), 8);
+    await call("PATCH", `/api/orders/${f.id}`, { returnBoxes: 7 });
+    assert.equal(cajas(), 1);
+    assert.equal(store.orders.get(f.id).returned, 3, "primero este pedido");
+    await assert.rejects(
+      () => call("PATCH", `/api/orders/${f.id}`, { returnBoxes: 2 }),
+      (e) => e.status === 400,
+    );
+    assert.equal(cajas(), 1, "sin saldo a favor");
   } finally {
     store.close();
   }

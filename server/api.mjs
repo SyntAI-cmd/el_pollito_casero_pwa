@@ -834,10 +834,8 @@ export function createApi({
       });
       if (o.status !== "entregado")
         fail(400, "La devolución supera los envases pendientes.");
-      // Al entregar, el cliente puede devolver cajas previas además de las de este pedido.
+      // El cliente puede devolver más cajas de las que se dejaron en este pedido (las previas).
       const delivering = b.status === "entregado";
-      if (!delivering && n > o.boxes - o.returned)
-        fail(400, "La devolución supera los envases pendientes.");
       const boxCustomer = store.customers.get(o.customer);
       const otherOrders = store.orders
         .forCustomer(o.customer)
@@ -852,16 +850,18 @@ export function createApi({
           400,
           `La devolución supera las cajas del cliente (tiene ${Math.max(0, available)}).`,
         );
-      // Primero las entregas más viejas; lo que sobra queda en este pedido.
+      // Al entregar, primero las entregas más viejas; en una devolución suelta, primero este
+      // pedido. Lo que sobra al final queda en este pedido.
       let remaining = n;
-      const older = delivering
-        ? otherOrders
-            .filter((x) => x.status === "entregado" && x.boxes > x.returned)
-            .sort((x, y) => x.created.localeCompare(y.created))
-        : [];
-      for (const x of [...older, o]) {
+      const older = otherOrders
+        .filter((x) => x.status === "entregado" && x.boxes > x.returned)
+        .sort((x, y) => x.created.localeCompare(y.created));
+      const plan = delivering ? [...older, o] : [o, ...older, o];
+      for (const [i, x] of plan.entries()) {
         const take =
-          x === o ? remaining : Math.min(remaining, x.boxes - x.returned);
+          i === plan.length - 1
+            ? remaining
+            : Math.min(remaining, Math.max(0, x.boxes - x.returned));
         if (!take) continue;
         x.returned += take;
         x.returns = [

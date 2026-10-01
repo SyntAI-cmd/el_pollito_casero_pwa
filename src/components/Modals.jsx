@@ -23,6 +23,8 @@ import {
   Trash2,
   Fingerprint,
   Camera,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { puedeCerrar } from "../lib/guard.js";
@@ -986,6 +988,65 @@ function Payment({ order }) {
   );
 }
 
+/** Un casillero de cajas con − y + grandes para el dedo; también se puede escribir el número. */
+function CajaRow({
+  sign,
+  label,
+  hint,
+  aria,
+  value,
+  onChange,
+  max,
+  invalid,
+  total,
+  extra,
+}) {
+  const n = Math.max(0, Math.floor(Number(value) || 0));
+  const top = max ?? 10000;
+  return (
+    <div className={"box-row" + (total ? " total" : "")}>
+      <div className="box-row-text">
+        <span>
+          {sign && <b aria-hidden="true">{sign} </b>}
+          {label}
+        </span>
+        <small>{hint}</small>
+        {extra}
+      </div>
+      <div className="box-stepper">
+        <button
+          type="button"
+          aria-label={`${aria}: una menos`}
+          disabled={n <= 0}
+          onClick={() => onChange(String(n - 1))}
+        >
+          <Minus size={18} />
+        </button>
+        <input
+          aria-label={aria}
+          aria-invalid={invalid || undefined}
+          type="number"
+          inputMode="numeric"
+          min="0"
+          max={top}
+          step="1"
+          value={value}
+          onFocus={(e) => e.target.select()}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <button
+          type="button"
+          aria-label={`${aria}: una más`}
+          disabled={n >= top}
+          onClick={() => onChange(String(n + 1))}
+        >
+          <Plus size={18} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Entrega: envases que quedan y, en la calle, foto del remito firmado si el pedido no tiene comprobante. */
 function Boxes({ order, kind }) {
   const {
@@ -999,10 +1060,8 @@ function Boxes({ order, kind }) {
   } = useStore();
   const returning = kind === "return";
   const customer = customers.find((c) => c.phone === order.customer);
-  const pending = Math.max(
-    0,
-    Math.min(order.boxes - order.returned, customer?.summary?.boxes || 0),
-  );
+  // Puede devolver más de las que se dejaron en este pedido: el tope es lo que tiene el cliente.
+  const pending = Math.max(0, customer?.summary?.boxes || 0);
   const wholesale = order.plan === "mayorista";
   // Cajas: previas (lo que ya tenía el cliente, nunca negativo) + salientes − devueltas = saldo.
   const previasActual = Math.max(0, customer?.summary?.boxes || 0);
@@ -1125,7 +1184,7 @@ function Boxes({ order, kind }) {
         </p>
         {returning ? (
           <label>
-            {`Envases devueltos (pendientes: ${pending})`}
+            {`Cajas que nos entrega (el cliente tiene ${pending})`}
             <input
               name="boxes"
               type="number"
@@ -1140,51 +1199,57 @@ function Boxes({ order, kind }) {
         ) : wholesale ? (
           <fieldset className="box-calc">
             <legend>Cajas</legend>
-            <label>
-              <span>Previas</span>
-              <small>las que ya tenía el cliente</small>
-              <input
-                aria-label="Cajas previas"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={previasText}
-                onChange={(e) => setPreviasText(e.target.value)}
-              />
-            </label>
-            <label>
-              <span>+ Salientes</span>
-              <small>las que dejás hoy</small>
-              <input
-                aria-label="Cajas salientes"
-                type="number"
-                inputMode="numeric"
-                min="0"
-                max="100"
-                step="1"
-                value={outgoingText}
-                onChange={(e) => setOutgoingText(e.target.value)}
-              />
-            </label>
-            <label>
-              <span>− Devueltas</span>
-              <small>las que te da el cliente (máx. {maxDevueltas})</small>
-              <input
-                aria-label="Cajas devueltas"
-                aria-invalid={!!cajasError}
-                type="number"
-                inputMode="numeric"
-                min="0"
-                step="1"
-                value={returnedText}
-                onChange={(e) => setReturnedText(e.target.value)}
-              />
-            </label>
-            <p className={"box-calc-total" + (cajasError ? " bad" : "")}>
-              <span>= Saldo de cajas</span>
-              <strong>{cajasError ? "—" : saldoCajas}</strong>
-            </p>
+            <CajaRow
+              label="Saldo anterior"
+              hint="las que ya tenía el cliente"
+              aria="Cajas previas"
+              value={previasText}
+              onChange={setPreviasText}
+            />
+            <CajaRow
+              sign="+"
+              label="Le dejamos"
+              hint="cajas salientes de hoy"
+              aria="Cajas salientes"
+              value={outgoingText}
+              onChange={setOutgoingText}
+              max={100}
+            />
+            <CajaRow
+              sign="−"
+              label="Nos entrega"
+              hint={`puede devolver hasta ${maxDevueltas} (las que tenía + las de hoy)`}
+              aria="Cajas devueltas"
+              value={returnedText}
+              onChange={setReturnedText}
+              invalid={!!cajasError}
+              extra={
+                maxDevueltas > 0 && returned !== maxDevueltas ? (
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => setReturnedText(String(maxDevueltas))}
+                  >
+                    Devolvió todas ({maxDevueltas})
+                  </button>
+                ) : null
+              }
+            />
+            <CajaRow
+              total
+              sign="="
+              label="Saldo que queda"
+              hint="cajas que le quedan al cliente"
+              aria="Saldo de cajas"
+              value={cajasError ? "" : String(saldoCajas)}
+              onChange={(t) => {
+                // Contar lo que le queda también vale: las devueltas se calculan solas.
+                const saldo = Math.min(entero(t), maxDevueltas);
+                setReturnedText(String(maxDevueltas - saldo));
+              }}
+              max={maxDevueltas}
+              invalid={!!cajasError}
+            />
             {cajasError && (
               <p className="box-calc-error" role="alert">
                 {cajasError}
@@ -1192,8 +1257,8 @@ function Boxes({ order, kind }) {
             )}
             {previas !== previasActual && (
               <p className="muted small">
-                Las previas cambian de {previasActual} a {previas}: se corrige
-                el saldo de cajas del cliente al confirmar.
+                El saldo anterior cambia de {previasActual} a {previas}: se
+                corrige el saldo de cajas del cliente al confirmar.
               </p>
             )}
           </fieldset>
