@@ -234,7 +234,7 @@ export default function Help() {
           {grupos.map((g) => (
             <a key={g.id} href={"#ayuda-" + g.id} className="help-topic">
               <img
-                src={`/ilustraciones/${g.img}.webp`}
+                src={`/ilustraciones/${g.img}-sinfondo.webp`}
                 width="240"
                 height="240"
                 alt=""

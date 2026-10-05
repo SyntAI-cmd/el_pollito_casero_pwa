@@ -29,7 +29,7 @@ export function EmptyState({
       {img ? (
         <img
           className="empty-illustration"
-          src={`/ilustraciones/${img}.webp`}
+          src={`/ilustraciones/${img}-sinfondo.webp`}
           width="240"
           height="240"
           alt=""
