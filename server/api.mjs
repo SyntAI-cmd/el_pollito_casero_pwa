@@ -275,18 +275,12 @@ export function createApi({
     (!!session.phone && o.customer === session.phone) ||
     (!!session.accountId && o.accountId === session.accountId) ||
     o.sessionId === session.id;
+  /** El segundo preventista ve y gestiona el pedido igual que el principal. */
   const canSee = (session, o) =>
     session &&
     (session.role === "admin" ||
-      (session.role === "repartidor" && o.driver === session.driver) ||
+      (session.role === "repartidor" && mine(session, o)) ||
       (session.role === "cliente" && ownsOrder(session, o)));
-  /**
-   * Lectura: además, el segundo preventista ve el pedido (como en su lista y en los eventos en
-   * vivo). Sólo para consultar: modificarlo sigue sujeto a `canSee` y a las reglas de cada acción.
-   */
-  const canRead = (session, o) =>
-    canSee(session, o) ||
-    (session?.role === "repartidor" && o.driver2 === session.driver);
   /** Vincula un teléfono verificado a la sesión (y a su cuenta, si la tiene). */
   function attachPhone(session, phone, name) {
     // Si la ficha ya existe se respeta su nombre; si no, se crea con el de la sesión.
@@ -738,7 +732,7 @@ export function createApi({
         role !== "admin" &&
         !(
           role === "repartidor" &&
-          o.driver === session.driver &&
+          mine(session, o) &&
           o.status !== "entregado"
         )
       )
@@ -1606,7 +1600,7 @@ export function createApi({
           200,
           ids
             .map((id) => store.orders.get(id))
-            .filter((o) => o && canRead(session, o))
+            .filter((o) => o && canSee(session, o))
             .map((o) => view(o, session)),
         );
       return json(
@@ -1723,7 +1717,7 @@ export function createApi({
     const orderMatch = path.match(/^\/api\/orders\/([^/]+)(?:\/(mp))?$/);
     if (orderMatch && method === "GET" && !orderMatch[2]) {
       const o = store.orders.get(decodeURIComponent(orderMatch[1]));
-      if (!o || !canRead(session, o)) fail(404, "Pedido no encontrado.");
+      if (!o || !canSee(session, o)) fail(404, "Pedido no encontrado.");
       return json(200, view(o, session));
     }
     if (orderMatch && method === "DELETE" && !orderMatch[2]) {

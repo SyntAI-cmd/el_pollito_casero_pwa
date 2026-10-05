@@ -128,6 +128,33 @@ test("un pedido ya entregado no vuelve a salir por un reintento tardío", async 
   }
 });
 
+test("el segundo preventista inicia el reparto; otro preventista no", async () => {
+  const { store, call, id, cerrar } = await entorno();
+  try {
+    store.drivers.save({ name: "Segundo", active: true, zones: [] });
+    store.drivers.save({ name: "Ajeno", active: true, zones: [] });
+    const o = store.orders.get(id);
+    o.driver2 = "Segundo";
+    store.orders.save(o);
+    await call("PATCH", `/api/orders/${id}`, { status: "preparando" });
+    const preventista = (driver) => ({ role: "repartidor", staffId: driver, driver });
+    await assert.rejects(
+      call("PATCH", `/api/orders/${id}`, { status: "en_camino" }, preventista("Ajeno")),
+      { status: 404 },
+    );
+    const r = await call(
+      "PATCH",
+      `/api/orders/${id}`,
+      { status: "en_camino" },
+      preventista("Segundo"),
+    );
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.status, "en_camino");
+  } finally {
+    await cerrar();
+  }
+});
+
 test("se puede leer un pedido suelto para reconciliar una respuesta perdida", async () => {
   const { call, id, cerrar } = await entorno();
   try {

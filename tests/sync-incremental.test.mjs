@@ -130,11 +130,11 @@ test("más de 100 ids se rechaza (la app agrupa de a lotes chicos)", async () =>
   await e.cerrar();
 });
 
-test("el segundo preventista puede consultar el pedido pero no modificarlo (sin cambio de permisos)", async () => {
+test("el segundo preventista consulta y modifica el pedido igual que el principal", async () => {
   const e = await entorno();
   const o = await e.nuevo("c1", "Franco", "Maxi");
   assert.equal((await e.call(e.maxi, "GET", `/api/orders/${o.id}`)).status, 200);
-  const r = await e.call(e.maxi, "PATCH", `/api/orders/${o.id}`, { notes: "x" });
-  assert.equal(r.status, 404, "como antes: modificar sigue restringido al preventista principal");
+  const r = await e.call(e.maxi, "PATCH", `/api/orders/${o.id}`, { loaded: true });
+  assert.equal(r.status, 200, "el segundo preventista también gestiona el pedido");
   await e.cerrar();
 });
