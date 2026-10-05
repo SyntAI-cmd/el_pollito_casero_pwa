@@ -55,9 +55,9 @@ const iconFrom = (size, pad) =>
       background: "#ffffff",
     })
     .png();
-await iconFrom(192, 0.04).toFile("public/icon-192.png");
-await iconFrom(512, 0.04).toFile("public/icon-512.png");
-await iconFrom(512, 0.12).toFile("public/icon-maskable-512.png");
+await iconFrom(192, 0.04).toFile("public/icono-app-192.png");
+await iconFrom(512, 0.04).toFile("public/icono-app-512.png");
+await iconFrom(512, 0.12).toFile("public/icono-app-maskable-512.png");
 await iconFrom(180, 0.06).toFile("public/apple-touch-icon.png");
 await iconFrom(48, 0.02).toFile("public/favicon-48.png");
 const og = Buffer.from(
