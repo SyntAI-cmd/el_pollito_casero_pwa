@@ -1072,3 +1072,75 @@ table.gc-customers,
 table.orders-list {
   margin: 0;
 }
+
+/* ===================================================================
+   12. Filtros de Mis entregas: los tres entran siempre, sin cortarse
+   =================================================================== */
+.pill-filters {
+  display: grid;
+  /* Cada filtro toma lo que necesita su texto y el sobrante se reparte: entran los tres. */
+  grid-template-columns: repeat(3, auto);
+  gap: 6px;
+  overflow: visible;
+}
+.pill-filters .pill {
+  min-width: 0;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+@media (max-width: 400px) {
+  .pill-filters .pill {
+    font-size: 13px;
+    padding: 0 4px;
+    gap: 4px;
+  }
+  .pill-filters .pill span {
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    font-size: 11px;
+  }
+}
+
+/* ===================================================================
+   13. Fluidez en el teléfono
+   =================================================================== */
+/* El desenfoque de fondo (vidrio) es lo más caro de dibujar al desplazarse: todo sólido. */
+.glass,
+.glass-dark,
+.app-head,
+.tabbar,
+.staff-bar,
+.more-sheet {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+.glass {
+  background: #fff;
+}
+.glass-dark {
+  background: var(--c-dark);
+}
+dialog::backdrop {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: #14141666;
+}
+/* Listas largas: el navegador solo dibuja las tarjetas que están en pantalla. */
+.delivery-card,
+.customer-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+/* La barra inferior se mueve sin recalcular la página. */
+.tabbar {
+  will-change: transform;
+}
+/* Toques instantáneos: sin demora de doble toque ni resaltado gris. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}

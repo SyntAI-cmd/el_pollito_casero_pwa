@@ -139,7 +139,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (event.request.mode === "navigate") {
-    event.respondWith(fetch(event.request).catch(() => caches.match("/")));
+    // Abrir la app: la página de la red si llega en 3 s; si la señal es mala, la copia del
+    // teléfono (misma versión que este service worker), así abre siempre al mismo ritmo.
+    event.respondWith(
+      (async () => {
+        const red = fetch(event.request);
+        red.catch(() => {}); // si gana la copia, un fallo tardío de la red no queda suelto
+        const copia = await caches.match("/");
+        if (!copia) return red;
+        const espera = new Promise((resolve) => setTimeout(resolve, 3000, null));
+        try {
+          return (await Promise.race([red, espera])) || copia;
+        } catch {
+          return copia;
+        }
+      })(),
+    );
     return;
   }
   if (/\.(js|css|png|webp|svg|woff2?)$/.test(url.pathname)) {

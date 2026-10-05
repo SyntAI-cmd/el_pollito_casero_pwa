@@ -650,6 +650,10 @@ function StaffShell({ Page, path }) {
             <Suspense fallback={<Loading />}>
               <Page />
             </Suspense>
+          ) : path in CLIENT_ROUTES ? (
+            // Ruta de clientes ("/" al abrir la app): la redirección a la pantalla del equipo
+            // está en curso; mostrar "no encontrada" acá era un falso aviso.
+            <Loading />
           ) : (
             <NotFound />
           )}
@@ -712,7 +716,9 @@ export default function App() {
 
   // Redirecciones por rol: nadie llega a una pantalla que no le corresponde.
   useEffect(() => {
-    if (!loaded) return;
+    // El equipo ya se conoce por su sesión: se lo lleva a su pantalla en el acto, sin esperar
+    // a que termine de bajar la lista de pedidos (al abrir la app instalada se entra por "/").
+    if (!loaded && !staff) return;
     const inClient = path in CLIENT_ROUTES;
     const inAdmin = path in ADMIN_ROUTES;
     const inDriver = path in DRIVER_ROUTES;
@@ -737,7 +743,7 @@ export default function App() {
         "/ingresar?volver=" + encodeURIComponent(path + location.search),
         { replace: true },
       );
-  }, [path, role, loaded, teamOnly]);
+  }, [path, role, loaded, teamOnly, staff]);
 
   if (!loaded && !session) return <div className="loading">Preparando…</div>;
   const chrome = (
