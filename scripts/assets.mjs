@@ -37,9 +37,29 @@ for (const id of ["menudos", "rancho", "garras"]) {
     .webp({ quality: 84 })
     .toFile(`public/images/${id}.webp`);
 }
-const icon = await readFile("public/icon.svg");
-await sharp(icon).resize(192).png().toFile("public/icon-192.png");
-await sharp(icon).resize(512).png().toFile("public/icon-512.png");
+// Íconos de la app instalada: el logo de El Pollito Casero (el de los remitos) sobre blanco.
+// "any" con 8 % de margen; "maskable" con 20 % para la zona segura de Android.
+const logo = "public/brand/logo-pollito.png";
+const iconFrom = (size, pad) =>
+  sharp(logo)
+    .resize(Math.round(size * (1 - 2 * pad)), Math.round(size * (1 - 2 * pad)), {
+      fit: "contain",
+      background: "#ffffff",
+    })
+    .flatten({ background: "#ffffff" })
+    .extend({
+      top: Math.round(size * pad),
+      bottom: size - Math.round(size * (1 - 2 * pad)) - Math.round(size * pad),
+      left: Math.round(size * pad),
+      right: size - Math.round(size * (1 - 2 * pad)) - Math.round(size * pad),
+      background: "#ffffff",
+    })
+    .png();
+await iconFrom(192, 0.04).toFile("public/icon-192.png");
+await iconFrom(512, 0.04).toFile("public/icon-512.png");
+await iconFrom(512, 0.12).toFile("public/icon-maskable-512.png");
+await iconFrom(180, 0.06).toFile("public/apple-touch-icon.png");
+await iconFrom(48, 0.02).toFile("public/favicon-48.png");
 const og = Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#20201e"/><rect x="0" y="0" width="15" height="630" fill="#cc242a"/><text x="85" y="120" fill="#ffffff" font-family="sans-serif" font-size="36" font-weight="700">pollito casero</text><text x="85" y="260" fill="#ffffff" font-family="sans-serif" font-size="62" font-weight="700">Buen pollo.</text><text x="85" y="340" fill="#ffffff" font-family="sans-serif" font-size="62" font-weight="700">Buena compañía.</text><text x="85" y="425" fill="#d4d1c7" font-family="sans-serif" font-size="25">Pollo fresco por kilo · San Martín, Mendoza</text><rect x="85" y="475" width="260" height="58" rx="8" fill="#cc242a"/><text x="115" y="512" fill="#fff" font-family="sans-serif" font-size="23">Armá tu pedido</text></svg>`,
 );

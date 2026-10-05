@@ -6,8 +6,8 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f8f7f4",
-  "theme_color": "#cc242a",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "description": "Pedí pollo entero y por corte, por kilo, con entrega en San Martín, Mendoza. Seguí tu pedido en el mapa.",
   "icons": [
     {
@@ -20,7 +20,13 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": [

@@ -16,8 +16,6 @@ import {
   MessageCircle,
   Truck,
   Menu as MenuIcon,
-  PanelLeftClose,
-  PanelLeftOpen,
   LogOut,
   ClipboardList,
   Plus,
@@ -493,28 +491,27 @@ function seccionesDe(role) {
 function SideRail({ grupos, path, badge, plegado, onPlegar, session, logout }) {
   return (
     <aside className="side-rail" aria-label="Navegación del equipo">
-      <Link
-        to={homeFor(session.role)}
-        className="rail-brand"
-        title="El Pollito Casero"
-      >
-        <img
-          src="/brand/logo-pollito.png"
-          width="1180"
-          height="800"
-          alt="El Pollito Casero"
-        />
-        <small>{session.role === "admin" ? "Administración" : "Reparto"}</small>
-      </Link>
+      {/* El pollito es la marca y el botón del menú: un toque lo pliega o lo despliega. */}
       <button
         type="button"
-        className="rail-toggle"
+        className="rail-brand"
         onClick={onPlegar}
         aria-expanded={!plegado}
-        title={plegado ? "Mostrar los nombres" : "Dejar solo los iconos"}
+        aria-label={plegado ? "Mostrar el menú" : "Plegar el menú"}
+        title={plegado ? "Mostrar el menú" : "Plegar el menú"}
       >
-        {plegado ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
-        <span>{plegado ? "" : "Plegar menú"}</span>
+        <img
+          src="/brand/pollito-3d.png"
+          width="160"
+          height="160"
+          alt=""
+        />
+        <span>
+          <strong>Pollito Casero</strong>
+          <small>
+            {session.role === "admin" ? "Administración" : "Reparto"}
+          </small>
+        </span>
       </button>
       {grupos.map(([titulo, items]) => (
         <nav className="rail-group" key={titulo} aria-label={titulo}>
@@ -628,13 +625,13 @@ function StaffShell({ Page, path }) {
           <Link to={homeFor(session.role)} className="staff-brand">
             <img
               className="staff-wordmark"
-              src="/brand/logo-pollito.png"
-              width="1180"
-              height="800"
-              alt="El Pollito Casero"
+              src="/brand/pollito-3d.png"
+              width="160"
+              height="160"
+              alt=""
             />
             <span>
-              <strong className="sr-only">Pollito Casero</strong>
+              <strong>Pollito Casero</strong>
               <small>{admin ? "Administración" : "Reparto"}</small>
             </span>
           </Link>

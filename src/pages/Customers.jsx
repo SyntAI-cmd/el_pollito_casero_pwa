@@ -3,6 +3,7 @@ import {
   UserPlus,
   Tags,
   Tag,
+  ScrollText,
   FileText,
   SlidersHorizontal,
   Wallet,
@@ -328,13 +329,14 @@ export default function Customers() {
             <thead>
               <tr>
                 <th>Cliente</th>
-                <th>Zona · Turno</th>
-                <th>Camión</th>
+                <th>Zona y preventista</th>
                 <th className="num">Pollo $/kg</th>
                 <th className="num">Saldo</th>
                 <th className="num">Envases</th>
                 <th>Estado</th>
-                <th></th>
+                <th>
+                  <span className="sr-only">Acciones</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -386,14 +388,12 @@ export default function Customers() {
                       </small>
                     </td>
                     <td>
-                      {c.zone || <span className="muted">—</span>}
+                      {c.zone || <span className="muted">Sin zona</span>}
+                      {shiftNames[c.shift || ""] !== "—" ? (
+                        <small> · {shiftNames[c.shift || ""]}</small>
+                      ) : null}
                       <br />
-                      <small>{shiftNames[c.shift || ""]}</small>
-                    </td>
-                    <td>
-                      {c.truck || c.driver || (
-                        <span className="muted">Sin asignar</span>
-                      )}
+                      <small>{c.truck || c.driver || "Sin asignar"}</small>
                     </td>
                     <td className="num">
                       {pollo ? (
@@ -434,49 +434,60 @@ export default function Customers() {
                         {statusNames[st]}
                       </span>
                     </td>
-                    <td className="row-actions">
+                    <td className="row-actions cust-actions">
                       <button
-                        className="link-button small"
-                        onClick={() => setModal({ type: "ficha", customer: c })}
-                      >
-                        <FileText size={13} /> Ficha
-                      </button>
-                      <button
-                        className="link-button small"
-                        onClick={() =>
-                          setModal({ type: "prices", customer: c })
-                        }
-                      >
-                        <Tag size={13} /> Precios
-                      </button>
-                      <button
-                        className="link-button small"
-                        onClick={() =>
-                          setModal({ type: "statement", customer: c })
-                        }
-                      >
-                        Extracto
-                      </button>
-                      <button
-                        className="link-button small"
-                        title="Corregir a mano el saldo de cuenta y el de cajas"
+                        type="button"
+                        className="secondary small"
+                        title="Ver y corregir el saldo de cuenta y el de cajas"
                         onClick={() =>
                           setModal({ type: "saldos", customer: c })
                         }
                       >
-                        Saldos
+                        <Wallet size={14} /> Saldos
                       </button>
                       {c.summary.balance > 0 && (
                         <button
-                          className="secondary small"
+                          type="button"
+                          className="primary small"
                           disabled={busy}
                           onClick={() =>
                             setModal({ type: "account-payment", customer: c })
                           }
                         >
-                          <Wallet size={13} /> Cobrar
+                          Cobrar
                         </button>
                       )}
+                      <button
+                        type="button"
+                        className="icon-action"
+                        title="Ficha"
+                        aria-label={"Ficha de " + c.name}
+                        onClick={() => setModal({ type: "ficha", customer: c })}
+                      >
+                        <FileText size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-action"
+                        title="Precios"
+                        aria-label={"Precios de " + c.name}
+                        onClick={() =>
+                          setModal({ type: "prices", customer: c })
+                        }
+                      >
+                        <Tag size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-action"
+                        title="Extracto de cuenta"
+                        aria-label={"Extracto de " + c.name}
+                        onClick={() =>
+                          setModal({ type: "statement", customer: c })
+                        }
+                      >
+                        <ScrollText size={16} />
+                      </button>
                     </td>
                   </tr>
                 );

@@ -25,7 +25,7 @@ export default class ErrorBoundary extends React.Component {
     const stale = chunkError(this.state.error);
     return (
       <div className="fatal">
-        <img src="/icon.svg" width="56" height="56" alt="" />
+        <img src="/brand/pollito-3d.png" width="56" height="56" alt="" />
         <h1>{stale ? "Hay una versión nueva de la app" : "Algo salió mal"}</h1>
         <p>
           {stale

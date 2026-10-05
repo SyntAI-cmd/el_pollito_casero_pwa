@@ -59,9 +59,30 @@ body {
 .orders-list td.num {
   font-variant-numeric: tabular-nums;
 }
-:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+:where(a, button, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--c-brand);
   outline-offset: 2px;
+}
+/* Campos: al tocarlos se oscurece el borde, sin contorno rojo alrededor. */
+input:not([type="checkbox"]):not([type="radio"]):focus,
+input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--c-text);
+  box-shadow: 0 0 0 3px #14141614;
+}
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible {
+  outline: 2px solid var(--c-text);
+  outline-offset: 2px;
+}
+/* El contenido principal recibe el foco al cambiar de pantalla: no se le dibuja contorno. */
+main#contenido:focus,
+main#contenido:focus-visible {
+  outline: none;
 }
 /* Al tocar un botón el texto ya no se vuelve gris (sobre rojo no se leía). */
 button:not(:disabled):active {
@@ -102,8 +123,8 @@ button:not(:disabled):active {
   border-color: var(--c-text);
 }
 .sf:focus-within {
-  border-color: var(--c-brand);
-  box-shadow: 0 0 0 3px #a81a1a29;
+  border-color: var(--c-text);
+  box-shadow: 0 0 0 3px #14141614;
 }
 .sf > svg {
   flex: none;
@@ -169,6 +190,11 @@ button:not(:disabled):active {
 }
 .search-field > input:not([type="checkbox"]):not([type="radio"]):focus {
   outline: none;
+  box-shadow: none;
+}
+.search-field:focus-within {
+  border-color: var(--c-text);
+  box-shadow: 0 0 0 3px #14141614;
 }
 .weigh-search {
   max-width: 520px;
@@ -192,40 +218,51 @@ button:not(:disabled):active {
   }
   .side-rail .rail-brand {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 2px;
-    padding: 10px 10px 8px;
-    margin: 0 0 6px;
+    gap: 10px;
+    width: 100%;
+    min-height: 64px;
+    padding: 6px 8px;
+    margin: 0 0 8px;
+    border: 0;
     border-radius: 12px;
-    background: #fff;
-    text-decoration: none;
+    background: transparent;
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .side-rail .rail-brand:hover {
+    background: var(--c-dark-2);
   }
   .side-rail .rail-brand img {
-    width: 100%;
-    max-width: 196px;
-    height: auto;
-    aspect-ratio: 1180 / 800;
-    border-radius: 0;
+    flex: none;
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1);
+  }
+  .side-rail .rail-brand:hover img {
+    transform: rotate(-6deg) scale(1.05);
+  }
+  .side-rail .rail-brand span {
+    display: grid;
+    line-height: 1.2;
+    min-width: 0;
+  }
+  .side-rail .rail-brand strong {
+    font-size: 16px;
+    color: #fff;
   }
   .side-rail .rail-brand small {
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--c-text-2);
+    color: var(--c-dark-text-2);
   }
   .rail-toggle {
-    min-height: 36px;
-    border: 1px solid #ffffff26;
-    background: transparent;
-    color: var(--c-dark-text-2);
-    border-radius: 8px;
-    justify-content: center;
-  }
-  .rail-toggle:hover {
-    background: var(--c-dark-2);
-    color: #fff;
+    display: none;
   }
   .rail-group {
     gap: 2px;
@@ -298,10 +335,15 @@ button:not(:disabled):active {
     overflow-x: hidden;
   }
   .staff-app.railed.plegado .side-rail .rail-brand {
-    padding: 6px 4px;
+    justify-content: center;
+    padding: 6px 0;
   }
-  .staff-app.railed.plegado .side-rail .rail-brand small {
+  .staff-app.railed.plegado .side-rail .rail-brand span {
     display: none;
+  }
+  .staff-app.railed.plegado .side-rail .rail-brand img {
+    width: 48px;
+    height: 48px;
   }
   .staff-app.railed.plegado .rail-group a,
   .staff-app.railed.plegado .rail-foot a,
@@ -347,12 +389,32 @@ button:not(:disabled):active {
    4. Barra superior del celular
    =================================================================== */
 /* El gallo es ahora la primera imagen de la marca: la regla vieja que ocultaba el ícono no aplica. */
+.staff-bar .staff-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .staff-bar .staff-brand > img.staff-wordmark {
   display: block;
-  width: auto;
-  height: 46px;
-  aspect-ratio: 1180 / 800;
-  max-width: none;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.staff-bar .staff-brand > span {
+  display: grid;
+  line-height: 1.15;
+}
+.staff-bar .staff-brand strong {
+  font-size: 16px;
+  color: var(--c-text);
+}
+.staff-bar .staff-brand small {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-2);
 }
 .staff-app.railed .staff-bar {
   background: #fff !important;
@@ -877,4 +939,136 @@ table.orders-list td.row-actions {
   width: 220px;
   height: auto;
   aspect-ratio: 1180 / 800;
+}
+
+/* ===================================================================
+   11. Clientes en escritorio: la tabla entra en el ancho, acciones a mano
+   =================================================================== */
+.customers-filters .import-customers {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.customers-filters > .filters-toggle,
+.customers-filters > .primary,
+.customers-filters .import-customers .link-button,
+.customers-filters .import-customers .secondary {
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.customers-filters .import-customers .link-button {
+  border: 1px solid var(--c-line);
+  background: #fff;
+  color: var(--c-text);
+  text-decoration: none;
+}
+.table-scroll:has(> .gc-customers) {
+  overflow-x: visible;
+}
+.customers-panel > .table-scroll,
+.panel > .table-scroll:has(> .orders-list) {
+  padding: 0;
+}
+.customers-panel > .table-scroll {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+table.gc-customers {
+  width: 100%;
+  min-width: 0;
+}
+table.gc-customers th,
+table.gc-customers td {
+  white-space: normal;
+  overflow-wrap: break-word;
+  padding: 12px 8px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--c-line);
+  font-size: 14px;
+}
+table.gc-customers th:first-child,
+table.gc-customers td:first-child {
+  padding-left: 16px;
+}
+table.gc-customers thead th {
+  background: var(--c-panel-2);
+  color: var(--c-text-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+table.gc-customers td.num,
+table.gc-customers th.num,
+table.gc-customers td .status-pill {
+  white-space: nowrap;
+}
+table.gc-customers td.num.red {
+  color: var(--c-brand);
+  font-weight: 600;
+}
+table.gc-customers .customer-name strong {
+  font-size: 15px;
+}
+table.gc-customers td.cust-actions {
+  white-space: nowrap;
+  text-align: right;
+  padding-right: 12px;
+}
+.cust-actions {
+  display: table-cell;
+}
+.cust-actions > * + * {
+  margin-left: 4px;
+}
+.cust-actions .secondary.small,
+.cust-actions .primary.small {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  vertical-align: middle;
+}
+.cust-actions .icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-2);
+  vertical-align: middle;
+}
+.cust-actions .icon-action:hover {
+  background: var(--c-hover);
+  color: var(--c-text);
+}
+@media (max-width: 1100px) {
+  /* Ventana angosta: el precio propio queda en «Precios» y la tabla entra entera. */
+  table.gc-customers th:nth-child(3),
+  table.gc-customers td:nth-child(3) {
+    display: none;
+  }
+  .cust-actions .icon-action {
+    width: 32px;
+  }
+}
+/* Las tablas arrancan pegadas a su borde: sin franja vacía arriba de los títulos. */
+table.gc-customers,
+table.orders-list {
+  margin: 0;
 }
