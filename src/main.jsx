@@ -11,6 +11,7 @@ import "./styles-ops.css";
 import "./styles-roles.css";
 import "./styles-ui.css";
 import "./styles-2026.css";
+import "./styles-rediseno.css";
 import { RouterProvider } from "./lib/router.jsx";
 import { StoreProvider } from "./lib/store.jsx";
 import App from "./App.jsx";

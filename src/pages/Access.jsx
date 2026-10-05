@@ -32,13 +32,12 @@ export default function Access() {
       <div className="staff-card">
         <img
           className="staff-logo"
-          src="/brand/logo-texto.png"
-          width="1200"
-          height="362"
-          alt="El Pollito Casero · Venta por mayor y menor"
+          src="/brand/logo-pollito.png"
+          width="1180"
+          height="800"
+          alt="El Pollito Casero"
         />
         <div className="staff-head">
-          <img src="/icon.svg" width="44" height="44" alt="" />
           <div>
             <span className="eyebrow">POLLITO CASERO · EQUIPO</span>
             <h1>{inside ? `Hola, ${session.name}.` : "Ingreso del equipo"}</h1>

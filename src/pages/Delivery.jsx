@@ -249,6 +249,7 @@ export default function Delivery() {
       {list.length === 0 ? (
         <EmptyState
           icon={Truck}
+          img={filter === "entregadas" ? "caja-lista" : "camion"}
           title={
             filter === "entregadas"
               ? "Todavía no entregaste pedidos"

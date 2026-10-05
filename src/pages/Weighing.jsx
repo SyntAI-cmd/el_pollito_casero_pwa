@@ -7,11 +7,11 @@ import {
   Package,
   WifiOff,
   CircleCheck,
-  Search,
   Keyboard,
   Delete,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import SearchField from "../components/SearchField.jsx";
 import { useRoute } from "../lib/router.jsx";
 import { useFieldVisibility } from "../lib/media.js";
 import {
@@ -438,16 +438,13 @@ export default function Weighing() {
         </div>
       )}
       {!order && (
-        <div className="search-field weigh-search">
-          <Search size={16} />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por cliente o N° de pedido…"
-            aria-label="Buscar pedido por cliente o número"
-          />
-        </div>
+        <SearchField
+          className="weigh-search"
+          value={search}
+          onChange={setSearch}
+          label="Buscar pedido por cliente o número"
+          placeholder="Cliente o N° de pedido"
+        />
       )}
       {!order && (
         <section className="floor-list">

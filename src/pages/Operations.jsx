@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import SearchField from "../components/SearchField.jsx";
 import { Link, useRoute } from "../lib/router.jsx";
 import Team from "./Team.jsx";
 import Customers from "./Customers.jsx";
@@ -264,12 +265,11 @@ export default function Operations() {
       {tab === "pedidos" && (
         <div className="board-toolbar">
           <div className="board-filters">
-            <input
-              type="search"
+            <SearchField
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar pedido, cliente, teléfono o dirección…"
-              aria-label="Buscar pedidos"
+              onChange={setSearch}
+              label="Buscar pedidos"
+              placeholder="N°, cliente, teléfono o dirección"
             />
             <button
               type="button"

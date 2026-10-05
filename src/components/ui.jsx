@@ -16,10 +16,27 @@ export function PageHead({ eyebrow, title, description, children }) {
   );
 }
 
-export function EmptyState({ icon: Icon = Package, title, text, to, action }) {
+export function EmptyState({
+  icon: Icon = Package,
+  img,
+  title,
+  text,
+  to,
+  action,
+}) {
   return (
     <div className="empty-state">
-      <Icon />
+      {img ? (
+        <img
+          className="empty-illustration"
+          src={`/ilustraciones/${img}.webp`}
+          width="240"
+          height="240"
+          alt=""
+        />
+      ) : (
+        <Icon />
+      )}
       <h2>{title}</h2>
       {text && <p>{text}</p>}
       {to && (

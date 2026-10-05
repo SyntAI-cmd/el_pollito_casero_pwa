@@ -146,7 +146,13 @@ function NotFound() {
     <section className="not-found">
       <span className="eyebrow">ESTE PEDIDO TOMÓ OTRO CAMINO</span>
       <div>
-        4<img src="/icon.svg" width="100" height="100" alt="0" />4
+        <img
+          src="/brand/logo-pollito.png"
+          width="1180"
+          height="800"
+          alt="El Pollito Casero"
+          className="not-found-logo"
+        />
       </div>
       <h1>Por acá no era.</h1>
       <p>La página que buscás no está, pero el pollo te espera.</p>
@@ -487,14 +493,18 @@ function seccionesDe(role) {
 function SideRail({ grupos, path, badge, plegado, onPlegar, session, logout }) {
   return (
     <aside className="side-rail" aria-label="Navegación del equipo">
-      <Link to={path} className="rail-brand">
-        <img src="/icon.svg" width="30" height="30" alt="" />
-        <span>
-          <strong>Pollito Casero</strong>
-          <small>
-            {session.role === "admin" ? "Administración" : "Reparto"}
-          </small>
-        </span>
+      <Link
+        to={homeFor(session.role)}
+        className="rail-brand"
+        title="El Pollito Casero"
+      >
+        <img
+          src="/brand/logo-pollito.png"
+          width="1180"
+          height="800"
+          alt="El Pollito Casero"
+        />
+        <small>{session.role === "admin" ? "Administración" : "Reparto"}</small>
       </Link>
       <button
         type="button"
@@ -569,7 +579,15 @@ function StaffShell({ Page, path }) {
   const admin = session.role === "admin";
   const grupos = seccionesDe(session.role);
   const nav = grupos.flatMap(([, items]) => items);
-  const seccion = nav.find(([url]) => url === path)?.[1] || "Pollito Casero";
+  const seccion =
+    nav.find(([url]) => url === path)?.[1] ||
+    {
+      "/ayuda": "Ayuda",
+      "/operacion/carga": "Carga del camión",
+      "/operacion/dia": "Nota del día",
+      "/operacion/precios": "Listas de precios",
+    }[path] ||
+    "Pollito Casero";
   // Globo de Pedidos: abiertos de HOY (lo mismo que se ve al entrar, que arranca filtrado en hoy).
   const hoy = todayKey();
   const received = orders.filter(
@@ -599,7 +617,8 @@ function StaffShell({ Page, path }) {
       />
       <div className="rail-main">
         <header className="app-head glass">
-          <h1>{seccion}</h1>
+          {/* El título de la pantalla es el de la página (PageHead): acá va solo el contexto. */}
+          <p className="app-head-title">{seccion}</p>
           <div className="app-head-right">
             {config?.demo && <span className="demo-pill">Demo</span>}
           </div>
@@ -607,12 +626,11 @@ function StaffShell({ Page, path }) {
         {/* Barra superior del celular: solo marca y usuario; la navegación va abajo. */}
         <header className="staff-bar">
           <Link to={homeFor(session.role)} className="staff-brand">
-            <img src="/icon.svg" width="34" height="34" alt="" />
             <img
               className="staff-wordmark"
-              src="/brand/logo-texto.png"
-              width="1200"
-              height="362"
+              src="/brand/logo-pollito.png"
+              width="1180"
+              height="800"
               alt="El Pollito Casero"
             />
             <span>

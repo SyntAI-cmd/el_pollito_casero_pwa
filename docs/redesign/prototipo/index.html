@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototipo Pollito Casero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+/* ============ Tokens (DESIGN_SYSTEM §3) ============ */
+:root{
+  --c-brand:#A81A1A; --c-brand-hover:#891515; --c-brand-tint:#FDF2F2; --c-accent:#E63D3A;
+  --c-text:#141416; --c-text-2:#52525B;
+  --c-canvas:#F2F2F2; --c-panel:#FFFFFF; --c-panel-2:#FAFAFA;
+  --c-dark:#141416; --c-dark-2:#232327; --c-dark-text-2:#A1A1AA;
+  --c-line:#E4E4E7; --c-control:#71717A; --c-hover:#F4F4F5;
+  --c-ok:#166534; --c-ok-bg:#EDF7F0; --c-warn:#92400E; --c-warn-bg:#FDF4E6;
+  --c-error:#B91C1C; --c-error-bg:#FDF2F2; --c-info:#1E40AF; --c-info-bg:#EFF4FF;
+  --s-1:4px;--s-2:8px;--s-3:12px;--s-4:16px;--s-6:24px;--s-8:32px;--s-12:48px;
+  --r-control:8px;--r-card:12px;--r-dialog:16px;--r-pill:999px;
+  --sh-1:0 1px 2px #1414160F; --sh-2:0 8px 24px -8px #14141633; --sh-3:0 24px 48px -12px #1414164D;
+  --tap:44px; --m-fast:120ms cubic-bezier(.2,0,0,1); --m-base:180ms cubic-bezier(.2,0,0,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#D9D9DB;color:var(--c-text);font-family:"DM Sans",system-ui,sans-serif;font-size:16px;line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none}
+.num{font-variant-numeric:tabular-nums}
+:where(a,button,input,select,[tabindex]):focus-visible{outline:2px solid var(--c-brand);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ============ Barra del prototipo (no es parte de la app) ============ */
+.proto-bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border-bottom:1px solid var(--c-line)}
+.proto-bar strong{font-size:14px}
+.proto-bar small{color:var(--c-text-2);font-size:13px}
+.seg{display:inline-flex;background:var(--c-hover);border-radius:var(--r-control);padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{min-height:34px;padding:0 12px;border-radius:6px;font-size:14px;font-weight:500;color:var(--c-text-2)}
+.seg button[aria-pressed=true]{background:#fff;color:var(--c-text);box-shadow:var(--sh-1);font-weight:600}
+.stage{padding:24px 16px 48px;display:flex;justify-content:center}
+.device{width:100%;max-width:1440px;height:860px;background:var(--c-canvas);border-radius:14px;overflow:hidden;box-shadow:0 30px 60px -20px #0000004d;container-type:inline-size;position:relative;transition:max-width var(--m-base)}
+.device.phone{max-width:390px;height:844px;border-radius:36px;border:10px solid #141416}
+
+/* ============ Shell ============ */
+.app{display:grid;grid-template-columns:244px 1fr;height:100%}
+.rail{background:var(--c-dark);color:#fff;display:flex;flex-direction:column;padding:12px;gap:4px;overflow:auto}
+.brand-plate{background:#fff;border-radius:var(--r-card);padding:10px 12px 8px;display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:12px}
+.brand-plate img{width:196px;height:auto;aspect-ratio:1180/800;display:block}
+.brand-plate span{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c-text-2)}
+.rail h3{margin:14px 10px 4px;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c-dark-text-2)}
+.rail a{position:relative;display:flex;align-items:center;gap:12px;min-height:var(--tap);padding:0 12px;border-radius:var(--r-control);color:#E4E4E7;text-decoration:none;font-size:15px;font-weight:500;transition:background var(--m-fast)}
+.rail a:hover{background:var(--c-dark-2)}
+.rail a[aria-current=page]{background:#FFFFFF14;color:#fff;font-weight:600}
+.rail a[aria-current=page]::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--c-accent)}
+.rail a svg{width:18px;height:18px;flex:none}
+.rail .count{margin-left:auto;min-width:22px;height:22px;padding:0 6px;border-radius:var(--r-pill);background:var(--c-accent);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center}
+.rail-foot{margin-top:auto;border-top:1px solid #FFFFFF1F;padding-top:8px}
+.avatar{width:30px;height:30px;border-radius:50%;background:var(--c-brand);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.main{display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.ctx{display:flex;align-items:center;gap:16px;padding:16px 32px;background:var(--c-panel);border-bottom:1px solid var(--c-line)}
+.ctx h1{margin:0;font-size:28px;line-height:34px;font-weight:700;letter-spacing:-.01em}
+.ctx p{margin:0;color:var(--c-text-2);font-size:14px}
+.ctx .actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.content{flex:1;overflow:auto;padding:24px 32px 32px}
+.mbar,.tabbar{display:none}
+
+/* ============ Piezas ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:var(--tap);padding:0 16px;border-radius:var(--r-control);font-size:15px;font-weight:600;white-space:nowrap;transition:background var(--m-fast),border-color var(--m-fast)}
+.btn svg{width:18px;height:18px}
+.btn.primary{background:var(--c-brand);color:#fff}.btn.primary:hover{background:var(--c-brand-hover)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.secondary{background:#fff;border:1px solid var(--c-control)}.btn.secondary:hover{background:var(--c-hover)}
+.btn.ghost{color:var(--c-text)}.btn.ghost:hover{background:var(--c-hover)}
+.btn.block{width:100%}
+.date{display:inline-flex;align-items:center;gap:8px;min-height:var(--tap);padding:0 12px;border:1px solid var(--c-control);border-radius:var(--r-control);background:#fff;font-weight:500}
+.date svg{width:16px;height:16px;color:var(--c-text-2)}
+
+/* SearchField: un solo borde, lo dibuja el contenedor */
+.sf{display:flex;align-items:center;gap:8px;min-height:var(--tap);padding:0 4px 0 12px;background:#fff;border:1px solid var(--c-control);border-radius:var(--r-control);color:var(--c-text-2);transition:border-color var(--m-fast),box-shadow var(--m-fast);flex:1;min-width:0}
+.sf:hover{border-color:var(--c-text)}
+.sf:focus-within{border-color:var(--c-brand);box-shadow:0 0 0 3px #A81A1A29}
+.sf>svg{width:16px;height:16px;flex:none}
+.sf input{all:unset;flex:1;min-width:0;height:42px;font-size:16px;color:var(--c-text)}
+.sf input::placeholder{color:var(--c-text-2)}
+.sf input:focus-visible{outline:none}
+.sf .clear{width:36px;height:36px;border-radius:6px;display:grid;place-items:center;color:var(--c-text-2);visibility:hidden}
+.sf .clear:hover{background:var(--c-hover);color:var(--c-text)}
+.sf.has .clear{visibility:visible}
+.sf .clear svg{width:16px;height:16px}
+
+.chips{display:inline-flex;gap:6px;flex-wrap:wrap}
+.chip{min-height:36px;padding:0 14px;border-radius:var(--r-pill);border:1px solid var(--c-line);background:#fff;font-size:14px;font-weight:500}
+.chip[aria-pressed=true]{background:var(--c-text);border-color:var(--c-text);color:#fff}
+.filters-btn b{min-width:20px;height:20px;padding:0 6px;border-radius:var(--r-pill);background:var(--c-hover);font-size:12px;display:grid;place-items:center}
+
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.metric{background:var(--c-panel);border:1px solid var(--c-line);border-radius:var(--r-card);padding:14px 16px}
+.metric small{display:block;font-size:13px;color:var(--c-text-2);font-weight:500}
+.metric strong{font-size:24px;line-height:30px;font-weight:700}
+.metric strong.debt{color:var(--c-brand)}
+.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar .sf{max-width:460px}
+.result-line{font-size:14px;color:var(--c-text-2);margin:0 0 8px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:var(--r-pill);font-size:13px;font-weight:600;white-space:nowrap}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-recibido{background:var(--c-hover);color:var(--c-text)}
+.b-preparando{background:var(--c-warn-bg);color:var(--c-warn)}
+.b-camino{background:var(--c-info-bg);color:var(--c-info)}
+.b-entregado{background:var(--c-ok-bg);color:var(--c-ok)}
+
+.panel{background:var(--c-panel);border:1px solid var(--c-line);border-radius:var(--r-card)}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{position:sticky;top:0;background:var(--c-panel-2);text-align:left;font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--c-text-2);padding:10px 12px;border-bottom:1px solid var(--c-line)}
+tbody td{padding:12px;border-bottom:1px solid var(--c-line);vertical-align:middle}
+tbody tr{cursor:pointer;transition:background var(--m-fast)}
+tbody tr:hover{background:var(--c-panel-2)}
+tbody tr[aria-selected=true]{background:var(--c-brand-tint);box-shadow:inset 3px 0 0 var(--c-brand)}
+th.r,td.r{text-align:right;white-space:nowrap}
+td.num,td .badge{white-space:nowrap}
+td:first-child,th:first-child{padding-left:16px}
+td:last-child,th:last-child{padding-right:16px}
+td .name{font-weight:600;font-size:15px;display:block}
+td .meta{color:var(--c-text-2);font-size:13px}
+.warn-t{color:var(--c-warn);font-weight:600}
+.check{width:20px;height:20px;accent-color:var(--c-text)}
+.empty{padding:48px 16px;text-align:center;color:var(--c-text-2)}
+.empty svg{width:40px;height:40px;color:var(--c-text-2)}
+.empty h2{color:var(--c-text);font-size:18px;margin:8px 0 4px}
+
+.detail{padding:20px;position:sticky;top:0}
+.detail h2{margin:4px 0 2px;font-size:20px;line-height:26px}
+.detail .sub{color:var(--c-text-2);font-size:14px;margin:0 0 16px}
+.lines{list-style:none;margin:0;padding:0;border-top:1px solid var(--c-line)}
+.lines li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--c-line);font-size:15px}
+.lines li span:last-child{font-weight:600}
+.money-row{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;font-size:15px}
+.money-row strong{font-size:20px}
+.tag-debt{color:var(--c-brand);font-weight:700}
+.tag-credit{color:var(--c-ok);font-weight:700}
+.detail .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+
+/* Tarjetas móviles */
+.cards{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.ocard{background:#fff;border:1px solid var(--c-line);border-radius:var(--r-card);padding:14px 14px 10px}
+.ocard .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.ocard .top strong{font-size:16px;line-height:22px}
+.ocard .top strong em{font-style:normal;color:var(--c-text-2);font-weight:600;margin-right:4px}
+.ocard .where{color:var(--c-text-2);font-size:14px;margin:2px 0 8px}
+.ocard .facts{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--c-text-2)}
+.ocard .facts b{font-size:20px;color:var(--c-text)}
+.ocard .row{display:flex;justify-content:space-between;align-items:center;margin-top:8px;border-top:1px solid var(--c-line);padding-top:6px}
+.ocard .row label{display:flex;gap:8px;align-items:center;font-size:14px;font-weight:500;min-height:var(--tap)}
+.ocard .more{display:grid;grid-template-rows:0fr;transition:grid-template-rows var(--m-base)}
+.ocard .more>div{overflow:hidden}
+.ocard.open .more{grid-template-rows:1fr}
+.ocard .chev{transition:transform var(--m-base)}
+.ocard.open .chev{transform:rotate(180deg)}
+
+/* Formularios */
+.form-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.section{padding:20px}
+.section+.section{border-top:1px solid var(--c-line)}
+.section h2{margin:0 0 14px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c-text-2)}
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field>span{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:500}
+.field>span svg{width:16px;height:16px;color:var(--c-text-2)}
+.control{min-height:var(--tap);padding:0 12px;border:1px solid var(--c-control);border-radius:var(--r-control);background:#fff;font-size:16px;width:100%}
+select.control{appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2352525B' stroke-width='2'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E") no-repeat right 12px center;padding-right:36px}
+.control:focus{outline:none;border-color:var(--c-brand);box-shadow:0 0 0 3px #A81A1A29}
+.hint{font-size:13px;color:var(--c-text-2)}
+.link{color:var(--c-brand);font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}
+.suggest{list-style:none;margin:4px 0 0;padding:4px;border:1px solid var(--c-line);border-radius:var(--r-control);background:#fff;box-shadow:var(--sh-2)}
+.suggest li button{width:100%;text-align:left;padding:8px 10px;border-radius:6px;display:flex;justify-content:space-between;font-size:15px}
+.suggest li button:hover,.suggest li button[aria-selected=true]{background:var(--c-hover)}
+.suggest small{color:var(--c-text-2)}
+.prod td{padding:8px 12px}
+.prod input.control,.prod select.control{min-height:40px}
+.unit{position:relative}.unit input{padding-right:64px;text-align:right}
+.unit i{position:absolute;right:12px;top:50%;transform:translateY(-50%);font-style:normal;color:var(--c-text-2);font-size:14px}
+.summary{padding:20px;position:sticky;top:0}
+.summary h2{margin:0 0 4px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c-text-2)}
+.summary .who{font-size:18px;font-weight:700;margin:0}
+.kbd{font-size:12px;font-weight:600;opacity:.8;margin-left:6px}
+
+/* Pesaje */
+.weigh{display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start}
+.wlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.wlist button{width:100%;text-align:left;background:#fff;border:1px solid var(--c-line);border-radius:var(--r-card);padding:12px 14px;display:grid;gap:2px}
+.wlist button[aria-current=true]{border-color:var(--c-brand);box-shadow:inset 3px 0 0 var(--c-brand)}
+.wlist .prog{height:4px;border-radius:2px;background:var(--c-hover);overflow:hidden;margin-top:6px}
+.wlist .prog i{display:block;height:100%;background:var(--c-ok)}
+.sync{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;padding:6px 10px;border-radius:var(--r-control)}
+.sync svg{width:16px;height:16px}
+.sync.ok{background:var(--c-ok-bg);color:var(--c-ok)}
+.sync.pend{background:var(--c-warn-bg);color:var(--c-warn)}
+.sync.pend svg.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wpanel{padding:20px}
+.wpanel h2{margin:0;font-size:20px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--c-control);border-radius:var(--r-control);overflow:hidden}
+.stepper button{width:var(--tap);height:var(--tap);display:grid;place-items:center}
+.stepper button:hover{background:var(--c-hover)}
+.stepper output{min-width:48px;text-align:center;font-size:20px;font-weight:700}
+.gross{display:flex;align-items:center;border:2px solid var(--c-control);border-radius:var(--r-card);padding:0 16px;background:#fff}
+.gross:focus-within{border-color:var(--c-brand);box-shadow:0 0 0 3px #A81A1A29}
+.gross input{all:unset;flex:1;min-width:0;font-size:40px;line-height:64px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.gross i{font-style:normal;font-size:20px;color:var(--c-text-2);margin-left:8px}
+.calc{display:flex;justify-content:space-between;font-size:15px;color:var(--c-text-2);padding:10px 2px}
+.net{background:var(--c-dark);color:#fff;border-radius:var(--r-card);padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.net small{display:block;color:var(--c-dark-text-2);font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.net strong{font-size:40px;line-height:44px;font-variant-numeric:tabular-nums;transition:opacity var(--m-fast)}
+.net em{font-style:normal;color:var(--c-dark-text-2);font-size:14px}
+.done-list{list-style:none;margin:0;padding:0}
+.done-list li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--c-line);font-size:14px}
+.done-list .st{display:inline-flex;gap:4px;align-items:center;font-size:13px;font-weight:600}
+.done-list .st svg{width:14px;height:14px}
+
+/* Entrega */
+.dialog-wrap{position:absolute;inset:0;background:#14141666;display:grid;place-items:center;padding:24px;z-index:20}
+.dialog{width:min(560px,100%);max-height:100%;display:flex;flex-direction:column;background:#fff;border-radius:var(--r-dialog);box-shadow:var(--sh-3);overflow:hidden}
+.dialog header{display:flex;justify-content:space-between;align-items:flex-start;padding:16px 20px;border-bottom:1px solid var(--c-line)}
+.dialog header h2{margin:0;font-size:20px}
+.dialog header p{margin:0;color:var(--c-text-2);font-size:14px}
+.dialog .body{overflow:auto;padding:4px 20px}
+.dialog footer{padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--c-line);background:#fff}
+.block{padding:14px 0;border-bottom:1px solid var(--c-line)}
+.block:last-child{border-bottom:0}
+.block h3{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--c-text-2)}
+.block h3 svg{width:16px;height:16px}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:40px;font-size:15px}
+.kv b{font-variant-numeric:tabular-nums}
+.kv.total{border-top:1px solid var(--c-line);margin-top:4px;font-weight:700}
+.pay{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0}
+.photo{display:flex;align-items:center;justify-content:center;gap:8px;min-height:72px;border:1.5px dashed var(--c-control);border-radius:var(--r-card);color:var(--c-text);font-weight:600;width:100%}
+.photo.done{border-style:solid;border-color:var(--c-ok);background:var(--c-ok-bg);color:var(--c-ok)}
+.alert{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:var(--r-control);font-size:14px;font-weight:500;margin-top:8px}
+.alert svg{width:18px;height:18px;flex:none;margin-top:1px}
+.alert.warn{background:var(--c-warn-bg);color:var(--c-warn)}
+.alert.err{background:var(--c-error-bg);color:var(--c-error)}
+.offline-band{display:flex;gap:8px;align-items:center;padding:10px 32px;background:var(--c-warn-bg);color:var(--c-warn);font-size:14px;font-weight:600;border-bottom:1px solid #F3DFC2}
+.offline-band svg{width:18px;height:18px}
+
+/* ============ Celular (container query: lo que mide la app, no la ventana) ============ */
+@container (max-width: 1023px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+  .rail{display:none}
+  .mbar{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;background:#fff;border-bottom:1px solid var(--c-line)}
+  .mbar img{height:46px;width:auto;aspect-ratio:1180/800}
+  .ctx{padding:14px 16px 4px;border:0;background:transparent;flex-wrap:wrap}
+  .ctx h1{font-size:24px;line-height:30px}
+  .ctx .actions .hide-m{display:none}
+  .content{padding:12px 16px 96px}
+  .offline-band{padding:10px 16px}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border-top:1px solid var(--c-line);padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
+  .tabbar a{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;min-height:52px;justify-content:center;font-size:12px;font-weight:600;color:var(--c-text-2);text-decoration:none}
+  .tabbar a svg{width:20px;height:20px}
+  .tabbar a[aria-current=page]{color:var(--c-brand)}
+  .tabbar a[aria-current=page]::before{content:"";position:absolute;top:-4px;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--c-brand)}
+  .metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+  .metric{padding:10px}
+  .metric small{font-size:12px;line-height:16px}
+  .metric strong{font-size:18px;line-height:24px;white-space:nowrap}
+  .toolbar{gap:8px}
+  .mbar img{height:52px}
+  .toolbar .sf{max-width:none;flex-basis:100%}
+  .split,.form-grid,.weigh{grid-template-columns:minmax(0,1fr)}
+  .content{overflow-x:hidden}
+  .wpanel .field{flex:1 1 140px}
+  .desk-only{display:none!important}
+  .fields{grid-template-columns:1fr 1fr;gap:12px}
+  .summary{position:sticky;bottom:-96px}
+  .fab{position:absolute;right:16px;bottom:84px;z-index:5;box-shadow:var(--sh-2)}
+  .dialog-wrap{place-items:end center;padding:0}
+  .dialog{width:100%;border-radius:var(--r-dialog) var(--r-dialog) 0 0;max-height:94%}
+  .gross input{font-size:36px}
+}
+@container (min-width: 1024px){ .mob-only{display:none!important} }
+@container (max-width: 1279px) and (min-width:1024px){ .split{grid-template-columns:1fr} .detail{display:none} }
+</style>
+</head>
+<body>
+<div class="proto-bar">
+  <div><strong>Prototipo · El Pollito Casero</strong> <small>Datos de ejemplo. No guarda nada.</small></div>
+  <div class="seg" role="group" aria-label="Pantalla" id="screens">
+    <button data-s="pedidos" aria-pressed="true">Pedidos</button>
+    <button data-s="nuevo" aria-pressed="false">Cargar pedido</button>
+    <button data-s="pesaje" aria-pressed="false">Pesaje</button>
+    <button data-s="entrega" aria-pressed="false">Entrega</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="seg" role="group" aria-label="Dispositivo" id="devices">
+      <button data-d="desk" aria-pressed="true">Escritorio</button>
+      <button data-d="phone" aria-pressed="false">Celular</button>
+    </div>
+    <div class="seg" role="group" aria-label="Conexión" id="net">
+      <button data-n="on" aria-pressed="true">Con señal</button>
+      <button data-n="off" aria-pressed="false">Sin señal</button>
+    </div>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="device" id="device">
+    <div class="app">
+      <aside class="rail" aria-label="Navegación del equipo">
+        <div class="brand-plate">
+          <img src="logo-pollito.png" width="1180" height="800" alt="El Pollito Casero">
+          <span>Administración</span>
+        </div>
+        <h3>Operación del día</h3>
+        <a href="#" data-go="pedidos"><i data-lucide="clipboard-list"></i>Pedidos<span class="count">12</span></a>
+        <a href="#" data-go="nuevo"><i data-lucide="plus"></i>Cargar pedido</a>
+        <a href="#" data-go="pesaje"><i data-lucide="scale"></i>Pesaje</a>
+        <a href="#"><i data-lucide="users"></i>Clientes</a>
+        <h3>Gestión</h3>
+        <a href="#"><i data-lucide="printer"></i>Imprimir</a>
+        <a href="#" data-go="entrega"><i data-lucide="truck"></i>Revisar entregas</a>
+        <a href="#"><i data-lucide="shield-check"></i>Equipo</a>
+        <div class="rail-foot">
+          <a href="#"><span class="avatar">M</span>Mauro</a>
+          <a href="#"><i data-lucide="circle-help"></i>Ayuda</a>
+          <a href="#"><i data-lucide="log-out"></i>Salir</a>
+        </div>
+      </aside>
+      <header class="mbar">
+        <img src="logo-pollito.png" width="1180" height="800" alt="El Pollito Casero">
+        <span class="avatar" aria-label="Mauro">M</span>
+      </header>
+      <div class="main" id="main"></div>
+      <nav class="tabbar" aria-label="Secciones">
+        <a href="#" data-go="pedidos"><i data-lucide="clipboard-list"></i>Pedidos</a>
+        <a href="#" data-go="nuevo"><i data-lucide="plus"></i>Nuevo</a>
+        <a href="#" data-go="pesaje"><i data-lucide="scale"></i>Pesaje</a>
+        <a href="#"><i data-lucide="users"></i>Clientes</a>
+        <a href="#" data-go="entrega"><i data-lucide="menu"></i>Más</a>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const money = n => "$ " + Math.round(n).toLocaleString("es-AR");
+const kg = n => n.toLocaleString("es-AR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const TARA = 1.7;
+const ORDERS = [
+  { n: 1043, c: "Almacén Don Pepe", z: "Palmira", d: "Franco", st: "preparando", cajas: 3, kg: 38.2, total: 184300, pago: "Efectivo", saldo: -12000, items: [["Pollo entero", "3 cajas", "38,2 kg"]] },
+  { n: 1044, c: "Granja La Esperanza", z: "Junín", d: "Maxi", st: "recibido", cajas: 5, kg: 0, total: 0, pago: "Cuenta corriente", saldo: 0, items: [["Pollo entero", "4 cajas", "a pesar"], ["Alas", "1 caja", "a pesar"]] },
+  { n: 1045, c: "Rotisería El Buen Sabor", z: "San Martín centro", d: "Franco", st: "en_camino", cajas: 2, kg: 25.6, total: 121400, pago: "Transferencia", saldo: 4500, items: [["Pechuga", "2 cajas", "25,6 kg"]] },
+  { n: 1046, c: "Supermercado Los Andes", z: "Rivadavia", d: "Nahuel Castro", st: "preparando", cajas: 8, kg: 102.4, total: 498700, pago: "Cheque", saldo: -86200, items: [["Pollo entero", "6 cajas", "77,1 kg"], ["Muslo", "2 cajas", "25,3 kg"]] },
+  { n: 1047, c: "Carnicería Doña Rosa", z: "Palmira", d: "Maxi", st: "entregado", cajas: 1, kg: 12.9, total: 61900, pago: "Efectivo", saldo: 0, items: [["Cuarto trasero", "1 caja", "12,9 kg"]] },
+  { n: 1048, c: "Despensa Mi Barrio", z: "Junín", d: "Andrés Reyes", st: "recibido", cajas: 2, kg: 0, total: 0, pago: "Efectivo", saldo: -3200, items: [["Suprema", "2 cajas", "a pesar"]] },
+  { n: 1049, c: "Minimercado San Cayetano de la Villa Nueva", z: "Villa Nueva", d: "Brian Salafia", st: "preparando", cajas: 4, kg: 51.0, total: 247350, pago: "Mixto", saldo: 0, items: [["Pollo entero", "4 cajas", "51,0 kg"]] },
+];
+const ST = { recibido: ["Recibido", "b-recibido"], preparando: ["En preparación", "b-preparando"], en_camino: ["En camino", "b-camino"], entregado: ["Entregado", "b-entregado"] };
+const badge = s => `<span class="badge ${ST[s][1]}">${ST[s][0]}</span>`;
+const saldoTxt = s => s < 0 ? `<span class="tag-debt">Debe ${money(-s)}</span>` : s > 0 ? `<span class="tag-credit">A favor ${money(s)}</span>` : `<span>Al día</span>`;
+
+let state = { screen: "pedidos", q: "", turno: "Todos", sel: 1043, open: null, online: true,
+  cust: null, cq: "", boxes: 2, gross: "28,8", pend: 0, done: [{ n: 1, gross: 14.3, net: 12.6, s: "ok" }],
+  dej: 3, ent: 5, photo: false };
+
+function searchField(id, label, ph) {
+  return `<div class="sf ${state[id] ? "has" : ""}" data-sf="${id}">
+    <i data-lucide="search" aria-hidden="true"></i>
+    <label class="sr-only" for="sf-${id}">${label}</label>
+    <input id="sf-${id}" type="search" enterkeyhint="search" autocomplete="off" placeholder="${ph}" value="${state[id]}">
+    <button type="button" class="clear" aria-label="Borrar búsqueda"><i data-lucide="x"></i></button>
+  </div>`;
+}
+function head(title, sub, actions = "") {
+  return (state.online ? "" : `<div class="offline-band" role="status"><i data-lucide="wifi-off"></i>Sin señal. Las pesadas se guardan en este teléfono; pedidos nuevos y cobros esperan conexión.</div>`) +
+    `<header class="ctx"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></header>`;
+}
+const filtered = () => {
+  const q = state.q.trim().toLowerCase();
+  return ORDERS.filter(o => !q || String(o.n).includes(q) || o.c.toLowerCase().includes(q) || o.z.toLowerCase().includes(q) || o.d.toLowerCase().includes(q));
+};
+
+function pedidos() {
+  const list = filtered();
+  const sel = ORDERS.find(o => o.n === state.sel);
+  const abiertos = ORDERS.filter(o => o.st !== "entregado").length;
+  const porCobrar = ORDERS.filter(o => o.st !== "entregado").reduce((s, o) => s + o.total, 0);
+  const rows = list.map(o => `<tr aria-selected="${o.n === state.sel}" data-sel="${o.n}">
+      <td class="num"><b>#${o.n}</b></td>
+      <td><span class="name">${o.c}</span><span class="meta">${o.z} · ${o.items.map(i => i[1] + " " + i[0].toLowerCase()).join(" · ")}</span></td>
+      <td class="r num">${o.kg ? kg(o.kg) : '<span class="warn-t">a pesar</span>'}</td>
+      <td class="r num">${o.total ? money(o.total) : '<span class="meta">—</span>'}</td>
+      <td>${o.d}</td><td>${badge(o.st)}</td>
+      <td style="text-align:center"><input type="checkbox" class="check" aria-label="Cargado #${o.n}" ${o.st === "en_camino" || o.st === "entregado" ? "checked" : ""} onclick="event.stopPropagation()"></td>
+    </tr>`).join("");
+  const cards = list.map(o => `<li class="ocard ${state.open === o.n ? "open" : ""}">
+      <div class="top"><strong><em>#${o.n}</em>${o.c}</strong>${badge(o.st)}</div>
+      <p class="where">${o.z} · ${o.d}</p>
+      <div class="facts num"><span>${o.cajas} cajas · ${o.kg ? kg(o.kg) + " kg" : '<span class="warn-t">a pesar</span>'}</span><b>${o.total ? money(o.total) : "—"}</b></div>
+      <div class="more"><div><ul class="lines" style="margin-top:10px">${o.items.map(i => `<li><span>${i[0]} · ${i[1]}</span><span class="num">${i[2]}</span></li>`).join("")}
+        <li><span>Pago</span><span>${o.pago}</span></li><li><span>Saldo anterior</span>${saldoTxt(o.saldo)}</li></ul>
+        <div style="display:flex;gap:8px;margin-top:10px"><button class="btn secondary" style="flex:1"><i data-lucide="pencil"></i>Editar</button><button class="btn primary" style="flex:1" data-go="entrega">Entregar</button></div></div></div>
+      <div class="row"><label><input type="checkbox" class="check" ${o.st === "en_camino" || o.st === "entregado" ? "checked" : ""}> Cargado</label>
+        <button class="btn ghost" data-open="${o.n}" aria-expanded="${state.open === o.n}">${state.open === o.n ? "Cerrar" : "Ver pedido"} <i data-lucide="chevron-down" class="chev"></i></button></div>
+    </li>`).join("");
+  const empty = `<div class="empty"><i data-lucide="search-x"></i><h2>Ningún pedido coincide con «${state.q}»</h2><p>Probá con el N°, el nombre o la zona.</p><button class="btn secondary" data-clear="q">Limpiar búsqueda</button></div>`;
+  return head("Pedidos", "Reparto del lunes 05/10/2026",
+      `<span class="date hide-m desk-only"><i data-lucide="calendar"></i>05/10/2026</span>
+       <button class="btn secondary hide-m"><i data-lucide="printer"></i>Imprimir</button>
+       <button class="btn primary desk-only" data-go="nuevo"><i data-lucide="plus"></i>Cargar pedido</button>`) +
+    `<div class="content">
+      <div class="metrics">
+        <div class="metric"><small>Pedidos abiertos</small><strong class="num">${abiertos}</strong></div>
+        <div class="metric"><small>Por cobrar</small><strong class="num"><span class="desk-only">${money(porCobrar)}</span><span class="mob-only">$ ${(porCobrar/1e6).toLocaleString("es-AR",{maximumFractionDigits:2})} M</span></strong></div>
+        <div class="metric"><small>Envases en la calle</small><strong class="num">318</strong></div>
+      </div>
+      <div class="toolbar">${searchField("q", "Buscar pedidos", "N°, cliente, zona o preventista")}
+        <div class="chips" role="group" aria-label="Turno">${["Todos", "Mañana", "Tarde"].map(t => `<button class="chip" data-turno="${t}" aria-pressed="${state.turno === t}">${t}</button>`).join("")}</div>
+        <button class="btn secondary filters-btn"><i data-lucide="sliders-horizontal"></i>Filtros <b>2</b></button>
+      </div>
+      <p class="result-line" aria-live="polite">${list.length} de ${ORDERS.length} pedidos</p>
+      <div class="split">
+        <div class="panel desk-only" style="overflow:hidden">${list.length ? `<table><thead><tr><th>N°</th><th>Cliente y productos</th><th class="r">Kg</th><th class="r">Importe</th><th>Preventista</th><th>Estado</th><th style="text-align:center">Cargado</th></tr></thead><tbody>${rows}</tbody></table>` : empty}</div>
+        <ul class="cards mob-only">${list.length ? cards : `<li class="panel">${empty}</li>`}</ul>
+        ${sel ? `<aside class="panel detail desk-only" aria-label="Detalle del pedido">
+          ${badge(sel.st)}
+          <h2>#${sel.n} · ${sel.c}</h2>
+          <p class="sub">${sel.z} · ${sel.d} · Turno mañana</p>
+          <ul class="lines">${sel.items.map(i => `<li><span>${i[0]} · ${i[1]}</span><span class="num">${i[2]}</span></li>`).join("")}</ul>
+          <div class="money-row"><span>Total</span><strong class="num">${sel.total ? money(sel.total) : "A confirmar con el pesaje"}</strong></div>
+          <div class="money-row"><span>Saldo anterior</span>${saldoTxt(sel.saldo)}</div>
+          <div class="money-row"><span>Pago</span><span>${sel.pago}</span></div>
+          <div class="acts"><button class="btn secondary"><i data-lucide="pencil"></i>Editar</button><button class="btn secondary"><i data-lucide="file-down"></i>Remito</button><button class="btn primary" style="flex:1" data-go="entrega">Completar entrega</button></div>
+        </aside>` : ""}
+      </div>
+      <button class="btn primary fab mob-only" data-go="nuevo"><i data-lucide="plus"></i>Cargar pedido</button>
+    </div>`;
+}
+
+const CUSTS = [["Almacén Don Pepe", "Palmira", -12000], ["Granja La Esperanza", "Junín", 0], ["Despensa Mi Barrio", "Junín", -3200], ["Rotisería El Buen Sabor", "San Martín", 4500]];
+function nuevo() {
+  const q = state.cq.trim().toLowerCase();
+  const m = q && !state.cust ? CUSTS.filter(c => (c[0] + c[1]).toLowerCase().includes(q)) : [];
+  const c = state.cust;
+  return head("Cargar pedido", "Cliente, cajas o kilos por producto, fecha y turno. Los kilos finales los pone la balanza.",
+      `<button class="btn ghost hide-m"><i data-lucide="rotate-ccw"></i>Limpiar</button>`) +
+    `<div class="content"><div class="form-grid">
+      <div class="panel">
+        <section class="section"><h2>Cliente</h2>
+          <div class="field"><span>Buscar cliente</span>${searchField("cq", "Buscar cliente", "Apodo, zona, razón social…")}</div>
+          ${m.length ? `<ul class="suggest" role="listbox" aria-label="Clientes encontrados">${m.map((x, i) => `<li><button role="option" aria-selected="${i === 0}" data-cust="${x[0]}"><span>${x[0]}</span><small>${x[1]}</small></button></li>`).join("")}</ul>` : ""}
+          <p class="hint" style="margin:8px 0 0">${c ? `Elegido: <b>${c[0]}</b> · ${c[1]}` : "Escribí el apodo o la zona y elegí de la lista."} <a href="#" class="link">¿Cliente nuevo? Crealo acá</a></p>
+        </section>
+        <section class="section"><h2>Entrega</h2>
+          <div class="fields">
+            <label class="field"><span><i data-lucide="calendar"></i>Fecha de reparto</span><input class="control" type="date" value="2026-10-05"></label>
+            <label class="field"><span><i data-lucide="clock"></i>Turno</span><select class="control"><option>Según el cliente</option><option>Mañana</option><option>Tarde</option></select></label>
+            <label class="field"><span><i data-lucide="truck"></i>Vehículo</span><select class="control"><option>Sin vehículo</option><option>Toyota Hino A974NR</option></select></label>
+            <label class="field"><span><i data-lucide="user"></i>Preventista</span><select class="control"><option>Asignar después</option><option>Franco</option><option>Maxi</option></select></label>
+            <label class="field"><span><i data-lucide="users"></i>Segundo preventista</span><select class="control"><option>Va solo</option><option>Maxi</option></select></label>
+            <label class="field"><span><i data-lucide="wallet"></i>Pago</span><select class="control"><option>Efectivo al recibir</option><option>Transferencia</option><option>Cuenta corriente</option></select></label>
+          </div>
+        </section>
+        <section class="section"><h2>Productos</h2>
+          <table class="prod"><thead><tr><th>Producto</th><th>Unidad</th><th class="r">Cantidad</th><th class="r desk-only">Precio por kg</th></tr></thead><tbody>
+            ${[["Pollo entero", "cajas", 3, 4820], ["Alas", "kg", 10, 3150], ["Pechuga", "cajas", 0, 6900]].map(p => `<tr><td><b>${p[0]}</b></td>
+              <td><select class="control" aria-label="Unidad de ${p[0]}"><option ${p[1] === "cajas" ? "selected" : ""}>cajas</option><option ${p[1] === "kg" ? "selected" : ""}>kg</option></select></td>
+              <td class="r"><div class="unit"><input class="control num" inputmode="decimal" value="${p[2] || ""}" placeholder="0" aria-label="Cantidad de ${p[0]}"><i>${p[1]}</i></div></td>
+              <td class="r num desk-only">${money(p[3])}</td></tr>`).join("")}
+          </tbody></table>
+        </section>
+      </div>
+      <aside class="panel summary">
+        <h2>Resumen</h2>
+        <p class="who">${c ? c[0] : "Sin cliente"}</p>
+        <p class="hint" style="margin:0 0 12px">${c ? c[1] + " · Turno según el cliente" : "Elegí un cliente para continuar."}</p>
+        ${c ? `<div class="money-row"><span>Saldo anterior</span>${saldoTxt(c[2])}</div>` : ""}
+        <ul class="lines"><li><span>Pollo entero</span><span class="num">3 cajas</span></li><li><span>Alas</span><span class="num">10 kg</span></li></ul>
+        <div class="money-row"><span>Importe</span><span class="hint">A confirmar con el pesaje</span></div>
+        <button class="btn primary block" ${!c || !state.online ? "disabled" : ""}>Cargar pedido <span class="kbd desk-only">Ctrl+Enter</span></button>
+        ${!state.online ? `<div class="alert warn"><i data-lucide="wifi-off"></i>Sin señal: el pedido no se puede guardar todavía.</div>` : !c ? `<p class="hint" style="margin:8px 0 0">Falta elegir el cliente.</p>` : ""}
+      </aside>
+    </div></div>`;
+}
+
+function pesaje() {
+  const g = parseFloat(String(state.gross).replace(",", ".")) || 0;
+  const tare = state.boxes * TARA, net = Math.max(0, g - tare);
+  const pend = state.done.filter(d => d.s !== "ok").length;
+  const sync = pend ? `<span class="sync pend" role="status"><i data-lucide="${state.online ? "refresh-cw" : "smartphone"}" class="${state.online ? "spin" : ""}"></i>${pend} ${pend === 1 ? "pendiente" : "pendientes"} de enviar${state.online ? " · enviando…" : " · guardado en este teléfono"}</span>`
+    : `<span class="sync ok" role="status"><i data-lucide="check"></i>Todo guardado en el servidor</span>`;
+  const doneKg = state.done.reduce((s, d) => s + d.net, 0);
+  return head("Pesaje", "Lunes 05/10/2026 · tara 1,7 kg por caja", sync) +
+    `<div class="content"><div class="weigh">
+      <div class="desk-only">
+        <div style="margin-bottom:10px">${searchField("q", "Buscar pedido", "Cliente o N° de pedido…")}</div>
+        <ul class="wlist">${filtered().filter(o => o.st !== "entregado").map(o => `<li><button aria-current="${o.n === 1043}">
+          <span style="display:flex;justify-content:space-between"><b>#${o.n} · ${o.c}</b></span>
+          <span class="hint">${o.d} · ${o.cajas} cajas pedidas</span>
+          <span class="prog"><i style="width:${o.n === 1043 ? 33 + (state.done.length - 1) * 33 : o.kg ? 100 : 0}%"></i></span></button></li>`).join("")}</ul>
+      </div>
+      <div class="panel wpanel">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">
+          <div><h2>#1043 · Almacén Don Pepe</h2><p class="hint" style="margin:2px 0 0">Franco · Palmira · Pollo entero · 3 cajas pedidas</p></div>
+          <span class="badge b-preparando">${state.done.length} de 3 cajas · ${kg(doneKg)} kg</span>
+        </div>
+        <div style="display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin:18px 0 12px">
+          <label class="field"><span>Producto</span><select class="control"><option>Pollo entero</option></select></label>
+          <div class="field"><span id="lbl-boxes">Cajas juntas en la balanza</span>
+            <div class="stepper" role="group" aria-labelledby="lbl-boxes"><button data-box="-1" aria-label="Una caja menos"><i data-lucide="minus"></i></button><output class="num" aria-live="polite">${state.boxes}</output><button data-box="1" aria-label="Una caja más"><i data-lucide="plus"></i></button></div></div>
+        </div>
+        <label class="field"><span>Peso bruto total de ${state.boxes} ${state.boxes === 1 ? "caja" : "cajas"}</span>
+          <div class="gross"><input id="gross" inputmode="decimal" value="${state.gross}" aria-describedby="calc"><i>kg</i></div></label>
+        <div class="calc num" id="calc"><span>− ${kg(tare)} kg de tara (${state.boxes} × 1,7)</span><span>${kg(state.boxes ? net / state.boxes : 0)} kg por caja</span></div>
+        <div class="net"><div><small>Peso neto</small><em>Bruto − tara</em></div><strong class="num" id="net">${kg(net)} kg</strong></div>
+        <button class="btn primary block" style="margin-top:14px;min-height:52px;font-size:16px" data-save ${net <= 0 ? "disabled" : ""}><i data-lucide="save"></i>Guardar pesada</button>
+        <h3 style="font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--c-text-2);margin:20px 0 4px">Pesadas de este pedido</h3>
+        <ul class="done-list">${state.done.map(d => `<li><span class="num">#${d.n} · bruto ${kg(d.gross)} → <b>${kg(d.net)} kg</b></span>
+          ${d.s === "ok" ? `<span class="st" style="color:var(--c-ok)"><i data-lucide="check"></i>En el servidor</span>` : `<span class="st" style="color:var(--c-warn)"><i data-lucide="smartphone"></i>En este teléfono</span>`}</li>`).join("")}</ul>
+      </div>
+    </div></div>`;
+}
+
+function entrega() {
+  const total = 184300, saldoAnt = 12000, cajasAnt = 8;
+  const queda = cajasAnt + state.dej - state.ent;
+  const canConfirm = state.photo && state.online;
+  return head("Revisar entregas", "Lunes 05/10/2026 · Franco") +
+    `<div class="content">
+      <div class="metrics"><div class="metric"><small>Para entregar</small><strong class="num">9</strong></div><div class="metric"><small>Kilos a repartir</small><strong class="num">412,6</strong></div><div class="metric"><small>Cobrado hoy</small><strong class="num">${money(61900)}</strong></div></div>
+      <ul class="cards">${ORDERS.slice(0, 3).map(o => `<li class="ocard"><div class="top"><strong><em>#${o.n}</em>${o.c}</strong>${badge(o.st)}</div><p class="where">${o.z}</p><div class="facts num"><span>${o.cajas} cajas · ${kg(o.kg)} kg</span><b>${o.total ? money(o.total) : "—"}</b></div></li>`).join("")}</ul>
+      <div class="dialog-wrap"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
+        <header><div><h2 id="dlg-t">Completar entrega</h2><p>#1043 · Almacén Don Pepe · Palmira</p></div><button class="btn ghost" aria-label="Cerrar" style="padding:0 10px"><i data-lucide="x"></i></button></header>
+        <div class="body">
+          <section class="block"><h3><i data-lucide="wallet"></i>Dinero</h3>
+            <div class="kv"><span>Total del pedido</span><b>${money(total)}</b></div>
+            <div class="kv"><span>Saldo anterior</span><span class="tag-debt">Debe ${money(saldoAnt)}</span></div>
+            <div class="pay"><select class="control" aria-label="Medio de pago"><option>Efectivo</option><option>Transferencia</option><option>Cheque</option></select>
+              <div class="unit"><input class="control num" inputmode="decimal" value="196.300" aria-label="Importe cobrado"><i>$</i></div></div>
+            <button class="link" style="padding:6px 0">+ Otro medio (pago mixto)</button>
+            <div class="kv total"><span>Queda</span><span class="tag-credit">Al día</span></div>
+          </section>
+          <section class="block"><h3><i data-lucide="package"></i>Cajas</h3>
+            <div class="kv"><span>Saldo anterior</span><b>${cajasAnt}</b></div>
+            <div class="kv"><span id="l-dej">Le dejamos</span><div class="stepper" role="group" aria-labelledby="l-dej"><button data-c="dej,-1" aria-label="Una menos"><i data-lucide="minus"></i></button><output class="num">${state.dej}</output><button data-c="dej,1" aria-label="Una más"><i data-lucide="plus"></i></button></div></div>
+            <div class="kv"><span id="l-ent">Nos entrega</span><div class="stepper" role="group" aria-labelledby="l-ent"><button data-c="ent,-1" aria-label="Una menos"><i data-lucide="minus"></i></button><output class="num">${state.ent}</output><button data-c="ent,1" aria-label="Una más"><i data-lucide="plus"></i></button></div></div>
+            <div class="kv total"><span>Saldo que queda</span><b class="num">${queda}</b></div>
+          </section>
+          <section class="block"><h3><i data-lucide="camera"></i>Comprobantes</h3>
+            <button class="photo ${state.photo ? "done" : ""}" data-photo><i data-lucide="${state.photo ? "check" : "camera"}"></i>${state.photo ? "Foto del remito firmado cargada" : "Sacar foto del remito firmado"}</button>
+          </section>
+        </div>
+        <footer>
+          ${!state.online ? `<div class="alert warn" style="margin:0 0 8px"><i data-lucide="wifi-off"></i>Sin señal: la entrega y el cobro se confirman cuando vuelva la conexión.</div>`
+            : !state.photo ? `<div class="alert err" style="margin:0 0 8px"><i data-lucide="circle-alert"></i>Falta la foto del remito firmado o del comprobante.</div>` : ""}
+          <button class="btn primary block" ${canConfirm ? "" : "disabled"}>Confirmar entrega <i data-lucide="arrow-right"></i></button>
+        </footer>
+      </div></div>
+    </div>`;
+}
+
+const SCREENS = { pedidos, nuevo, pesaje, entrega };
+function render(focusId) {
+  $("#main").innerHTML = SCREENS[state.screen]();
+  document.querySelectorAll(".rail a[data-go], .tabbar a[data-go]").forEach(a => a.setAttribute("aria-current", a.dataset.go === state.screen ? "page" : "false"));
+  document.querySelectorAll("#screens button").forEach(b => b.setAttribute("aria-pressed", b.dataset.s === state.screen));
+  lucide.createIcons();
+  if (focusId) { const el = document.getElementById(focusId); if (el) { el.focus(); const v = el.value; el.value = ""; el.value = v; } }
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, a, tr");
+  if (!t) return;
+  if (t.dataset.go) { e.preventDefault(); state.screen = t.dataset.go; state.q = ""; render(); return; }
+  if (t.dataset.s) { state.screen = t.dataset.s; render(); return; }
+  if (t.dataset.d) { $("#device").classList.toggle("phone", t.dataset.d === "phone"); document.querySelectorAll("#devices button").forEach(b => b.setAttribute("aria-pressed", b === t)); return; }
+  if (t.dataset.n) { state.online = t.dataset.n === "on"; document.querySelectorAll("#net button").forEach(b => b.setAttribute("aria-pressed", b === t));
+    if (state.online) setTimeout(() => { state.done.forEach(d => d.s = "ok"); render(); }, 1500); render(); return; }
+  if (t.dataset.sel) { state.sel = +t.dataset.sel; render(); return; }
+  if (t.dataset.open) { state.open = state.open === +t.dataset.open ? null : +t.dataset.open; render(); return; }
+  if (t.dataset.turno) { state.turno = t.dataset.turno; render(); return; }
+  if (t.dataset.clear) { state[t.dataset.clear] = ""; render("sf-" + t.dataset.clear); return; }
+  if (t.classList.contains("clear")) { const id = t.closest(".sf").dataset.sf; state[id] = ""; if (id === "cq") state.cust = null; render("sf-" + id); return; }
+  if (t.dataset.cust) { state.cust = CUSTS.find(c => c[0] === t.dataset.cust); state.cq = state.cust[0]; render(); return; }
+  if (t.dataset.box) { state.boxes = Math.max(1, Math.min(6, state.boxes + +t.dataset.box)); render(); return; }
+  if (t.dataset.c) { const [k, d] = t.dataset.c.split(","); state[k] = Math.max(0, state[k] + +d); render(); return; }
+  if (t.dataset.photo !== undefined) { state.photo = !state.photo; render(); return; }
+  if (t.dataset.save !== undefined) {
+    const g = parseFloat(String(state.gross).replace(",", ".")) || 0;
+    state.done.push({ n: state.done.length + 1, gross: g, net: g - state.boxes * TARA, s: "pend" });
+    state.gross = ""; render("gross");
+    if (state.online) setTimeout(() => { state.done.forEach(d => d.s = "ok"); render(); }, 1400);
+  }
+});
+document.addEventListener("input", e => {
+  if (e.target.closest(".sf")) { const id = e.target.closest(".sf").dataset.sf; state[id] = e.target.value; if (id === "cq") state.cust = null; render(e.target.id); }
+  if (e.target.id === "gross") { state.gross = e.target.value; const g = parseFloat(state.gross.replace(",", ".")) || 0, tare = state.boxes * TARA, net = Math.max(0, g - tare);
+    $("#net").textContent = kg(net) + " kg"; $("#calc span:last-child").textContent = kg(net / state.boxes) + " kg por caja"; $("[data-save]").disabled = net <= 0; }
+});
+document.addEventListener("keydown", e => {
+  const sf = e.target.closest?.(".sf");
+  if (sf && e.key === "Escape" && e.target.value) { e.preventDefault(); state[sf.dataset.sf] = ""; render(e.target.id); }
+  if (sf && sf.dataset.sf === "cq" && e.key === "Enter") { const first = $(".suggest button"); if (first) first.click(); }
+});
+render();
+</script>
+</body>
+</html>

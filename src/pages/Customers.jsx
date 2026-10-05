@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Search,
   UserPlus,
   Tags,
   Tag,
@@ -11,6 +10,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
+import SearchField from "../components/SearchField.jsx";
 import { useIsMobile } from "../lib/media.js";
 import { CajasChip } from "../components/CajasBox.jsx";
 import ImportCustomers from "../components/ImportCustomers.jsx";
@@ -112,24 +112,17 @@ export default function Customers() {
   ).length;
   return (
     <section className="panel customers-panel">
-      <div className="section-line">
-        <h2>Clientes</h2>
-        <span className="muted">
-          {customers.length} fichas
-          {pending ? ` · ${pending} por revisar` : ""}
-        </span>
-      </div>
+      <p className="customers-count">
+        <strong>{customers.length} fichas</strong>
+        {pending ? <span> · {pending} por revisar</span> : null}
+      </p>
       <div className="board-filters customers-filters">
-        <div className="search-field wide">
-          <Search size={16} />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Apodo, razón social, CUIT, teléfono…"
-            aria-label="Buscar clientes"
-          />
-        </div>
+        <SearchField
+          value={q}
+          onChange={setQ}
+          label="Buscar clientes"
+          placeholder="Nombre, CUIT, teléfono o zona"
+        />
         <button
           type="button"
           className={"secondary filters-toggle" + (activeFilters ? " on" : "")}
@@ -283,7 +276,6 @@ export default function Customers() {
                 {c.legalName && c.legalName !== c.name && (
                   <p className="muted small">{c.legalName}</p>
                 )}
-                <CajasChip customer={c} />
                 <p className="cc-meta">
                   {[
                     c.zone,
@@ -295,13 +287,18 @@ export default function Customers() {
                     .filter(Boolean)
                     .join(" · ") || "Sin zona"}
                 </p>
-                {st !== "ok" && (
-                  <span className={"status-pill " + st}>{statusNames[st]}</span>
-                )}
+                <div className="cc-tags">
+                  <CajasChip customer={c} />
+                  {st !== "ok" && (
+                    <span className={"status-pill " + st}>
+                      {statusNames[st]}
+                    </span>
+                  )}
+                </div>
                 <div className="cc-actions">
                   <button
                     type="button"
-                    className="primary"
+                    className="secondary cc-main"
                     onClick={() => setModal({ type: "saldos", customer: c })}
                   >
                     <Wallet size={15} /> Saldos

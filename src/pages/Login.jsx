@@ -94,10 +94,10 @@ export default function Login() {
         <Link to="/" className="brand login-brand">
           <img
             className="login-wordmark"
-            src="/brand/logo-texto.png"
-            width="1200"
-            height="362"
-            alt="El Pollito Casero · Venta por mayor y menor"
+            src="/brand/logo-pollito.png"
+            width="1180"
+            height="800"
+            alt="El Pollito Casero"
           />
         </Link>
         {expired && !mode && (

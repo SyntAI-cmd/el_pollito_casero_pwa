@@ -1,0 +1,880 @@
+@charset "UTF-8";
+/**
+ * Rediseño 2026 (docs/redesign/DESIGN_SYSTEM.md). Carga última: solo presentación.
+ * Marca: el gallo completo de los remitos; rojo institucional #A81A1A; base clara, panel negro.
+ */
+
+/* ===================================================================
+   1. Tokens (los nombres viejos apuntan a los valores nuevos)
+   =================================================================== */
+:root {
+  --c-brand: #a81a1a;
+  --c-brand-hover: #891515;
+  --c-brand-tint: #fdf2f2;
+  --c-accent: #e63d3a;
+  --c-text: #141416;
+  --c-text-2: #52525b;
+  --c-canvas: #f2f2f2;
+  --c-panel: #ffffff;
+  --c-panel-2: #fafafa;
+  --c-dark: #141416;
+  --c-dark-2: #232327;
+  --c-dark-text-2: #a1a1aa;
+  --c-line: #e4e4e7;
+  --c-control: #71717a;
+  --c-hover: #f4f4f5;
+  --c-ok: #166534;
+  --c-ok-bg: #edf7f0;
+  --c-warn: #92400e;
+  --c-warn-bg: #fdf4e6;
+  --c-error: #b91c1c;
+  --c-error-bg: #fdf2f2;
+  --c-info: #1e40af;
+  --c-info-bg: #eff4ff;
+
+  --red: var(--c-brand);
+  --rojo: var(--c-brand);
+  --rojo-fuerte: var(--c-brand-hover);
+  --rojo-suave: var(--c-brand-tint);
+  --black: var(--c-text);
+  --tinta: var(--c-text);
+  --tinta-2: var(--c-text-2);
+  --tinta-3: var(--c-text-2);
+  --muted: var(--c-text-2);
+  --borde-fuerte: var(--c-control);
+  --fondo: var(--c-canvas);
+  --verde: var(--c-ok);
+  --ambar: var(--c-warn);
+  --rail: 248px;
+  --rail-min: 76px;
+}
+html,
+body {
+  background: var(--c-canvas);
+}
+.num,
+.hero-card strong,
+.hero-card b,
+.stats strong,
+.orders-list td.num {
+  font-variant-numeric: tabular-nums;
+}
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--c-brand);
+  outline-offset: 2px;
+}
+/* Al tocar un botón el texto ya no se vuelve gris (sobre rojo no se leía). */
+button:not(:disabled):active {
+  font-weight: inherit;
+  color: inherit;
+}
+.primary:not(:disabled):active {
+  color: #fff;
+}
+.primary {
+  background: var(--c-brand);
+  border-color: var(--c-brand);
+}
+.primary:hover:not(:disabled) {
+  background: var(--c-brand-hover);
+}
+
+/* ===================================================================
+   2. Buscador: un solo borde, lo dibuja el contenedor
+   =================================================================== */
+.sf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  background: #fff;
+  border: 1px solid var(--c-control);
+  border-radius: 8px;
+  color: var(--c-text-2);
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+}
+.sf:hover {
+  border-color: var(--c-text);
+}
+.sf:focus-within {
+  border-color: var(--c-brand);
+  box-shadow: 0 0 0 3px #a81a1a29;
+}
+.sf > svg {
+  flex: none;
+}
+/* (0,3,1): gana a la regla global de campos (0,2,1) sin !important. */
+.sf input.sf-input[type] {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: 42px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  font-size: 16px;
+  color: var(--c-text);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sf input.sf-input[type]:focus,
+.sf input.sf-input[type]:focus-visible {
+  outline: none;
+}
+.sf input.sf-input[type]::placeholder {
+  color: var(--c-text-2);
+}
+.sf input.sf-input[type]::-webkit-search-cancel-button {
+  display: none;
+}
+.sf .sf-clear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  padding: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--c-text-2);
+}
+.sf .sf-clear:hover {
+  background: var(--c-hover);
+  color: var(--c-text);
+}
+/* Buscador de cliente en Cargar pedido (estructura propia): mismo criterio. */
+.search-field {
+  border-color: var(--c-control);
+  border-radius: 8px;
+  min-height: 44px;
+}
+.search-field > input:not([type="checkbox"]):not([type="radio"]) {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  min-height: 42px;
+}
+.search-field > input:not([type="checkbox"]):not([type="radio"]):focus {
+  outline: none;
+}
+.weigh-search {
+  max-width: 520px;
+  margin-bottom: 12px;
+}
+
+/* ===================================================================
+   3. Panel lateral (escritorio): negro, con el gallo en placa blanca
+   =================================================================== */
+@media (min-width: 901px) {
+  .side-rail {
+    background: var(--c-dark);
+    border-right: 0;
+    color: #fff;
+    padding: 12px;
+    gap: 2px;
+    height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ffffff33 transparent;
+  }
+  .side-rail .rail-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 10px 8px;
+    margin: 0 0 6px;
+    border-radius: 12px;
+    background: #fff;
+    text-decoration: none;
+  }
+  .side-rail .rail-brand img {
+    width: 100%;
+    max-width: 196px;
+    height: auto;
+    aspect-ratio: 1180 / 800;
+    border-radius: 0;
+  }
+  .side-rail .rail-brand small {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--c-text-2);
+  }
+  .rail-toggle {
+    min-height: 36px;
+    border: 1px solid #ffffff26;
+    background: transparent;
+    color: var(--c-dark-text-2);
+    border-radius: 8px;
+    justify-content: center;
+  }
+  .rail-toggle:hover {
+    background: var(--c-dark-2);
+    color: #fff;
+  }
+  .rail-group {
+    gap: 2px;
+  }
+  .rail-group > h3 {
+    color: var(--c-dark-text-2);
+    margin: 14px 10px 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .rail-group a,
+  .rail-foot a,
+  .rail-foot button,
+  .rail-user {
+    position: relative;
+    min-height: 44px;
+    color: #e4e4e7;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+  }
+  .rail-group a svg,
+  .rail-foot a svg,
+  .rail-foot button svg {
+    color: currentColor;
+  }
+  .rail-group a:hover,
+  .rail-foot a:hover,
+  .rail-foot button:hover {
+    background: var(--c-dark-2);
+    color: #fff;
+  }
+  .rail-group a.active {
+    background: #ffffff17;
+    color: #fff;
+    font-weight: 600;
+    box-shadow: none;
+  }
+  .rail-group a.active svg {
+    color: #fff;
+  }
+  .rail-group a.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    bottom: 10px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--c-accent);
+  }
+  .rail-group a .nav-count {
+    background: var(--c-accent);
+    color: #fff;
+  }
+  .rail-foot {
+    margin-top: auto;
+    border-top: 1px solid #ffffff1f;
+    padding-top: 8px;
+    display: grid;
+    gap: 2px;
+  }
+  .rail-user .avatar {
+    background: var(--c-brand);
+    color: #fff;
+  }
+  /* Plegado: solo íconos, centrados; nada queda cortado. */
+  .staff-app.railed.plegado .side-rail {
+    padding: 10px 8px;
+    overflow-x: hidden;
+  }
+  .staff-app.railed.plegado .side-rail .rail-brand {
+    padding: 6px 4px;
+  }
+  .staff-app.railed.plegado .side-rail .rail-brand small {
+    display: none;
+  }
+  .staff-app.railed.plegado .rail-group a,
+  .staff-app.railed.plegado .rail-foot a,
+  .staff-app.railed.plegado .rail-foot button,
+  .staff-app.railed.plegado .rail-user,
+  .staff-app.railed.plegado .rail-toggle {
+    justify-content: center;
+    padding: 0;
+    width: 100%;
+    gap: 0;
+  }
+  .staff-app.railed.plegado .rail-foot a span,
+  .staff-app.railed.plegado .rail-foot button span,
+  .staff-app.railed.plegado .rail-user > span {
+    display: none;
+  }
+  .staff-app.railed.plegado .rail-group a .nav-count {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+  }
+
+  /* Encabezado de contexto: una línea discreta; el título grande es el de la página. */
+  .app-head {
+    min-height: 52px;
+    background: #fff;
+    border-bottom: 1px solid var(--c-line);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .app-head-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--c-text-2);
+  }
+}
+
+/* ===================================================================
+   4. Barra superior del celular
+   =================================================================== */
+/* El gallo es ahora la primera imagen de la marca: la regla vieja que ocultaba el ícono no aplica. */
+.staff-bar .staff-brand > img.staff-wordmark {
+  display: block;
+  width: auto;
+  height: 46px;
+  aspect-ratio: 1180 / 800;
+  max-width: none;
+}
+.staff-app.railed .staff-bar {
+  background: #fff !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.tabbar.glass {
+  background: #fff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.tabbar a.active,
+.tabbar a[aria-current="page"] {
+  color: var(--c-brand);
+}
+
+/* ===================================================================
+   5. Pedidos (administración)
+   =================================================================== */
+.stats.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.stats.stats-strip > div {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.stats.stats-strip svg {
+  color: var(--c-brand);
+}
+.board-filters > .sf {
+  max-width: 520px;
+}
+/* La tabla entra en el ancho disponible: sin barra horizontal. */
+.panel:has(> .table-scroll > .orders-list) {
+  padding: 0;
+  overflow: hidden;
+}
+.table-scroll:has(> .orders-list) {
+  overflow-x: visible;
+}
+.orders-list {
+  width: 100%;
+  min-width: 0;
+  table-layout: auto;
+  border-collapse: collapse;
+}
+.orders-list th,
+.orders-list td {
+  padding: 12px 10px;
+  vertical-align: top;
+  font-size: 14px;
+  line-height: 1.4;
+  border-bottom: 1px solid var(--c-line);
+}
+.orders-list th:first-child,
+.orders-list td:first-child {
+  padding-left: 16px;
+}
+.orders-list th:last-child,
+.orders-list td:last-child {
+  padding-right: 16px;
+}
+.orders-list thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-panel-2);
+  color: var(--c-text-2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* La tabla de clientes deja todo en una línea; acá el texto puede pasar a la siguiente. */
+table.orders-list td,
+table.orders-list td strong,
+table.orders-list td small {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+table.orders-list td:nth-child(2) {
+  min-width: 140px;
+}
+.orders-list td.num,
+.orders-list th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+table.orders-list td:first-child,
+table.orders-list td.num,
+table.orders-list td .chip,
+table.orders-list td.row-actions {
+  white-space: nowrap;
+}
+.orders-list td:nth-child(2) strong {
+  font-size: 15px;
+}
+.orders-list td:nth-child(3) {
+  min-width: 180px;
+  color: var(--c-text);
+}
+.orders-list tbody tr:hover td {
+  background: var(--c-panel-2);
+}
+.orders-list tr.loaded td {
+  background: transparent;
+}
+.orders-list tr.loaded td:first-child {
+  box-shadow: inset 3px 0 0 var(--c-ok);
+}
+.orders-list .chip {
+  white-space: nowrap;
+}
+.orders-list td.check {
+  text-align: center;
+}
+.orders-list td.check input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  accent-color: var(--c-text);
+}
+.orders-list .row-actions .secondary.small {
+  min-height: 36px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+.orders-list thead th:nth-child(6),
+.orders-list thead th:nth-child(8) {
+  white-space: normal;
+}
+@media (max-width: 1440px) {
+  /* Pantallas medianas: todo se acomoda en el ancho; nada queda debajo de una barra horizontal. */
+  .orders-list th,
+  .orders-list td {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .orders-list td:nth-child(3) {
+    min-width: 0;
+    font-size: 13px;
+  }
+  .orders-list td:nth-child(2) strong {
+    font-size: 14px;
+  }
+  .orders-list .row-actions .secondary.small {
+    padding: 0 10px;
+  }
+}
+@media (max-width: 1180px) {
+  /* Ancho justo (tablet, ventana chica): «Abrir» queda como flecha, con su nombre accesible. */
+  .orders-list .row-actions .abrir-txt {
+    display: none;
+  }
+  .orders-list .row-actions .secondary.small {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+  table.orders-list th,
+  table.orders-list td {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .orders-list .chip {
+    font-size: 12px;
+  }
+}
+
+/* ===================================================================
+   6. Pedido abierto: panel lateral en escritorio, pantalla completa en el celular
+   =================================================================== */
+@media (min-width: 761px) {
+  dialog.sheet-dialog[open] {
+    position: fixed;
+    inset: 0 0 0 auto;
+    width: min(680px, 100vw);
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 16px 0 0 16px;
+    padding: 24px 28px 28px;
+    overflow-y: auto;
+    box-shadow: 0 24px 48px -12px #1414164d;
+    animation: entra-panel 0.18s cubic-bezier(0.2, 0, 0, 1);
+  }
+  dialog.sheet-dialog::backdrop {
+    background: #14141659;
+  }
+}
+@keyframes entra-panel {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+/* ===================================================================
+   7. Mis entregas (repartidor) y Revisar entregas
+   =================================================================== */
+.hero-card {
+  background: var(--c-dark);
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: none;
+  padding: 20px;
+}
+.hero-metric small,
+.hero-side small {
+  color: var(--c-dark-text-2);
+  font-weight: 600;
+}
+.hero-metric strong {
+  color: #fff;
+  font-size: 44px;
+  font-weight: 700;
+}
+.hero-metric span {
+  color: #d4d4d8;
+}
+.hero-side {
+  flex-wrap: wrap;
+}
+.hero-side > div {
+  background: var(--c-dark-2);
+  border: 1px solid #ffffff1f;
+  flex: 1 1 140px;
+}
+.hero-side b {
+  color: #fff;
+  font-size: 20px;
+  white-space: nowrap;
+}
+.pill.active,
+.pill-filters .pill.active {
+  background: var(--c-text);
+  border-color: var(--c-text);
+  color: #fff;
+}
+.pill.active span {
+  background: #ffffff2e;
+  color: #fff;
+}
+.pill {
+  border-color: var(--c-line);
+}
+.delivery-card {
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid var(--c-line);
+}
+.delivery-card h3 {
+  font-size: 17px;
+}
+.dc-facts span {
+  color: var(--c-text);
+}
+
+/* ===================================================================
+   8. Clientes
+   =================================================================== */
+.customers-panel {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.customers-count {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--c-text-2);
+}
+.customers-count strong {
+  color: var(--c-text);
+}
+.board-filters.customers-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.customers-filters > .sf {
+  flex: 1 1 100%;
+  max-width: 640px;
+}
+.customers-filters > .filters-toggle,
+.customers-filters > .primary {
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+@media (min-width: 761px) {
+  .customers-filters > .sf {
+    flex: 1 1 320px;
+  }
+}
+.customer-cards {
+  display: grid;
+  gap: 10px;
+}
+.customer-card {
+  border-radius: 12px;
+  box-shadow: none;
+  border: 1px solid var(--c-line);
+  padding: 14px;
+  gap: 6px;
+}
+.cc-top h3 {
+  font-size: 17px;
+}
+.cc-top strong.red {
+  color: var(--c-brand);
+}
+.cc-top strong.red::before {
+  content: "Debe ";
+  font-size: 12px;
+  font-weight: 600;
+}
+.cc-meta {
+  font-size: 14px;
+}
+.cc-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cc-tags:empty {
+  display: none;
+}
+.customer-card .cc-tags .cajas-chip,
+.customer-card .cc-tags .status-pill {
+  margin: 0;
+  display: inline-flex;
+  width: auto;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cc-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-line);
+}
+.cc-actions .primary,
+.cc-actions .cc-main {
+  grid-column: auto;
+}
+.cc-actions button {
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 14px;
+  gap: 6px;
+}
+.cc-actions .cc-main {
+  border-color: var(--c-brand);
+  color: var(--c-brand);
+  font-weight: 700;
+}
+
+/* ===================================================================
+   9. Ayuda
+   =================================================================== */
+.help-search {
+  max-width: 560px;
+  margin-bottom: 16px;
+}
+.help-topics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.help-topic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--c-text);
+  transition:
+    border-color 0.12s,
+    transform 0.12s;
+}
+.help-topic:hover {
+  border-color: var(--c-brand);
+  transform: translateY(-1px);
+}
+.help-topic img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+.help-grid {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+.help-groups {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.help-group {
+  padding: 4px 20px 8px;
+  scroll-margin-top: 72px;
+}
+.help-group h2 {
+  margin: 14px 0 4px;
+  font-size: 18px;
+}
+.help-group details {
+  border-top: 1px solid var(--c-line);
+}
+.help-group details:first-of-type {
+  border-top: 0;
+}
+.help-group summary {
+  padding: 14px 0;
+  font-size: 16px;
+  font-weight: 600;
+  min-height: 44px;
+}
+.help-group summary svg {
+  flex: none;
+  color: var(--c-text-2);
+  transition: transform 0.18s;
+}
+.help-group details[open] summary svg {
+  transform: rotate(180deg);
+}
+.help-group details p {
+  margin: 0;
+  padding: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--c-text-2);
+}
+.contact-panel {
+  background: #fff;
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  padding: 20px;
+  position: sticky;
+  top: 72px;
+}
+.contact-panel > svg {
+  margin-bottom: 8px;
+}
+.contact-panel h2 {
+  font-family: inherit;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+.contact-panel > p {
+  font-size: 14px;
+  color: var(--c-text-2);
+  margin: 0 0 14px;
+}
+@media (max-width: 900px) {
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+  .contact-panel {
+    position: static;
+  }
+  .help-topics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .help-topic {
+    font-size: 13px;
+  }
+  .help-topic img {
+    width: 52px;
+    height: 52px;
+  }
+}
+
+/* ===================================================================
+   10. Estados vacíos con ilustración, ingreso y 404
+   =================================================================== */
+.empty-state .empty-illustration {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  margin: 0 auto 4px;
+  display: block;
+}
+.staff-card .staff-logo {
+  width: 240px;
+  max-width: 70%;
+  height: auto;
+  aspect-ratio: 1180 / 800;
+  display: block;
+  margin: 0 auto 8px;
+}
+.login-wordmark {
+  height: auto;
+  width: 200px;
+  aspect-ratio: 1180 / 800;
+}
+.not-found .not-found-logo {
+  width: 220px;
+  height: auto;
+  aspect-ratio: 1180 / 800;
+}

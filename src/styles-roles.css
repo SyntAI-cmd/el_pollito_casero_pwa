@@ -1096,18 +1096,18 @@
 .address-search {
   position: relative;
 }
-.search-field {
+.address-search .search-field {
   position: relative;
   display: flex;
   align-items: center;
 }
-.search-field > svg {
+.address-search .search-field > svg {
   position: absolute;
   left: 12px;
   color: var(--muted);
   pointer-events: none;
 }
-.search-field input {
+.address-search .search-field input {
   padding-left: 36px !important;
   width: 100%;
 }
@@ -1267,7 +1267,7 @@
 }
 
 /* ---- Búsqueda de dirección a pedido ---- */
-.search-field .search-button {
+.address-search .search-field .search-button {
   position: absolute;
   right: 6px;
   min-height: 36px;
@@ -1278,14 +1278,14 @@
   font-size: 12px;
   font-weight: 600;
 }
-.search-field .search-button:disabled {
+.address-search .search-field .search-button:disabled {
   background: transparent;
 }
-.search-field .search-button .search-spin {
+.address-search .search-field .search-button .search-spin {
   position: static;
   display: block;
 }
-.search-field input {
+.address-search .search-field input {
   padding-right: 84px !important;
 }
 

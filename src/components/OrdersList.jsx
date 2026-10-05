@@ -1,7 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
 import {
-  ChevronDown,
-  ChevronUp,
   FileText,
   ArrowRight,
   Package,
@@ -13,19 +11,18 @@ import { money, orderNumber, labels, orderShift } from "../lib/format.js";
 import { methodNames } from "../lib/photo.js";
 import { useIsMobile } from "../lib/media.js";
 import { StatusBadge } from "./ui.jsx";
-import OrderCard from "./OrderCard.jsx";
 
 const kg = (n) =>
   Number(n || 0).toLocaleString("es-AR", { maximumFractionDigits: 1 });
 
 /**
  * Pedidos en lista: una fila por pedido con N°, cliente, zona, productos, kilos, importe,
- * preventista, pago, estado y el casillero CARGADO. "Abrir" despliega la tarjeta con las acciones.
- * Es la vista por defecto de Pedidos (muchos clientes por preventista); las tarjetas quedan como alternativa.
+ * preventista, pago, estado y el casillero CARGADO. "Abrir" muestra el pedido completo en el panel
+ * lateral (la misma ventana de detalle que usa el celular), así nunca queda cortado dentro de la tabla.
  */
-export default function OrdersList({ orders, role = "admin" }) {
+export default function OrdersList({ orders }) {
   const { update, busy, customers, setModal } = useStore();
-  const [open, setOpen] = useState(null);
+  const abrir = (o) => setModal({ type: "order-detail", order: o });
   const mobile = useIsMobile();
   if (!orders.length) return <p className="board-empty">Nada por acá.</p>;
   // En el celular la tabla no entra: cada pedido es una tarjeta con lo justo y "Ver pedido".
@@ -96,7 +93,7 @@ export default function OrdersList({ orders, role = "admin" }) {
                 <button
                   type="button"
                   className="primary dc-open"
-                  onClick={() => setModal({ type: "order-detail", order: o })}
+                  onClick={() => abrir(o)}
                 >
                   <FileText size={16} /> Ver pedido <ArrowRight size={15} />
                 </button>
@@ -116,8 +113,7 @@ export default function OrdersList({ orders, role = "admin" }) {
             <th>Productos</th>
             <th className="num">Kg</th>
             <th className="num">Importe</th>
-            <th>Preventista</th>
-            <th>Pago</th>
+            <th>Preventista y pago</th>
             <th>Estado</th>
             <th className="check">Cargado</th>
             <th></th>
@@ -125,8 +121,10 @@ export default function OrdersList({ orders, role = "admin" }) {
         </thead>
         <tbody>
           {orders.map((o) => (
-            <React.Fragment key={o.id}>
-              <tr className={"st-" + o.status + (o.loaded ? " loaded" : "")}>
+            <tr
+              key={o.id}
+              className={"st-" + o.status + (o.loaded ? " loaded" : "")}
+            >
                 <td>
                   <strong>{orderNumber(o)}</strong>
                   {(() => {
@@ -196,17 +194,18 @@ export default function OrdersList({ orders, role = "admin" }) {
                   )}
                 </td>
                 <td>
-                  {o.driver || <span className="muted">—</span>}
+                  {o.driver || <span className="muted">Sin asignar</span>}
                   {o.driver2 ? (
                     <small className="muted"> + {o.driver2}</small>
                   ) : null}
-                </td>
-                <td>
+                  <br />
+                  <small className="muted">
                   {o.paid
                     ? `Cobrado${o.paidMethod ? " · " + (methodNames[o.paidMethod] || o.paidMethod) : ""}`
                     : o.payment === "cuenta"
                       ? "A cuenta"
                       : "Al recibir"}
+                  </small>
                 </td>
                 <td>
                   <em className={"chip st-" + o.status}>{labels[o.status]}</em>
@@ -223,30 +222,15 @@ export default function OrdersList({ orders, role = "admin" }) {
                 <td className="row-actions">
                   <button
                     type="button"
-                    className="link-button small"
-                    onClick={() => setOpen(open === o.id ? null : o.id)}
+                    className="secondary small"
+                    onClick={() => abrir(o)}
+                    aria-label={"Abrir pedido " + orderNumber(o)}
                   >
-                    {open === o.id ? (
-                      <ChevronUp size={13} />
-                    ) : (
-                      <ChevronDown size={13} />
-                    )}{" "}
-                    {open === o.id ? "Cerrar" : "Abrir"}
+                    <span className="abrir-txt">Abrir</span>{" "}
+                    <ArrowRight size={14} />
                   </button>
                 </td>
               </tr>
-              {open === o.id && (
-                <tr className="orders-list-detail">
-                  <td colSpan="10">
-                    <OrderCard
-                      order={o}
-                      role={role}
-                      onClose={() => setOpen(null)}
-                    />
-                  </td>
-                </tr>
-              )}
-            </React.Fragment>
           ))}
         </tbody>
       </table>
