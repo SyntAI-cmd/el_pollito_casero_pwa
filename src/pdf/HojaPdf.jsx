@@ -16,7 +16,8 @@ import { routeRows } from "../lib/routeRows.js";
  * (`docs/produccion/plantilla-hoja-ruta.png`).
  *
  * Se imprime solo lo ya registrado: N° de remito, cliente, importe total (con el saldo, si
- * lo hay), el saldo que traía el cliente y las cajas previas y salientes. Corrección, cajas
+ * lo hay), el saldo que traía el cliente y las cajas previas y salientes; al pie, la suma
+ * del importe total y del saldo para compararla con la corrección. Corrección, cajas
  * devueltas y su saldo, pagos y rendición salen en blanco: es el arqueo que completa el
  * preventista en lapicera.
  *
@@ -33,15 +34,17 @@ const money = (n) =>
     maximumFractionDigits: 2,
   });
 const A_FAVOR = " a favor";
-const ALTO_PEDIDOS = 420;
+const ALTO_PEDIDOS = 440; // pedidos + filas de total
+const ALTO_TOTAL = 20;
+const ESTIRA_MAX = 6; // lo máximo que se agranda una fila para llenar la hoja
 const SEPARACION = 8; // espacio blanco entre bloques
 // Nombres y zonas se cortan por palabra, nunca con guion ("Gran Men-doza").
 Font.registerHyphenationCallback((word) => [word]);
 
 const s = StyleSheet.create({
   page: {
-    paddingTop: 22,
-    paddingBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
     paddingHorizontal: 24,
     fontFamily: "Helvetica",
     fontSize: 10,
@@ -52,7 +55,7 @@ const s = StyleSheet.create({
   head: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
     paddingBottom: 7,
     borderBottomWidth: 1.2,
     borderColor: ROJO,
@@ -63,7 +66,7 @@ const s = StyleSheet.create({
   domicilio: { fontSize: 7.5, color: "#444", marginTop: 2 },
   titulo: { fontSize: 15, fontFamily: "Helvetica-Bold", textAlign: "right" },
   // Datos del reparto: rótulo chico arriba y valor sobre una línea (como un formulario)
-  meta: { flexDirection: "row", gap: 14, marginBottom: 10 },
+  meta: { flexDirection: "row", gap: 14, marginBottom: 7 },
   metaCampo: {
     borderBottomWidth: 0.75,
     borderColor: MARCO,
@@ -84,7 +87,7 @@ const s = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
     fontSize: 9,
     textAlign: "center",
-    paddingVertical: 3.5,
+    paddingVertical: 3,
   },
   celda: {
     borderRightWidth: 0.5,
@@ -97,7 +100,7 @@ const s = StyleSheet.create({
   finBloque: { borderRightWidth: 0.75, borderRightColor: MARCO },
   ultimaFila: { borderBottomWidth: 0.75, borderBottomColor: MARCO },
   th: {
-    height: 24,
+    height: 20,
     paddingHorizontal: 1.5,
     backgroundColor: FONDO,
     alignItems: "center",
@@ -111,6 +114,18 @@ const s = StyleSheet.create({
     textAlign: "center",
   },
   num: { textAlign: "right" },
+  // Fila TOTAL al pie de la tabla: la suma impresa para comparar con la corrección.
+  total: { height: ALTO_TOTAL, backgroundColor: FONDO },
+  totalRotulo: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 9,
+    textAlign: "right",
+  },
+  totalValor: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10.5,
+    textAlign: "right",
+  },
   aFavor: { fontSize: 7, color: "#555", textAlign: "right", marginTop: 1 },
   // Reverso
   seccion: { width: 389 }, // (794 - 16 de separación) / 2
@@ -222,7 +237,7 @@ function Cabecera({
   );
 }
 
-function valoresFila(r) {
+function importes(r) {
   const o = r.order;
   // IMPORTE TOTAL = lo del pedido + lo que el cliente ya debía: es lo que hay que cobrar
   // en esa parada. La deuda previa se suma UNA sola vez por cliente, así que si el cliente
@@ -232,6 +247,28 @@ function valoresFila(r) {
   const saldo = r.firstCustomer && !o.noBalance ? r.moneyBefore || 0 : 0;
   const deuda = Math.max(saldo, 0);
   const aCobrar = Math.max((o.noPricing ? 0 : o.total || 0) + saldo, 0);
+  // Lo que suma esta fila al TOTAL: el importe impreso; sin pesar, solo la deuda.
+  const sinPesar = !o.noPricing && !o.weighed;
+  const suma = o.noPricing || sinPesar ? deuda : aCobrar;
+  return { saldo, deuda, aCobrar, sinPesar, suma };
+}
+
+// Suma de lo impreso en "Importe total" (pedido + saldo): va al pie para comparar.
+function totales(filas) {
+  const t = { importe: 0, sinPesar: false };
+  for (const r of filas) {
+    const v = importes(r);
+    t.importe += v.suma;
+    t.sinPesar ||= v.sinPesar;
+  }
+  // Redondeo a centavos: la suma de decimales no debe imprimir restos de coma flotante.
+  t.importe = Math.round(t.importe * 100) / 100;
+  return t;
+}
+
+function valoresFila(r) {
+  const o = r.order;
+  const { saldo, deuda, aCobrar } = importes(r);
   return [
     orderNumber(o),
     `${r.customer?.alias || o.name}${o.zone ? " · " + o.zone : ""}`,
@@ -283,18 +320,30 @@ function altoFila(r, fontSize) {
   return Math.max(30, Math.max(...lines) * fontSize * 1.15 + 13);
 }
 
+// Cada hoja lleva su fila TOTAL; con varias hojas, la última suma además el total general.
 function partesAdaptadas(filas) {
+  const lugar = ALTO_PEDIDOS - ALTO_TOTAL;
+  const alto = (parte) => parte.reduce((n, f) => n + altoFila(f, 9.5), 0);
   const partes = [[]];
   let height = 0;
   for (const fila of filas) {
     const needed = altoFila(fila, 9.5);
-    if (height + needed > ALTO_PEDIDOS && partes.at(-1).length) {
+    if (height + needed > lugar && partes.at(-1).length) {
       partes.push([]);
       height = 0;
     }
     partes.at(-1).push(fila);
     height += needed;
   }
+  // La última hoja suma además el total general: si no hay lugar, su último pedido pasa a
+  // una hoja nueva (el resto ya cabe con una sola fila de total).
+  const ultima = partes.at(-1);
+  if (
+    partes.length > 1 &&
+    ultima.length > 1 &&
+    alto(ultima) > lugar - ALTO_TOTAL
+  )
+    partes.push([ultima.pop()]);
   return partes;
 }
 
@@ -332,17 +381,59 @@ function Valor({ v, i, fontSize }) {
   );
 }
 
-function Tabla({ filas }) {
-  // Todo el alto útil se reparte entre los pedidos, sin agregar filas vacías.
+/**
+ * Fila TOTAL: la suma de la columna "Importe total", que ya es pedido + saldo de cada
+ * cliente. Va en un solo casillero que cubre importe y saldo (el saldo no se suma aparte,
+ * ya está adentro). La corrección queda en blanco para anotar la suma de boletas y comparar.
+ */
+function FilaTotal({ rotulo, filas, ultima }) {
+  const t = totales(filas);
+  // Casilleros unidos: [N° remito + cliente] y [importe + saldo].
+  const unidos = { 0: 1, 2: 3 };
+  const tapados = new Set(Object.values(unidos));
+  let col = 0;
+  return (
+    <View style={[s.fila, s.total]} wrap={false}>
+      {CELDAS.map((c, i) => {
+        if (c.hueco) return <View key={i} style={{ width: c.ancho }} />;
+        const j = col++;
+        if (tapados.has(j)) return null;
+        const celda =
+          j in unidos
+            ? { ...c, ancho: c.ancho + COLUMNAS[unidos[j]].ancho }
+            : c;
+        return (
+          <View key={i} style={[...bordes(celda, { ultima }), s.total]}>
+            {j === 0 ? (
+              <Text style={s.totalRotulo}>{rotulo}</Text>
+            ) : j === 2 ? (
+              <Text style={s.totalValor}>
+                {t.sinPesar
+                  ? `${money(t.importe)} + sin pesar`
+                  : money(t.importe)}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+function Tabla({ filas, totalesPie = [] }) {
+  // El alto sobrante se reparte entre los pedidos, pero con tope: una hoja con pocos
+  // pedidos no estira los casilleros; la tabla termina antes y queda papel en blanco.
+  const lugar = ALTO_PEDIDOS - ALTO_TOTAL * totalesPie.length;
   const fontSize =
     [11, 10, 9.5].find(
-      (size) =>
-        filas.reduce((sum, r) => sum + altoFila(r, size), 0) <= ALTO_PEDIDOS,
+      (size) => filas.reduce((sum, r) => sum + altoFila(r, size), 0) <= lugar,
     ) || 9.5;
   const heights = filas.map((r) => altoFila(r, fontSize));
-  const extra =
-    Math.max(0, ALTO_PEDIDOS - heights.reduce((a, b) => a + b, 0)) /
-    Math.max(filas.length, 1);
+  const extra = Math.min(
+    ESTIRA_MAX,
+    Math.max(0, lugar - heights.reduce((a, b) => a + b, 0)) /
+      Math.max(filas.length, 1),
+  );
   return (
     <View>
       {/* Bandas rojas de grupo: REMITO · CAJAS · PAGOS */}
@@ -387,6 +478,9 @@ function Tabla({ filas }) {
           </View>
         );
       })}
+      {totalesPie.map((t, i) => (
+        <FilaTotal key={t.rotulo} {...t} ultima={i === totalesPie.length - 1} />
+      ))}
     </View>
   );
 }
@@ -503,6 +597,16 @@ export function HojaDocument({
   };
   // Con varias hojas de pedidos, cada una lleva su número en la cabecera.
   const hoja = (i) => (partes.length > 1 ? `${i + 1} de ${partes.length}` : "");
+  // Pie de cada hoja: su TOTAL; con varias hojas, la última agrega el TOTAL GENERAL.
+  const pie = (parte, i) =>
+    partes.length === 1
+      ? [{ rotulo: "TOTAL", filas: parte }]
+      : [
+          { rotulo: `TOTAL HOJA ${i + 1}`, filas: parte },
+          ...(i === partes.length - 1
+            ? [{ rotulo: "TOTAL GENERAL", filas }]
+            : []),
+        ];
   return (
     <Document
       title={`Hoja de ruta ${date}`}
@@ -512,7 +616,7 @@ export function HojaDocument({
       {partes.slice(0, 1).map((parte, i) => (
         <Page key={i} size="A4" orientation="landscape" style={s.page}>
           <Cabecera {...cabecera} cantidad={parte.length} hoja={hoja(0)} />
-          <Tabla filas={parte} />
+          <Tabla filas={parte} totalesPie={pie(parte, 0)} />
         </Page>
       ))}
       <Page size="A4" orientation="landscape" style={s.page}>
@@ -527,7 +631,7 @@ export function HojaDocument({
           style={s.page}
         >
           <Cabecera {...cabecera} cantidad={parte.length} hoja={hoja(i + 1)} />
-          <Tabla filas={parte} />
+          <Tabla filas={parte} totalesPie={pie(parte, i + 1)} />
         </Page>
       ))}
     </Document>

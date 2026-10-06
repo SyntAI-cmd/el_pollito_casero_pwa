@@ -229,3 +229,47 @@ test("hoja: las cajas previas nunca salen negativas", async () => {
   const row = table.children.find((c) => text(c).startsWith("00001"));
   assert.deepEqual(row.children.slice(6, 10).map(text), ["0", "6", "", ""]);
 });
+
+test("hoja: la fila TOTAL suma la columna importe (pedido + saldo) en un solo casillero", async () => {
+  const a = { ...order(1), total: 100000 };
+  const b = { ...order(2), total: 50000 };
+  const c = { ...order(3), total: 20000, customer: a.customer };
+  const d = { ...order(4), total: 5000 };
+  const pages = await render(
+    HojaDocument({
+      orders: [a, b, c, d],
+      customers: [
+        { phone: a.customer, summary: { balance: 30000 } },
+        { phone: b.customer, summary: { balance: -10000 } },
+        // Crédito mayor que el pedido: la fila imprime 0 y la suma también cuenta 0.
+        { phone: d.customer, summary: { balance: -8000 } },
+      ],
+      date: a.deliveryDate,
+      logo: null,
+    }),
+  );
+  const table = pages[0].children.find((x) => text(x).includes("00001"));
+  const filas = table.children.filter((x) => /^000\d/.test(text(x)));
+  const impresos = filas.map((f) =>
+    Number(text(f.children[2]).replace(/\./g, "").replace(",", ".")),
+  );
+  assert.deepEqual(impresos, [130000, 40000, 20000, 0]);
+  const total = table.children.find((x) => text(x).startsWith("TOTAL"));
+  // Rótulo, importe + saldo unidos (190.000) y corrección en blanco.
+  assert.deepEqual(total.children.slice(0, 3).map(text), [
+    "TOTAL",
+    "190.000",
+    "",
+  ]);
+});
+
+test("hoja: la hoja de continuación con pocos pedidos no estira los casilleros", async () => {
+  const orders = Array.from({ length: 16 }, (_, i) => order(i + 1));
+  const pages = await render(
+    HojaDocument({ date: "2026-09-24", orders, logo: null }),
+  );
+  const ultima = pages.at(-1);
+  const table = ultima.children.find((c) => text(c).includes("TOTAL GENERAL"));
+  for (const row of table.children.filter((c) => /^000\d+/.test(text(c))))
+    assert.ok(row.box.height <= 40, `fila de ${row.box.height}`);
+});
