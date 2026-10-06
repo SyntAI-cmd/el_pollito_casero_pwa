@@ -364,6 +364,8 @@ export function StoreProvider({ children }) {
             if (data.deleted) dropOrder(data.id);
             else void orderBatch.add(data.id);
           } else void loadOrders({ silent: true });
+          // Cambió la pareja de preventistas: sólo cambia qué pedidos ve, no las fichas.
+          if (data?.crew) return;
           // Servidores anteriores no dicen de qué cliente es: se refrescan todas las fichas.
           if (data && "customer" in data) {
             if (data.customer) void customerBatch.add(data.customer);

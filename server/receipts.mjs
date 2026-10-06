@@ -44,9 +44,7 @@ export function createReceipts({
   const canTouch = (session, o) =>
     session.role === "admin" ||
     (session.role === "repartidor" &&
-      (!o.driver ||
-        o.driver === session.driver ||
-        o.driver2 === session.driver));
+      (!o.driver || store.orders.isFor(session.driver, o)));
 
   return async function handle({ method, path, body, query, session }) {
     const json = (status, b, extra = {}) => ({ status, body: b, ...extra });

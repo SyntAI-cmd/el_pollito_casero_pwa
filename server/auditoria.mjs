@@ -23,10 +23,30 @@ const CATEGORIAS = [
   [/^document\.|^receipt\./, "Documentos"],
   [/^session\.|^auth\./, "Accesos"],
   [/^customer\./, "Clientes"],
-  [/^driver\.|^vehicle\.|^news\.|^settings\./, "Configuración"],
+  [/^truck\.|^trip\./, "Carga y salidas"],
+  [/^staff\.|^driver\./, "Equipo"],
+  [/^vehicle\.|^news\.|^settings\.|^product\./, "Configuración"],
 ];
-export const categoriaDe = (accion) =>
-  CATEGORIAS.find(([re]) => re.test(accion))?.[1] || "Otros";
+/**
+ * Un cambio suelto de pedido (PATCH) se clasifica por lo que trae: entregarlo es una entrega,
+ * cobrarlo un cobro, cambiar el preventista una asignación y corregir kilos una pesada.
+ */
+function categoriaDePedido(detalle) {
+  if (!detalle || typeof detalle !== "object") return null;
+  if (detalle.status === "entregado") return "Entregas";
+  if (detalle.paid !== undefined || detalle.paidMethod || detalle.paidSplit)
+    return "Cobros";
+  if (detalle.driver !== undefined || detalle.driver2 !== undefined)
+    return "Asignaciones";
+  if (detalle.weights) return "Pesadas";
+  if (detalle.loaded !== undefined || detalle.status === "en_camino")
+    return "Carga y salidas";
+  return null;
+}
+export const categoriaDe = (accion, detalle) =>
+  (/^order\.(update|edit)$/.test(accion) && categoriaDePedido(detalle)) ||
+  CATEGORIAS.find(([re]) => re.test(accion))?.[1] ||
+  "Otros";
 
 /**
  * Campos que pueden viajar al historial. Todo lo demás se descarta: es la forma de no guardar

@@ -50,7 +50,7 @@ if (process.env.IMPORTAR_CLIENTES && dbPath !== ":memory:") {
   );
 }
 const store = await openStore(dbPath, { log });
-const events = createEvents();
+const events = createEvents({ store });
 const push = await createPush({
   store,
   dbPath,
@@ -132,11 +132,16 @@ if (process.env.RESET_DATOS) {
         limpiarSemana(store, { log: rlog, dir });
       } else if (name === "deshacer-entregas") {
         // deshacer-entregas:<alcance>[:aplicar] · alcance: lotes | lote:N | fecha:AAAA-MM-DD | ids:A,B
-        const { deshacerEntregas } = await import("./scripts/deshacer-entregas.mjs");
+        const { deshacerEntregas } =
+          await import("./scripts/deshacer-entregas.mjs");
         const rest = step.slice(name.length + 1);
         const aplicar = rest.endsWith(":aplicar");
         const scope = aplicar ? rest.slice(0, -":aplicar".length) : rest;
-        deshacerEntregas(store.db, scope || "lotes", { aplicar, dir, log: rlog });
+        deshacerEntregas(store.db, scope || "lotes", {
+          aplicar,
+          dir,
+          log: rlog,
+        });
       }
     }
   } catch (e) {
@@ -399,7 +404,14 @@ const json = (res, status, value, headers = {}, req = null) => {
 };
 /** Estáticos comprimidos una sola vez: los de /assets/ no cambian (llevan hash en el nombre). */
 const gzipped = new Map();
-const compressible = new Set([".js", ".css", ".svg", ".json", ".webmanifest", ".txt"]);
+const compressible = new Set([
+  ".js",
+  ".css",
+  ".svg",
+  ".json",
+  ".webmanifest",
+  ".txt",
+]);
 /** Id de operación de una escritura (pesada, cobro): para cruzar el registro con la auditoría. */
 const opOf = (body) => {
   const id = body && (body.opId || body.id || body.key);
@@ -529,7 +541,8 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== "GET" || result.status >= 400 || took >= 300)
         log.info(
           req.method,
-          path + (req.method === "GET" && url.search ? url.search.slice(0, 80) : ""),
+          path +
+            (req.method === "GET" && url.search ? url.search.slice(0, 80) : ""),
           result.status,
           took + "ms",
           session ? session.role : "-",

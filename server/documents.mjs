@@ -197,9 +197,7 @@ export function createDocuments({
     (orders.length > 0 &&
       orders.every((id) => {
         const o = store.orders.get(id);
-        return (
-          o && (o.driver === session?.driver || o.driver2 === session?.driver)
-        );
+        return o && store.orders.isFor(session?.driver, o);
       }));
   function publicRow(r) {
     return {

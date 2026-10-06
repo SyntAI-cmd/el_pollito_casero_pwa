@@ -472,6 +472,7 @@ function seccionesDe(role) {
         [
           ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
           ["/operacion/entregas", "Revisar entregas", Truck, "Entregas"],
+          ["/operacion/movimientos", "Movimientos", History, "Movimientos"],
           ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
         ],
       ],
@@ -500,12 +501,7 @@ function SideRail({ grupos, path, badge, plegado, onPlegar, session, logout }) {
         aria-label={plegado ? "Mostrar el menú" : "Plegar el menú"}
         title={plegado ? "Mostrar el menú" : "Plegar el menú"}
       >
-        <img
-          src="/brand/pollito-3d.png"
-          width="160"
-          height="160"
-          alt=""
-        />
+        <img src="/brand/pollito-3d.png" width="160" height="160" alt="" />
         <span>
           <strong>Pollito Casero</strong>
           <small>
@@ -733,8 +729,7 @@ export default function App() {
       if (path.startsWith("/reparto/") || inAdmin)
         notify("Esa sección es solo para administración.");
       navigate("/reparto", { replace: true });
-    }
-    else if (role === "cliente" && (inAdmin || inDriver) && !inClient)
+    } else if (role === "cliente" && (inAdmin || inDriver) && !inClient)
       navigate("/", { replace: true });
     else if (role === "anon" && (inAdmin || inDriver) && !inClient)
       navigate("/admin", { replace: true });

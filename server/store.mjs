@@ -280,6 +280,26 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     ordersDriver: db.prepare(
       "SELECT rowid AS seq, * FROM orders WHERE driver = ? OR json_extract(data, '$.driver2') = ? ORDER BY created DESC, rowid DESC",
     ),
+    // Compañeros: dos preventistas que comparten un pedido (primero + segundo) quedan juntos
+    // ese día y cada uno ve todos los pedidos del otro en esa fecha.
+    crewPairs: db.prepare(
+      `SELECT DISTINCT delivery_date AS date,
+         CASE WHEN driver = ? THEN json_extract(data, '$.driver2') ELSE driver END AS partner
+       FROM orders
+       WHERE status != 'cancelado' AND delivery_date IS NOT NULL
+         AND driver != '' AND COALESCE(json_extract(data, '$.driver2'), '') != ''
+         AND (driver = ? OR json_extract(data, '$.driver2') = ?)`,
+    ),
+    crewPairsDate: db.prepare(
+      `SELECT DISTINCT CASE WHEN driver = ? THEN json_extract(data, '$.driver2') ELSE driver END AS partner
+       FROM orders
+       WHERE delivery_date = ? AND status != 'cancelado'
+         AND driver != '' AND COALESCE(json_extract(data, '$.driver2'), '') != ''
+         AND (driver = ? OR json_extract(data, '$.driver2') = ?)`,
+    ),
+    ordersDriverDate: db.prepare(
+      "SELECT rowid AS seq, * FROM orders WHERE delivery_date = ? AND (driver = ? OR json_extract(data, '$.driver2') = ?)",
+    ),
     // Sólo las claves de cliente: "mis clientes" del preventista sin hidratar cada pedido.
     customersOfDriver: db.prepare(
       "SELECT DISTINCT customer FROM orders WHERE driver = ? OR json_extract(data, '$.driver2') = ?",
@@ -987,9 +1007,49 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
     orders: {
       all: () => q.ordersAll.all().map(rowToOrder),
       forCustomer: (phone) => q.ordersCustomer.all(phone).map(rowToOrder),
-      forDriver: (name) => q.ordersDriver.all(name, name).map(rowToOrder),
-      customersOfDriver: (name) =>
-        q.customersOfDriver.all(name, name).map((r) => r.customer),
+      /** Pedidos del preventista más los de sus compañeros en los días que comparten pedidos. */
+      forDriver: (name) => {
+        const rows = q.ordersDriver.all(name, name);
+        const seen = new Set(rows.map((r) => r.id));
+        for (const { date, partner } of q.crewPairs.all(name, name, name))
+          for (const r of q.ordersDriverDate.all(date, partner, partner))
+            if (!seen.has(r.id)) {
+              seen.add(r.id);
+              rows.push(r);
+            }
+        rows.sort(
+          (a, b) =>
+            b.created.localeCompare(a.created) || (b.seq || 0) - (a.seq || 0),
+        );
+        return rows.map(rowToOrder);
+      },
+      /** Compañeros del preventista en esa fecha (comparten al menos un pedido). */
+      partnersOf: (name, date) =>
+        name && date
+          ? q.crewPairsDate.all(name, date, name, name).map((r) => r.partner)
+          : [],
+      /**
+       * El pedido es del preventista si va como primero o segundo, o si es de un compañero suyo
+       * de ese día: lo que uno completa le aparece completado al otro.
+       */
+      isFor: (name, o) => {
+        if (!name || !o) return false;
+        if (o.driver === name || o.driver2 === name) return true;
+        if (!o.deliveryDate || (!o.driver && !o.driver2)) return false;
+        const partners = store.orders.partnersOf(name, o.deliveryDate);
+        return partners.some((p) => p === o.driver || p === o.driver2);
+      },
+      customersOfDriver: (name) => [
+        ...new Set([
+          ...q.customersOfDriver.all(name, name).map((r) => r.customer),
+          ...q.crewPairs
+            .all(name, name, name)
+            .flatMap(({ date, partner }) =>
+              q.ordersDriverDate.all(date, partner, partner),
+            )
+            .map((r) => r.customer),
+        ]),
+      ],
       get: (id) => rowToOrder(q.order.get(id)),
       byKey: (key) => rowToOrder(q.orderByKey.get(key)),
       forAccount: (id) => q.ordersAccount.all(id).map(rowToOrder),
@@ -1491,7 +1551,13 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           actor.id,
           actor.nombre,
           action,
-          extra.categoria || categoriaDe(action),
+          extra.categoria ||
+            categoriaDe(action, {
+              ...(detail || {}),
+              ...Object.fromEntries(
+                Object.entries(cambios || {}).map(([k, [, d]]) => [k, d]),
+              ),
+            }),
           entity,
           entityId || null,
           detail ? JSON.stringify(limpiarDetalle(detail) || {}) : null,
@@ -1562,6 +1628,31 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           })),
           siguiente: hay ? pagina[pagina.length - 1].id : null,
         };
+      },
+      /** Cuántos movimientos hay de cada categoría en el período (resumen de Movimientos). */
+      conteo: ({ desde, hasta, actorId } = {}) => {
+        const where = [];
+        const args = [];
+        for (const [sql, v] of [
+          ["at >= ?", desde],
+          ["at <= ?", hasta],
+          ["actor_id = ?", actorId],
+        ])
+          if (v) {
+            where.push(sql);
+            args.push(v);
+          }
+        return db
+          .prepare(
+            `SELECT action, category, COUNT(*) AS n FROM audit_log
+             ${where.length ? "WHERE " + where.join(" AND ") : ""} GROUP BY action, category`,
+          )
+          .all(...args)
+          .reduce((acc, r) => {
+            const c = r.category || categoriaDe(r.action);
+            acc[c] = (acc[c] || 0) + r.n;
+            return acc;
+          }, {});
       },
       /** Categorías y actores presentes, para armar los filtros sin bajar todo el historial. */
       facetas: () => ({

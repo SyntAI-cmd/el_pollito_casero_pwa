@@ -25,7 +25,7 @@ const ADMIN = [
       ],
       [
         "¿Cómo asigno el preventista?",
-        "Dentro del pedido elegí «Preventista» y, si van dos, «Segundo preventista». Los dos ven y gestionan el pedido igual en Mis entregas.",
+        "Dentro del pedido elegí «Preventista» y, si van dos, «Segundo preventista». Así quedan como compañeros ese día: cada uno ve en Mis entregas los pedidos del otro, y lo que uno entrega o cambia le aparece al compañero y a administración.",
       ],
       [
         "¿Para qué sirve la casilla «Cargado»?",

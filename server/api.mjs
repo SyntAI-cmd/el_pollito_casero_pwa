@@ -79,10 +79,6 @@ const actorOf = (s) =>
       : s?.name || "cliente";
 
 const PAY_METHODS = ["efectivo", "transferencia", "cheque", "mercadopago"];
-/** Un pedido es de un preventista si va como primero o segundo preventista. */
-const mine = (session, o) =>
-  o.driver === session.driver || o.driver2 === session.driver;
-
 export function createApi({
   store,
   events,
@@ -90,6 +86,8 @@ export function createApi({
   base = "http://localhost:5173",
   dataDir = "data",
 }) {
+  /** Un pedido es de un preventista si va como primero o segundo, o es de su compañero del día. */
+  const mine = (session, o) => store.orders.isFor(session.driver, o);
   // Intentos de ingreso por minuto y por IP (LOGIN_LIMIT permite subirlo en pruebas).
   const attempts = Number(process.env.LOGIN_LIMIT) || 0;
   const loginLimit = rateLimiter({ limit: attempts || 10, windowMs: 60000 });
@@ -730,11 +728,7 @@ export function createApi({
       // Administración siempre; el preventista solo en sus pedidos y mientras estén en ruta.
       if (
         role !== "admin" &&
-        !(
-          role === "repartidor" &&
-          mine(session, o) &&
-          o.status !== "entregado"
-        )
+        !(role === "repartidor" && mine(session, o) && o.status !== "entregado")
       )
         fail(403, "Solo administración cambia precios.");
       if (o.paid && o.payment !== "cuenta")
@@ -1013,6 +1007,11 @@ export function createApi({
           limite: Number(n("limite")) || 50,
         }),
         facetas: store.audit.facetas(),
+        conteo: store.audit.conteo({
+          desde: n("desde"),
+          hasta: n("hasta"),
+          actorId: n("actor"),
+        }),
       });
     }
 
@@ -1781,19 +1780,20 @@ export function createApi({
           if (["en_camino", "entregado"].includes(o.status) && o.departedAt)
             return json(200, view(o, session));
         }
-        const before = {
-          status: o.status,
-          paid: o.paid,
-          driver: o.driver,
-          total: o.total,
-        };
+        // Lo que se muestra en Movimientos con su antes y después.
+        const foto = (x) => ({
+          status: x.status,
+          paid: x.paid,
+          paidMethod: x.paidMethod,
+          driver: x.driver,
+          driver2: x.driver2 || "",
+          loaded: !!x.loaded,
+          boxes: x.boxes,
+          total: x.total,
+        });
+        const before = foto(o);
         const after = await updateOrder(o, body, session);
-        const despues = {
-          status: o.status,
-          paid: o.paid,
-          driver: o.driver,
-          total: o.total,
-        };
+        const despues = foto(o);
         // La modificación y su registro van en la misma transacción: si falla una, no queda la otra.
         store.transaction(() => {
           store.orders.save(o);
@@ -2096,18 +2096,31 @@ export function createApi({
 }
 
 /** Suscriptores de eventos en tiempo real (Server-Sent Events). */
-export function createEvents() {
+export function createEvents({ store } = {}) {
   const clients = new Set();
   const send = (client, event, data) =>
     client.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   const sees = (session, o) =>
     session.role === "admin" ||
     (session.role === "repartidor" &&
-      (o.driver === session.driver || o.driver2 === session.driver)) ||
+      (o.driver === session.driver ||
+        o.driver2 === session.driver ||
+        !!store?.orders.isFor(session.driver, o))) ||
     (session.role === "cliente" &&
       ((!!session.phone && o.customer === session.phone) ||
         (!!session.accountId && o.accountId === session.accountId) ||
         o.sessionId === session.id));
+  // Pareja de preventistas de cada pedido compartido ("fecha|primero|segundo"). Si cambia, los
+  // dos (antes y después) recargan su lista: ahora ven, o dejan de ver, los pedidos del compañero.
+  const crews = new Map();
+  const crewKey = (o) =>
+    o.driver &&
+    o.driver2 &&
+    o.deliveryDate &&
+    !o.deleted &&
+    o.status !== "cancelado"
+      ? `${o.deliveryDate}|${o.driver}|${o.driver2}`
+      : "";
   return {
     subscribe(res, session) {
       const client = { res, session };
@@ -2131,6 +2144,17 @@ export function createEvents() {
             date: o.deliveryDate || null,
             deleted: o.deleted || undefined,
           });
+      const key = crewKey(o);
+      const prev = crews.get(o.id);
+      if (key) crews.set(o.id, key);
+      else crews.delete(o.id);
+      if (key === (prev ?? "")) return;
+      const names = new Set(
+        [key, prev || ""].flatMap((k) => k.split("|").slice(1)).filter(Boolean),
+      );
+      for (const c of clients)
+        if (c.session.role === "repartidor" && names.has(c.session.driver))
+          send(c, "orders", { crew: true });
     },
     customerChanged(customer) {
       for (const c of clients)

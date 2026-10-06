@@ -1586,6 +1586,42 @@ dialog[open] {
   margin: 0;
   overflow-wrap: anywhere;
 }
+/* Resumen del día por categoría y etiqueta de cada movimiento */
+.mov-resumen {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 4px;
+}
+.mov-cat {
+  justify-self: start;
+  padding: 1px 8px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--tarjeta-2);
+  color: var(--tinta-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.mov-cat.mov-tono-ok {
+  background: var(--verde-claro);
+  border-color: transparent;
+  color: var(--verde);
+}
+.mov-cat.mov-tono-warn {
+  background: var(--ambar-claro);
+  border-color: transparent;
+  color: var(--ambar);
+}
+.mov-cat.mov-tono-info {
+  color: var(--tinta);
+}
+.mov-que small.mov-cambios {
+  color: var(--tinta);
+  overflow-wrap: anywhere;
+}
 .filters-fecha {
   display: flex;
   flex-direction: column;

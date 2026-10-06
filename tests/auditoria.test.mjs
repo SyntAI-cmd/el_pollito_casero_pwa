@@ -52,6 +52,23 @@ test("las acciones se agrupan en categorías legibles", () => {
   assert.equal(categoriaDe("order.delivered"), "Entregas");
   assert.equal(categoriaDe("order.update"), "Pedidos");
   assert.equal(categoriaDe("document.delete"), "Documentos");
+  // Un cambio suelto de pedido se clasifica por lo que trae.
+  assert.equal(
+    categoriaDe("order.update", { status: "entregado" }),
+    "Entregas",
+  );
+  assert.equal(categoriaDe("order.update", { paid: true }), "Cobros");
+  assert.equal(
+    categoriaDe("order.update", { driver2: "Beto" }),
+    "Asignaciones",
+  );
+  assert.equal(
+    categoriaDe("order.update", { loaded: true }),
+    "Carga y salidas",
+  );
+  assert.equal(categoriaDe("order.update", { notes: "x" }), "Pedidos");
+  assert.equal(categoriaDe("truck.close"), "Carga y salidas");
+  assert.equal(categoriaDe("staff.create"), "Equipo");
 });
 
 test("un reintento de la misma operación no duplica el movimiento", async () => {

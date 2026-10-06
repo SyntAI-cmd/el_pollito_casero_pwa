@@ -455,10 +455,22 @@ export function createFloor({
         if (!o) fail(404, "Pedido no encontrado.");
         if (["entregado", "cancelado"].includes(o.status))
           fail(400, "Un pedido entregado o cancelado ya no se edita.");
+        // Datos del reparto antes de editar, para el antes y después de Movimientos.
+        const foto = (x) => ({
+          driver: x.driver || "",
+          driver2: x.driver2 || "",
+          deliveryDate: x.deliveryDate || "",
+          shift: x.shift || "",
+          vehicleId: x.vehicleId || "",
+          zone: x.zone || "",
+          payment: x.payment,
+          notes: x.notes || "",
+          total: x.total,
+        });
+        const antesEdit = foto(o);
         if (
           session.role === "repartidor" &&
-          o.driver !== session.driver &&
-          o.driver2 !== session.driver
+          !store.orders.isFor(session.driver, o)
         )
           fail(403, "Ese pedido es de otro preventista.");
         const customer = store.customers.get(o.customer);
@@ -610,13 +622,20 @@ export function createFloor({
           ];
           store.orders.save(o);
         });
-        store.audit.log(session, "order.edit", "order", o.id, {
-          items: merged.map(
-            (i) => `${i.id}:${i.boxes ?? ""}:${i.ordered ?? i.kg}`,
-          ),
-          removed: removed.map((i) => i.id),
-          total: o.total,
-        });
+        store.audit.log(
+          session,
+          "order.edit",
+          "order",
+          o.id,
+          {
+            items: merged.map(
+              (i) => `${i.id}:${i.boxes ?? ""}:${i.ordered ?? i.kg}`,
+            ),
+            removed: removed.map((i) => i.id),
+            total: o.total,
+          },
+          { antes: antesEdit, despues: foto(o) },
+        );
         events.orderChanged(o);
         if (customer) events.customerChanged(customer);
         return json(200, withCrates(store.orders.get(o.id), session));
@@ -1203,8 +1222,7 @@ export function createFloor({
         if (
           session.role === "repartidor" &&
           o.driver &&
-          o.driver !== session.driver &&
-          o.driver2 !== session.driver
+          !store.orders.isFor(session.driver, o)
         )
           fail(403, "Ese pedido es de otro camión.");
         if (["entregado", "cancelado"].includes(o.status))
@@ -1385,9 +1403,7 @@ export function createFloor({
           : store.orders.forDate(date)
       ).filter((o) => o.status !== "cancelado");
       if (session.role === "repartidor")
-        orders = orders.filter(
-          (o) => o.driver === session.driver || o.driver2 === session.driver,
-        );
+        orders = orders.filter((o) => store.orders.isFor(session.driver, o));
       return json(200, {
         date,
         tare: tare(),
