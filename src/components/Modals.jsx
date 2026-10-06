@@ -1408,12 +1408,23 @@ function OrderPrices({ order }) {
 /** Carga del peso real de balanza por corte; recalcula el total en vivo. */
 function Weights({ order }) {
   const { busy, update, setModal } = useStore();
+  // Campo de texto (no "number"): en iPhone el teclado decimal trae coma o punto según la
+  // región, y un campo "number" de Safari descarta lo escrito con coma. Se aceptan los dos
+  // y se muestra siempre con coma.
   const [kg, setKg] = useState(
-    Object.fromEntries(order.items.map((p) => [p.id, String(p.kg)])),
+    Object.fromEntries(
+      order.items.map((p) => [p.id, String(p.kg).replace(".", ",")]),
+    ),
   );
+  const kilos = (id) => Number(String(kg[id]).replace(",", "."));
+  const valido = (id) => {
+    const v = kilos(id);
+    return Number.isFinite(v) && v >= 0.05 && v <= 5000;
+  };
+  const todosValidos = order.items.every((p) => valido(p.id));
   const total =
     order.items.reduce((s, p) => {
-      const v = Number(String(kg[p.id]).replace(",", "."));
+      const v = kilos(p.id);
       return (
         s +
         Math.round(
@@ -1429,11 +1440,9 @@ function Weights({ order }) {
     <form
       onSubmit={async (e) => {
         e.preventDefault();
+        if (!todosValidos) return;
         const weights = Object.fromEntries(
-          order.items.map((p) => [
-            p.id,
-            Math.round(Number(String(kg[p.id]).replace(",", ".")) * 100) / 100,
-          ]),
+          order.items.map((p) => [p.id, Math.round(kilos(p.id) * 100) / 100]),
         );
         if (await update(order, { weights })) setModal(null);
       }}
@@ -1455,14 +1464,23 @@ function Weights({ order }) {
             </span>
             <span className="weight-input">
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                step="0.01"
-                min="0.05"
-                max="5000"
+                autoComplete="off"
                 value={kg[p.id]}
-                onChange={(e) => setKg({ ...kg, [p.id]: e.target.value })}
-                required
+                onFocus={(e) => e.target.select()}
+                onChange={(e) =>
+                  setKg({
+                    ...kg,
+                    // Punto o coma, da igual: queda una sola coma y solo números.
+                    [p.id]: e.target.value
+                      .replace(/\./g, ",")
+                      .replace(/[^\d,]/g, "")
+                      .replace(/,(?=.*,)/g, ""),
+                  })
+                }
+                aria-invalid={!valido(p.id) || undefined}
+                placeholder="0,0"
                 aria-label={"Kilos pesados de " + p.name}
               />
               <b>kg</b>
@@ -1474,7 +1492,7 @@ function Weights({ order }) {
         <span>Total con peso real</span>
         <strong>{money(total)}</strong>
       </div>
-      <button className="primary full" disabled={busy}>
+      <button className="primary full" disabled={busy || !todosValidos}>
         Guardar pesaje <Check size={16} />
       </button>
     </form>
