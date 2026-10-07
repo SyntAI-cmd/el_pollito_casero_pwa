@@ -267,9 +267,7 @@ export default function Weighing() {
     setBoxes("");
     const body = { id, productId: product, boxes: nBoxes, gross: g };
     const r = await send(`/orders/${order.id}/crates`, body).catch((e) => {
-      notify(
-        `Pesada rechazada: ${e.message} Quedó en «Requiere revisión».`,
-      );
+      notify(`Pesada rechazada: ${e.message} Quedó en «Requiere revisión».`);
       return null;
     });
     if (r?.queued && r.durable === false)
@@ -277,7 +275,9 @@ export default function Weighing() {
         "¡Atención! El teléfono no pudo guardar la pesada. No cierres la app hasta que se envíe.",
       );
     else if (r?.queued)
-      notify("Sin señal: la pesada quedó guardada en el teléfono y se envía sola.");
+      notify(
+        "Sin señal: la pesada quedó guardada en el teléfono y se envía sola.",
+      );
     else if (r?.id && Array.isArray(r.crates)) applyOrder(r);
   }
   async function undo(group) {
@@ -366,7 +366,8 @@ export default function Weighing() {
           {queue.meta.revision.length === 1
             ? "1 operación requiere revisión"
             : `${queue.meta.revision.length} operaciones requieren revisión`}
-          : abrí el pedido para ver el motivo y decidir si reintentar o descartar.
+          : abrí el pedido para ver el motivo y decidir si reintentar o
+          descartar.
         </p>
       )}
 
@@ -494,7 +495,7 @@ export default function Weighing() {
                       {o.items
                         .map(
                           (i) =>
-                            `${i.boxes ? i.boxes + " cj " : (i.ordered ?? i.kg) + " kg "}${i.name.toLowerCase()}`,
+                            `${i.boxes ? i.boxes + " cj " : i.units ? i.units + " u " : (i.ordered ?? i.kg) + " kg "}${i.name.toLowerCase()}`,
                         )
                         .join(", ")}
                     </small>
@@ -543,8 +544,8 @@ export default function Weighing() {
           <p className="weigh-sync" role="status">
             {queued > 0 ? (
               <span className="sync pendiente">
-                <WifiOff size={14} /> {queued} pendiente{queued === 1 ? "" : "s"}{" "}
-                de enviar
+                <WifiOff size={14} /> {queued} pendiente
+                {queued === 1 ? "" : "s"} de enviar
                 {queue.meta.enviando.length ? " · enviando…" : ""}
                 {queue.meta.esperandoSesion
                   ? " · esperando que vuelvas a ingresar"
@@ -588,7 +589,9 @@ export default function Weighing() {
                   <small>
                     {i.boxes
                       ? `${n} de ${i.boxes} cajas`
-                      : `${kgText(weighedKg(order, i.id))} de ${kgText(i.ordered ?? i.kg)} pedidos`}
+                      : i.units
+                        ? `${kgText(weighedKg(order, i.id))} · ${i.units} ${i.units === 1 ? "unidad" : "unidades"}`
+                        : `${kgText(weighedKg(order, i.id))} de ${kgText(i.ordered ?? i.kg)} pedidos`}
                   </small>
                   {complete && <Check size={16} />}
                 </button>
@@ -604,7 +607,9 @@ export default function Weighing() {
                     ? done.length >= item.boxes
                       ? `Listo: ${done.length} de ${item.boxes} cajas · ${kgText(kgDone)} netos (si va otro cajón, pesalo igual)`
                       : `Cajón ${done.length + 1} de ${item.boxes} · ${kgText(kgDone)} acumulados`
-                    : `Bulto ${done.length + 1} · ${kgText(kgDone)} de ${kgText(item.ordered ?? item.kg)} pedidos`}
+                    : item.units
+                      ? `Bulto ${done.length + 1} · ${item.units} ${item.units === 1 ? "unidad" : "unidades"} · ${kgText(kgDone)} pesados (el importe sale por kilo)`
+                      : `Bulto ${done.length + 1} · ${kgText(kgDone)} de ${kgText(item.ordered ?? item.kg)} pedidos`}
                 </p>
                 {
                   <label className="weigh-boxes">
@@ -862,7 +867,10 @@ function Rechazadas({ items, products, notify }) {
         {items.map((r) => (
           <li key={r.id}>
             <span>
-              {nombre(r.productId)} · {r.boxes === 0 ? "bolsa" : `${r.boxes ?? 1} caja${r.boxes === 1 ? "" : "s"}`}{" "}
+              {nombre(r.productId)} ·{" "}
+              {r.boxes === 0
+                ? "bolsa"
+                : `${r.boxes ?? 1} caja${r.boxes === 1 ? "" : "s"}`}{" "}
               · bruto {fmt(r.gross)} kg — {r.motivo}
             </span>
             <span className="weigh-rejected-actions">

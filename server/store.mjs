@@ -219,6 +219,9 @@ export async function openStore(path, { log = console } = {}) {
     .map((c) => c.name);
   if (!itemCols.includes("boxes"))
     db.exec("ALTER TABLE order_items ADD COLUMN boxes REAL");
+  // Pedido por unidades (pollos/piezas contadas): los kilos los pone la balanza.
+  if (!itemCols.includes("units"))
+    db.exec("ALTER TABLE order_items ADD COLUMN units INTEGER");
   // PC-004: cada pesada dice cuántas cajas representa. Las filas anteriores valían una caja
   // cada una, así que el valor por omisión es 1: no se reinterpreta nada histórico.
   const crateCols = db
@@ -347,7 +350,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
         delivery_date=excluded.delivery_date, shift=excluded.shift`),
     deleteItems: db.prepare("DELETE FROM order_items WHERE order_id = ?"),
     insertItem: db.prepare(
-      "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed, boxes) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO order_items(order_id, position, product_id, name, kg, ordered, price, line_total, weighed, boxes, units) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
     ),
     pricesFor: db.prepare(
       "SELECT product_id AS productId, price, updated FROM customer_prices WHERE customer = ?",
@@ -653,6 +656,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
         ...(i.boxes !== null && i.boxes !== undefined
           ? { boxes: i.boxes }
           : {}),
+        ...(i.units ? { units: i.units } : {}),
         ...(i.weighed ? { weighed: true } : {}),
       })),
       history: q.events.all(r.id),
@@ -796,6 +800,7 @@ CREATE INDEX IF NOT EXISTS audit_category ON audit_log(category, at DESC);`);
           i.lineTotal ?? Math.round(i.price * i.kg * 100) / 100,
           i.weighed ? 1 : 0,
           i.boxes ?? null,
+          i.units ?? null,
         ),
       );
       // Historial, recorrido y devoluciones son "solo agregar": se insertan las entradas nuevas.

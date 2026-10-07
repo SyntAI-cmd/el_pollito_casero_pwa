@@ -122,12 +122,16 @@ const s = StyleSheet.create({
 const productLine = (p) =>
   (p.boxes
     ? `${p.boxes} ${p.boxes === 1 ? "caja" : "cajas"} · `
-    : (p.ordered ?? p.kg)
-      ? `${fmtKg(p.ordered ?? p.kg)} kg · `
-      : "") + p.name;
+    : p.units
+      ? `${p.units} ${p.units === 1 ? "unidad" : "unidades"} · `
+      : (p.ordered ?? p.kg)
+        ? `${fmtKg(p.ordered ?? p.kg)} kg · `
+        : "") + p.name;
 
 function Row({ o, zebra }) {
-  const items = o.items.filter((p) => p.kg > 0 || p.boxes || p.ordered);
+  const items = o.items.filter(
+    (p) => p.kg > 0 || p.boxes || p.units || p.ordered,
+  );
   return (
     <View style={[s.tr, zebra ? s.zebra : null]} wrap={false}>
       <View style={[s.td, s.cNum]}>

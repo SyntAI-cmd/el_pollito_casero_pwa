@@ -1,11 +1,5 @@
 import React from "react";
-import {
-  FileText,
-  ArrowRight,
-  Package,
-  Scale,
-  Wallet,
-} from "lucide-react";
+import { FileText, ArrowRight, Package, Scale, Wallet } from "lucide-react";
 import { useStore } from "../lib/store.jsx";
 import { money, orderNumber, labels, orderShift } from "../lib/format.js";
 import { methodNames } from "../lib/photo.js";
@@ -125,112 +119,111 @@ export default function OrdersList({ orders }) {
               key={o.id}
               className={"st-" + o.status + (o.loaded ? " loaded" : "")}
             >
-                <td>
-                  <strong>{orderNumber(o)}</strong>
-                  {(() => {
-                    const shift = orderShift(o, customers);
-                    return shift ? (
-                      <>
-                        <br />
-                        <small
-                          className="muted"
-                          title={
-                            o.shift ? "Turno del pedido" : "Turno de la ficha"
-                          }
-                        >
-                          {shift === "manana" ? "Mañana" : "Tarde"}
-                        </small>
-                      </>
-                    ) : null;
-                  })()}
-                </td>
-                <td>
-                  <strong>{o.name}</strong>
-                  <br />
-                  <small className="muted">
-                    {[o.zone || o.locality?.name, o.address]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </small>
-                </td>
-                <td>
-                  {o.items.map((p) => (
-                    <div key={p.id}>
-                      {p.boxes ? `${p.boxes} cj ` : ""}
-                      {p.name.toLowerCase()}
-                      {p.weighed && p.kg > 0
-                        ? ` · ${kg(p.kg)} kg`
-                        : p.boxes
-                          ? ""
-                          : ` · pidió ${kg(p.ordered ?? p.kg)} kg`}
-                    </div>
-                  ))}
-                  {o.noPricing ? (
-                    <small className="muted">sin precio ni saldo</small>
-                  ) : null}
-                  {o.notes ? (
-                    <small className="muted">“{o.notes}”</small>
-                  ) : null}
-                </td>
-                <td className="num">
-                  {o.weighed ? (
-                    kg(
-                      o.items.reduce(
-                        (s, p) => s + (p.weighed ? p.kg || 0 : 0),
-                        0,
-                      ),
-                    )
-                  ) : (
-                    <span className="muted">—</span>
-                  )}
-                </td>
-                <td className="num">
-                  {o.noPricing ? (
-                    <span className="muted">s/precio</span>
-                  ) : o.total > 0 ? (
-                    <strong>{money(o.total)}</strong>
-                  ) : (
-                    <span className="muted">a pesar</span>
-                  )}
-                </td>
-                <td>
-                  {o.driver || <span className="muted">Sin asignar</span>}
-                  {o.driver2 ? (
-                    <small className="muted"> + {o.driver2}</small>
-                  ) : null}
-                  <br />
-                  <small className="muted">
+              <td>
+                <strong>{orderNumber(o)}</strong>
+                {(() => {
+                  const shift = orderShift(o, customers);
+                  return shift ? (
+                    <>
+                      <br />
+                      <small
+                        className="muted"
+                        title={
+                          o.shift ? "Turno del pedido" : "Turno de la ficha"
+                        }
+                      >
+                        {shift === "manana" ? "Mañana" : "Tarde"}
+                      </small>
+                    </>
+                  ) : null;
+                })()}
+              </td>
+              <td>
+                <strong>{o.name}</strong>
+                <br />
+                <small className="muted">
+                  {[o.zone || o.locality?.name, o.address]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </small>
+              </td>
+              <td>
+                {o.items.map((p) => (
+                  <div key={p.id}>
+                    {p.boxes ? `${p.boxes} cj ` : ""}
+                    {p.units ? `${p.units} u ` : ""}
+                    {p.name.toLowerCase()}
+                    {p.weighed && p.kg > 0
+                      ? ` · ${kg(p.kg)} kg`
+                      : p.boxes || p.units
+                        ? ""
+                        : ` · pidió ${kg(p.ordered ?? p.kg)} kg`}
+                  </div>
+                ))}
+                {o.noPricing ? (
+                  <small className="muted">sin precio ni saldo</small>
+                ) : null}
+                {o.notes ? <small className="muted">“{o.notes}”</small> : null}
+              </td>
+              <td className="num">
+                {o.weighed ? (
+                  kg(
+                    o.items.reduce(
+                      (s, p) => s + (p.weighed ? p.kg || 0 : 0),
+                      0,
+                    ),
+                  )
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </td>
+              <td className="num">
+                {o.noPricing ? (
+                  <span className="muted">s/precio</span>
+                ) : o.total > 0 ? (
+                  <strong>{money(o.total)}</strong>
+                ) : (
+                  <span className="muted">a pesar</span>
+                )}
+              </td>
+              <td>
+                {o.driver || <span className="muted">Sin asignar</span>}
+                {o.driver2 ? (
+                  <small className="muted"> + {o.driver2}</small>
+                ) : null}
+                <br />
+                <small className="muted">
                   {o.paid
                     ? `Cobrado${o.paidMethod ? " · " + (methodNames[o.paidMethod] || o.paidMethod) : ""}`
                     : o.payment === "cuenta"
                       ? "A cuenta"
                       : "Al recibir"}
-                  </small>
-                </td>
-                <td>
-                  <em className={"chip st-" + o.status}>{labels[o.status]}</em>
-                </td>
-                <td className="check">
-                  <input
-                    type="checkbox"
-                    checked={!!o.loaded}
-                    disabled={busy}
-                    aria-label={"Cargado " + orderNumber(o)}
-                    onChange={(e) => update(o, { loaded: e.target.checked })}
-                  />
-                </td>
-                <td className="row-actions">
-                  <button
-                    type="button"
-                    className="secondary small"
-                    onClick={() => abrir(o)}
-                    aria-label={"Abrir pedido " + orderNumber(o)}
-                  >
-                    <span className="abrir-txt">Abrir</span>{" "}
-                    <ArrowRight size={14} />
-                  </button>
-                </td>
-              </tr>
+                </small>
+              </td>
+              <td>
+                <em className={"chip st-" + o.status}>{labels[o.status]}</em>
+              </td>
+              <td className="check">
+                <input
+                  type="checkbox"
+                  checked={!!o.loaded}
+                  disabled={busy}
+                  aria-label={"Cargado " + orderNumber(o)}
+                  onChange={(e) => update(o, { loaded: e.target.checked })}
+                />
+              </td>
+              <td className="row-actions">
+                <button
+                  type="button"
+                  className="secondary small"
+                  onClick={() => abrir(o)}
+                  aria-label={"Abrir pedido " + orderNumber(o)}
+                >
+                  <span className="abrir-txt">Abrir</span>{" "}
+                  <ArrowRight size={14} />
+                </button>
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>

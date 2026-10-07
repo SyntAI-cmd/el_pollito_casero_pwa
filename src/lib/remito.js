@@ -41,10 +41,10 @@ export function remitoData(
   const plain = !!o.noPricing;
   const sinPrecios = plain || hidePrices;
   const lines = o.items
-    .filter((i) => i.kg > 0 || i.boxes || i.ordered)
+    .filter((i) => i.kg > 0 || i.boxes || i.units || i.ordered)
     .map((l) => ({
       kg: l.kg > 0 ? fmtKg(l.kg) : "",
-      detail: `${l.name}${l.boxes ? ` · ${l.boxes} ${l.boxes === 1 ? "caja" : "cajas"}` : !l.kg && l.ordered ? ` · pedido ${fmtKg(l.ordered)} kg` : ""}`,
+      detail: `${l.name}${l.boxes ? ` · ${l.boxes} ${l.boxes === 1 ? "caja" : "cajas"}` : l.units ? ` · ${l.units} ${l.units === 1 ? "unidad" : "unidades"}` : !l.kg && l.ordered ? ` · pedido ${fmtKg(l.ordered)} kg` : ""}`,
       // Renglón sin pesar (kg 0): sin precio ni importe hasta la balanza.
       unit: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.price),
       total: sinPrecios || !(l.weighed || l.kg > 0) ? "" : money(l.lineTotal),

@@ -1855,10 +1855,12 @@ dialog.wide-dialog {
   color: var(--red);
   font-weight: 700;
 }
-.qo-table .qo-box {
+.qo-table .qo-box,
+.qo-table .qo-units {
   width: 84px;
 }
-.qo-table .qo-box input {
+.qo-table .qo-box input,
+.qo-table .qo-units input {
   width: 72px;
   text-align: right;
   min-height: 40px;
@@ -1916,10 +1918,12 @@ dialog.wide-dialog {
   align-self: end;
 }
 @media (max-width: 720px) {
-  .qo-table .qo-box {
+  .qo-table .qo-box,
+  .qo-table .qo-units {
     width: 74px;
   }
-  .qo-table .qo-box input {
+  .qo-table .qo-box input,
+  .qo-table .qo-units input {
     width: 64px;
     min-height: 44px;
   }

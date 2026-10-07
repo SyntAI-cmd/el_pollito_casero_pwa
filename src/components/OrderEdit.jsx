@@ -39,8 +39,10 @@ export default function OrderEdit({ order: o }) {
       o.items.map((i) => [
         i.id,
         i.boxes
-          ? { boxes: String(i.boxes), kg: "" }
-          : { boxes: "", kg: String(i.ordered ?? i.kg ?? "") },
+          ? { boxes: String(i.boxes), units: "", kg: "" }
+          : i.units
+            ? { boxes: "", units: String(i.units), kg: "" }
+            : { boxes: "", units: "", kg: String(i.ordered ?? i.kg ?? "") },
       ]),
     ),
   );
@@ -88,17 +90,23 @@ export default function OrderEdit({ order: o }) {
   const rows = products.map((p) => {
     const l = lines[p.id] || {};
     const boxes = String(l.boxes ?? "").trim() === "" ? null : parse(l.boxes);
+    const units = String(l.units ?? "").trim() === "" ? null : parse(l.units);
     const kg = String(l.kg ?? "").trim() === "" ? null : parse(l.kg);
     const bad =
       (boxes !== null &&
         (!Number.isInteger(boxes) || boxes < 0 || boxes > 500)) ||
+      (units !== null &&
+        (!Number.isInteger(units) || units < 0 || units > 5000)) ||
       (kg !== null && (!Number.isFinite(kg) || kg <= 0 || kg > 5000));
-    const active = (boxes !== null && boxes > 0) || (kg !== null && kg > 0);
+    const active =
+      (boxes !== null && boxes > 0) ||
+      (units !== null && units > 0) ||
+      (kg !== null && kg > 0);
     const price = parse(
       prices[p.id] !== undefined ? prices[p.id] : customer?.prices?.[p.id],
     );
     const old = o.items.find((i) => i.id === p.id);
-    return { p, boxes, kg, bad, active, price, old };
+    return { p, boxes, units, kg, bad, active, price, old };
   });
   const items = rows.filter((r) => r.active && !r.bad);
   const invalid = rows.filter((r) => r.bad);
@@ -123,6 +131,7 @@ export default function OrderEdit({ order: o }) {
       items: items.map((r) => ({
         id: r.p.id,
         ...(r.boxes !== null ? { boxes: r.boxes } : {}),
+        ...(r.units ? { units: r.units } : {}),
         ...(r.kg !== null ? { kg: r.kg } : {}),
         ...(r.p.id === "otro" ? { label: label.trim() } : {}),
       })),
@@ -152,8 +161,8 @@ export default function OrderEdit({ order: o }) {
         N° {orderNumber(o)} · {o.name}
       </h2>
       <p className="muted">
-        Cambiá cajas o kilos por producto. Lo ya pesado conserva su pesada; el
-        importe se calcula recién en la balanza.
+        Cambiá cajas, unidades o kilos por producto. Lo ya pesado conserva su
+        pesada; el importe se calcula recién en la balanza.
       </p>
       <div className="table-scroll">
         <table className="qo-table edit-table">
@@ -162,6 +171,7 @@ export default function OrderEdit({ order: o }) {
               <th>Producto</th>
               {!noPricing && <th className="num col-price">$/kg</th>}
               <th className="num">Cajas</th>
+              <th className="num">Unid.</th>
               <th className="num">Kilos</th>
             </tr>
           </thead>
@@ -241,7 +251,23 @@ export default function OrderEdit({ order: o }) {
                     onChange={(e) =>
                       setLines({
                         ...lines,
-                        [p.id]: { boxes: e.target.value, kg: "" },
+                        [p.id]: { boxes: e.target.value, units: "", kg: "" },
+                      })
+                    }
+                  />
+                </td>
+                <td className="num">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    onFocus={ensureFieldVisible}
+                    value={lines[p.id]?.units ?? ""}
+                    aria-label={`Unidades de ${p.name}`}
+                    title="Pollos o piezas contadas: los kilos salen de la balanza"
+                    onChange={(e) =>
+                      setLines({
+                        ...lines,
+                        [p.id]: { units: e.target.value, boxes: "", kg: "" },
                       })
                     }
                   />
@@ -256,7 +282,7 @@ export default function OrderEdit({ order: o }) {
                     onChange={(e) =>
                       setLines({
                         ...lines,
-                        [p.id]: { kg: e.target.value, boxes: "" },
+                        [p.id]: { kg: e.target.value, boxes: "", units: "" },
                       })
                     }
                   />
@@ -349,7 +375,7 @@ export default function OrderEdit({ order: o }) {
       {invalid.length > 0 && (
         <p className="form-error" role="alert">
           Revisá {invalid.map((r) => r.p.name.toLowerCase()).join(", ")}: cajas
-          enteras (0 a 500) y kilos válidos.
+          enteras (0 a 500), unidades enteras y kilos válidos.
         </p>
       )}
       {noPrice.length > 0 && (

@@ -371,7 +371,7 @@ export function createFloor({
       i.id in byProduct
         ? {
             ...i,
-            ordered: i.ordered ?? i.kg,
+            ...(i.units ? {} : { ordered: i.ordered ?? i.kg }),
             kg: round2(byProduct[i.id]),
             lineTotal: lineAmount(i.price, round2(byProduct[i.id])),
             weighed: true,
@@ -629,7 +629,8 @@ export function createFloor({
           o.id,
           {
             items: merged.map(
-              (i) => `${i.id}:${i.boxes ?? ""}:${i.ordered ?? i.kg}`,
+              (i) =>
+                `${i.id}:${i.boxes ?? ""}:${i.units ? i.units + "u" : (i.ordered ?? i.kg)}`,
             ),
             removed: removed.map((i) => i.id),
             total: o.total,

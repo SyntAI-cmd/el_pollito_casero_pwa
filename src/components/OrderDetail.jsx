@@ -193,7 +193,9 @@ export default function OrderDetail({ order: abierto, role }) {
               <small>
                 {p.boxes
                   ? `Pidió ${p.boxes} ${p.boxes === 1 ? "caja" : "cajas"}`
-                  : `Pidió ${kgText(p.ordered ?? p.kg)}`}
+                  : p.units
+                    ? `Pidió ${p.units} ${p.units === 1 ? "unidad" : "unidades"}`
+                    : `Pidió ${kgText(p.ordered ?? p.kg)}`}
                 {!o.noPricing && p.price ? ` · ${money(p.price)}/kg` : ""}
               </small>
             </div>

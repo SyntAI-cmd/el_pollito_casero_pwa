@@ -217,11 +217,25 @@ export function priceOrder(
         !Number.isInteger(boxes))
     )
       throw Error("Las cajas deben ser un número entero (0 a 500).");
+    // Pedido por unidades (equipo): se cuentan pollos/piezas; los kilos y el importe los pone la balanza.
+    const units =
+      staff &&
+      boxes === null &&
+      item.units !== undefined &&
+      item.units !== null &&
+      item.units !== ""
+        ? Number(item.units)
+        : null;
+    if (
+      units !== null &&
+      (!Number.isInteger(units) || units < 1 || units > 5000)
+    )
+      throw Error("Las unidades deben ser un número entero (1 a 5000).");
     const kg =
       item.kg === undefined || item.kg === null || item.kg === ""
         ? 0
         : Number(item.kg);
-    if (boxes === null || kg > 0) {
+    if (units === null && (boxes === null || kg > 0)) {
       if (
         !Number.isFinite(kg) ||
         kg < (staff ? 0.05 : 1) ||
@@ -234,7 +248,8 @@ export function priceOrder(
             : "La cantidad debe ser de 1 a 1000 kg, en pasos de 0,5 kg.",
         );
     }
-    if (boxes === null && kg <= 0) throw Error("Indicá cajas o kilos.");
+    if (boxes === null && units === null && kg <= 0)
+      throw Error("Indicá cajas, unidades o kilos.");
     const own =
       prices && Number.isFinite(Number(prices[p.id]))
         ? Number(prices[p.id])
@@ -244,6 +259,17 @@ export function priceOrder(
       throw Error(`El precio de ${name} está pendiente para este cliente.`);
     ids.add(item.id);
     // Equipo: los kilos pedidos quedan como referencia; el peso real y el importe los pone la balanza.
+    // Por unidades no hay kilos pedidos: el renglón vale 0 hasta la pesada.
+    if (units !== null)
+      return {
+        id: p.id,
+        name,
+        kg: 0,
+        units,
+        price,
+        ownPrice: own !== null,
+        lineTotal: 0,
+      };
     const pendingScale = staff && boxes === null;
     return {
       id: p.id,
@@ -400,7 +426,8 @@ export function applyWeights(order, weights) {
       throw Error(`Peso inválido para ${item.name}.`);
     return {
       ...item,
-      ordered: item.ordered ?? item.kg,
+      // Por unidades no hay kilos pedidos que guardar.
+      ...(item.units ? {} : { ordered: item.ordered ?? item.kg }),
       kg,
       lineTotal: lineAmount(item.price, kg),
       weighed: true,

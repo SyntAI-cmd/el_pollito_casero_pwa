@@ -213,6 +213,28 @@ test("equipo: los kilos pedidos esperan la balanza y no valen hasta pesar", () =
   assert.equal(w.total, 794000);
 });
 
+test("equipo: por unidades se cuentan pollos y el importe sale de los kilos pesados", () => {
+  const r = priceOrder(
+    { ...base, items: [{ id: "entero", units: 12 }] },
+    { staff: true, enforceMin: false, prices: { entero: 4000 } },
+  );
+  assert.equal(r.items[0].units, 12);
+  assert.equal(r.items[0].kg, 0);
+  assert.equal(r.items[0].ordered, undefined);
+  assert.equal(r.total, 0);
+  const w = applyWeights(r, { entero: 30.5 });
+  assert.equal(w.items[0].units, 12);
+  assert.equal(w.items[0].ordered, undefined);
+  assert.equal(w.total, 122000);
+  for (const units of [0, 2.5, 6000])
+    assert.throws(() =>
+      priceOrder(
+        { ...base, items: [{ id: "entero", units }] },
+        { staff: true, enforceMin: false, prices: { entero: 4000 } },
+      ),
+    );
+});
+
 test("cliente exclusivo: pedido sin precio ni importe", () => {
   const r = priceOrder(
     { ...base, noPricing: true, items: [{ id: "entero", kg: 20 }] },

@@ -58,7 +58,7 @@ export default function QuickOrder() {
   } = useStore();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState(null);
-  const [lines, setLines] = useState({}); // productId → { boxes, kg }
+  const [lines, setLines] = useState({}); // productId → { boxes, units, kg }
   const [priceEdits, setPriceEdits] = useState({}); // productId → "5500" (solo administración)
   const [editingPrice, setEditingPrice] = useState(null);
   const [deliveryDate, setDeliveryDate] = useState(todayKey);
@@ -193,7 +193,8 @@ export default function QuickOrder() {
           i.id,
           {
             boxes: i.boxes ? String(i.boxes) : "",
-            kg: i.boxes ? "" : String(i.ordered ?? i.kg),
+            units: i.units ? String(i.units) : "",
+            kg: i.boxes || i.units ? "" : String(i.ordered ?? i.kg),
           },
         ]),
       ),
@@ -223,16 +224,31 @@ export default function QuickOrder() {
   const rows = products.map((p) => {
     const l = lines[p.id] || {};
     const boxes = String(l.boxes ?? "").trim() === "" ? null : parse(l.boxes);
+    const units = String(l.units ?? "").trim() === "" ? null : parse(l.units);
     const kg = String(l.kg ?? "").trim() === "" ? null : parse(l.kg);
     const boxesBad =
       boxes !== null && (!Number.isInteger(boxes) || boxes < 0 || boxes > 500);
+    const unitsBad =
+      units !== null && (!Number.isInteger(units) || units < 0 || units > 5000);
     const kgBad = kg !== null && (!Number.isFinite(kg) || kg <= 0 || kg > 5000);
-    const active = (boxes !== null && boxes > 0) || (kg !== null && kg > 0);
-    return { p, boxes, kg, bad: boxesBad || kgBad, active, price: priceOf(p) };
+    const active =
+      (boxes !== null && boxes > 0) ||
+      (units !== null && units > 0) ||
+      (kg !== null && kg > 0);
+    return {
+      p,
+      boxes,
+      units,
+      kg,
+      bad: boxesBad || unitsBad || kgBad,
+      active,
+      price: priceOf(p),
+    };
   });
   const items = rows.filter((r) => r.active && !r.bad);
   const invalid = rows.filter((r) => r.bad);
   const totalBoxes = items.reduce((s, r) => s + (r.boxes || 0), 0);
+  const totalUnits = items.reduce((s, r) => s + (r.units || 0), 0);
   const totalKg = items.reduce((s, r) => s + (r.kg || 0), 0);
   // Sin importe estimado: nada vale hasta pasar por la balanza.
   // Renglones sin precio propio: bloquean "con precio y saldo", no "sin precio ni saldo".
@@ -330,6 +346,7 @@ export default function QuickOrder() {
         items: items.map((r) => ({
           id: r.p.id,
           ...(r.boxes !== null ? { boxes: r.boxes } : {}),
+          ...(r.units ? { units: r.units } : {}),
           ...(r.kg !== null ? { kg: r.kg } : {}),
           ...(r.p.id === "otro" ? { label: otherLabel.trim() } : {}),
         })),
@@ -364,7 +381,7 @@ export default function QuickOrder() {
       <PageHead
         eyebrow="REPARTO · POLLITO CASERO"
         title="Cargar pedido."
-        description="Cliente, cajas o kilos por producto, fecha y turno. Los kilos finales los pone la balanza."
+        description="Cliente, cajas, unidades o kilos por producto, fecha y turno. Los kilos finales los pone la balanza."
       >
         <div className="head-actions">
           <button type="button" className="secondary" onClick={reset}>
@@ -439,7 +456,9 @@ export default function QuickOrder() {
                   <span>
                     {r.boxes > 0
                       ? `${r.boxes} cajas`
-                      : `${kgText(r.kg)} kg solicitados`}
+                      : r.units > 0
+                        ? `${r.units} ${r.units === 1 ? "unidad" : "unidades"} (kilos por balanza)`
+                        : `${kgText(r.kg)} kg solicitados`}
                   </span>
                   <b>
                     {Number.isFinite(r.price) && r.price > 0
@@ -825,7 +844,7 @@ export default function QuickOrder() {
 
         <section className="panel qo-products">
           <h2>
-            <Package size={17} /> Cajas y kilos por producto
+            <Package size={17} /> Cajas, unidades y kilos por producto
           </h2>
           <div className="table-scroll">
             <table className="qo-table">
@@ -834,6 +853,7 @@ export default function QuickOrder() {
                   <th>Producto</th>
                   <th className="num qo-price">$/kg</th>
                   <th className="num qo-box">Cajas</th>
+                  <th className="num qo-units">Unid.</th>
                   <th className="num qo-kg">Kilos</th>
                 </tr>
               </thead>
@@ -947,12 +967,18 @@ export default function QuickOrder() {
                         disabled={!picked}
                         aria-label={`Cajas de ${p.name}`}
                         aria-invalid={bad || undefined}
-                        className={lines[p.id]?.kg ? "qo-off" : ""}
+                        className={
+                          lines[p.id]?.kg || lines[p.id]?.units ? "qo-off" : ""
+                        }
                         title="Se pesan en balanza: los kilos salen de la pesada"
                         onChange={(e) =>
                           setLines({
                             ...lines,
-                            [p.id]: { boxes: e.target.value, kg: "" },
+                            [p.id]: {
+                              boxes: e.target.value,
+                              units: "",
+                              kg: "",
+                            },
                           })
                         }
                         onKeyDown={(e) => {
@@ -969,6 +995,31 @@ export default function QuickOrder() {
                         }}
                       />
                     </td>
+                    <td className="num qo-units">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={lines[p.id]?.units ?? ""}
+                        disabled={!picked}
+                        aria-label={`Unidades de ${p.name}`}
+                        aria-invalid={bad || undefined}
+                        className={
+                          lines[p.id]?.kg || lines[p.id]?.boxes ? "qo-off" : ""
+                        }
+                        title="Pollos o piezas contadas: los kilos y el importe salen de la balanza"
+                        onChange={(e) =>
+                          setLines({
+                            ...lines,
+                            [p.id]: {
+                              units: e.target.value,
+                              boxes: "",
+                              kg: "",
+                            },
+                          })
+                        }
+                      />
+                    </td>
                     <td className="num qo-kg">
                       <input
                         type="text"
@@ -978,12 +1029,20 @@ export default function QuickOrder() {
                         disabled={!picked}
                         aria-label={`Kilos de ${p.name}`}
                         aria-invalid={bad || undefined}
-                        className={lines[p.id]?.boxes ? "qo-off" : ""}
+                        className={
+                          lines[p.id]?.boxes || lines[p.id]?.units
+                            ? "qo-off"
+                            : ""
+                        }
                         title="Pedido por peso: en la pesada se cargan bruto y neto"
                         onChange={(e) =>
                           setLines({
                             ...lines,
-                            [p.id]: { kg: e.target.value, boxes: "" },
+                            [p.id]: {
+                              kg: e.target.value,
+                              boxes: "",
+                              units: "",
+                            },
                           })
                         }
                       />
@@ -994,16 +1053,18 @@ export default function QuickOrder() {
             </table>
           </div>
           <p className="muted small">
-            Cada producto va por <strong>cajas</strong> o por{" "}
-            <strong>kilos</strong>, no los dos: al escribir en una columna se
-            borra la otra. Las cajas se pesan después en balanza (la app
-            descuenta la tara de cada cajón); lo pedido por kilos se pesa en
-            bruto y neto. El precio siempre es por kilo.
+            Cada producto va por <strong>cajas</strong>, por{" "}
+            <strong>unidades</strong> o por <strong>kilos</strong>, uno solo: al
+            escribir en una columna se borran las otras. Las cajas se pesan
+            después en balanza (la app descuenta la tara de cada cajón); las
+            unidades (pollos o piezas contadas) y lo pedido por kilos se pesan
+            en bruto y neto. El precio siempre es por kilo: el importe sale de
+            los kilos de la balanza.
           </p>
           {invalid.length > 0 && (
             <p className="form-error" role="alert">
               Revisá {invalid.map((r) => r.p.name.toLowerCase()).join(", ")}:
-              cajas enteras (0 a 500) y kilos válidos.
+              cajas enteras (0 a 500), unidades enteras y kilos válidos.
             </p>
           )}
           {noPrice.length > 0 && (
@@ -1027,6 +1088,10 @@ export default function QuickOrder() {
             <div>
               <dt>Cajas a armar</dt>
               <dd>{totalBoxes}</dd>
+            </div>
+            <div>
+              <dt>Unidades</dt>
+              <dd>{totalUnits || "—"}</dd>
             </div>
             <div>
               <dt>Kilos pedidos</dt>

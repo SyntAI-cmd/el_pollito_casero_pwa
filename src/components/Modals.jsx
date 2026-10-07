@@ -44,7 +44,13 @@ function PhotoPick({ photo, setPhoto, label }) {
       <div className="photo-pick-buttons">
         <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
           <Camera size={15} /> Sacar foto
-          <input type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={pick}
+          />
         </label>
         <label className={"secondary receipt-button " + (photo ? "ok" : "")}>
           <ImageIcon size={15} /> Galería
@@ -1459,7 +1465,11 @@ function Weights({ order }) {
             <span>
               {p.name}
               <small>
-                Pedido: {kgText(p.ordered ?? p.kg)} · {money(p.price)}/kg
+                Pedido:{" "}
+                {p.units
+                  ? `${p.units} ${p.units === 1 ? "unidad" : "unidades"}`
+                  : kgText(p.ordered ?? p.kg)}{" "}
+                · {money(p.price)}/kg
               </small>
             </span>
             <span className="weight-input">

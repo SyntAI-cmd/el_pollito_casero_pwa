@@ -451,7 +451,7 @@ export default function TruckLoading() {
                     {o.items
                       .map(
                         (i) =>
-                          `${i.boxes ? i.boxes + " cj " : ""}${i.name.toLowerCase()} ${i.kg > 0 ? kgText(i.kg) : i.boxes ? "(sin pesar)" : kgText(i.kg)}`,
+                          `${i.boxes ? i.boxes + " cj " : i.units ? i.units + " u " : ""}${i.name.toLowerCase()} ${i.kg > 0 ? kgText(i.kg) : i.boxes || i.units ? "(sin pesar)" : kgText(i.kg)}`,
                       )
                       .join(", ")}
                     {cajasDe(boxCrates(o)) < expected && !out

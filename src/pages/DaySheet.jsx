@@ -49,12 +49,14 @@ export default function DaySheet() {
         const p = (map[i.id] ||= {
           name: i.name,
           boxes: 0,
+          units: 0,
           kgOrdered: 0,
           kgWeighed: 0,
           crates: 0,
         });
         p.boxes += i.boxes || 0;
-        p.kgOrdered += i.boxes ? 0 : (i.ordered ?? i.kg);
+        p.units += i.units || 0;
+        p.kgOrdered += i.boxes || i.units ? 0 : (i.ordered ?? i.kg);
         p.kgWeighed += weighedKg(o, i.id);
         p.crates += liveCrates(o).filter((c) => c.productId === i.id).length;
       }
@@ -137,6 +139,7 @@ export default function DaySheet() {
                 <tr>
                   <th>Producto</th>
                   <th className="num">Cajas pedidas</th>
+                  <th className="num">Unidades pedidas</th>
                   <th className="num">Kilos pedidos</th>
                   <th className="num">Cajones pesados</th>
                   <th className="num">Kilos pesados</th>
@@ -149,6 +152,7 @@ export default function DaySheet() {
                       <strong>{p.name}</strong>
                     </td>
                     <td className="num">{p.boxes || "—"}</td>
+                    <td className="num">{p.units || "—"}</td>
                     <td className="num">
                       {p.kgOrdered ? kgText(p.kgOrdered) : "—"}
                     </td>
@@ -239,7 +243,7 @@ export default function DaySheet() {
                           {o.items
                             .map(
                               (i) =>
-                                `${i.boxes ? i.boxes + " cj " : (i.ordered ?? i.kg) + " kg "}${i.name.toLowerCase()}`,
+                                `${i.boxes ? i.boxes + " cj " : i.units ? i.units + " u " : (i.ordered ?? i.kg) + " kg "}${i.name.toLowerCase()}`,
                             )
                             .join(", ")}
                         </td>
