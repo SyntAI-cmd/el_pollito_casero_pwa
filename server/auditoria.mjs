@@ -120,6 +120,15 @@ const PERMITIDOS = new Set([
   "bytes",
   "orders",
   "driveId",
+  // actualización masiva de precios
+  "tipo",
+  "variacion",
+  "porcentaje",
+  "factor",
+  "redondeo",
+  "alcance",
+  "revierte",
+  "referencia",
   // varios
   "date",
   "active",

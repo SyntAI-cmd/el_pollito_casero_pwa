@@ -55,6 +55,7 @@ const QuickOrder = lazy(() => import("./pages/QuickOrder.jsx"));
 const PrintHub = lazy(() => import("./pages/PrintHub.jsx"));
 const DaySheet = lazy(() => import("./pages/DaySheet.jsx"));
 const PriceLists = lazy(() => import("./pages/PriceLists.jsx"));
+const PriceUpdate = lazy(() => import("./pages/PriceUpdate.jsx"));
 const Loading = () => (
   <div className="loading" aria-busy="true">
     Cargando…
@@ -94,6 +95,7 @@ const ADMIN_ROUTES = {
   "/operacion/nuevo": QuickOrder,
   "/operacion/dia": DaySheet,
   "/operacion/precios": PriceLists,
+  "/operacion/precios/actualizar": PriceUpdate,
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
   "/operacion/imprimir": PrintHub,
@@ -579,6 +581,7 @@ function StaffShell({ Page, path }) {
       "/operacion/carga": "Carga del camión",
       "/operacion/dia": "Nota del día",
       "/operacion/precios": "Listas de precios",
+      "/operacion/precios/actualizar": "Actualizar precios",
     }[path] ||
     "Pollito Casero";
   // Globo de Pedidos: abiertos de HOY (lo mismo que se ve al entrar, que arranca filtrado en hoy).

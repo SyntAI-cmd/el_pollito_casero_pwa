@@ -318,8 +318,11 @@ export default function QuickOrder() {
       const fresh = await refreshCustomer();
       if (reviewSignature(fresh) !== reviewSignature(picked)) {
         setPicked(fresh);
+        // Una actualización de precios mientras se armaba el pedido: se avisa, no se cambia en silencio.
         setReviewError(
-          "Cambió el saldo o la ficha del cliente. Volvé a editar y revisá el resumen actualizado antes de confirmar.",
+          JSON.stringify(fresh.prices) !== JSON.stringify(picked.prices)
+            ? "Cambiaron los precios de este cliente (por ejemplo, una actualización de precios). Volvé a editar y revisá el resumen con los precios nuevos antes de confirmar."
+            : "Cambió el saldo o la ficha del cliente. Volvé a editar y revisá el resumen actualizado antes de confirmar.",
         );
         return;
       }

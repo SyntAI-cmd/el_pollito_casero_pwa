@@ -30,6 +30,7 @@ import { createFloor } from "./floor.mjs";
 import { createFleet } from "./fleet.mjs";
 import { createDocuments } from "./documents.mjs";
 import { createReceipts } from "./receipts.mjs";
+import { createPriceUpdates } from "./precios.mjs";
 import { planDesentrega, aplicarDesentrega } from "./desentregar.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
@@ -962,6 +963,7 @@ export function createApi({
 
   const fleet = createFleet({ store, events, isStaff, actorOf, driverNames });
   const documents = createDocuments({ store, dataDir, isStaff });
+  const priceUpdates = createPriceUpdates({ store, events, actorOf });
   const receipts = createReceipts({
     store,
     events,
@@ -1049,6 +1051,8 @@ export function createApi({
         }),
       );
     }
+    const fromPrices = await priceUpdates({ method, path, body, session });
+    if (fromPrices) return fromPrices;
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });

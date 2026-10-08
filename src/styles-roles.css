@@ -2400,6 +2400,134 @@ dialog label.check input {
   text-align: right;
 }
 
+/* Actualizar precios (administración) */
+.price-update {
+  display: grid;
+  gap: 16px;
+}
+.price-update .panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pu-form,
+.pu-inline {
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+.pu-inline {
+  grid-template-columns: minmax(0, 220px) auto auto;
+  align-items: end;
+}
+.pu-direction {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pu-message {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--red);
+  background: #fbf6f2;
+  border-radius: 6px;
+}
+.pu-rounding,
+.pu-products {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0;
+}
+.pu-products {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.pu-products legend,
+.pu-rounding legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+.pu-products > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.pu-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+.pu-check input {
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+}
+.pu-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+}
+.pu-facts dt {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #6b6b6b);
+}
+.pu-facts dd {
+  margin: 2px 0 0;
+}
+.pu-table td.num,
+.pu-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.pu-error-row td {
+  background: #fdecec;
+}
+.pu-bad {
+  color: var(--red);
+  font-weight: 600;
+}
+.pu-search {
+  max-width: 420px;
+  margin-bottom: 10px;
+}
+.pu-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+.pu-confirm {
+  border: 2px solid var(--red);
+  border-radius: 10px;
+  padding: 14px;
+}
+.pu-confirm p {
+  margin-top: 0;
+}
+.pu-exclusions {
+  margin-bottom: 12px;
+}
+.pu-actions {
+  white-space: nowrap;
+}
+.pu-actions .link-button + .link-button {
+  margin-left: 10px;
+}
+@media (max-width: 640px) {
+  .pu-inline {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Pesaje: buscador y número de pedido en cada tarjeta */
 .weigh-search {
   margin-bottom: 12px;

@@ -227,6 +227,11 @@ export default function Customers() {
           <UserPlus size={15} /> Nuevo cliente
         </button>
         {session?.role === "admin" && <ImportCustomers />}
+        {session?.role === "admin" && (
+          <Link to="/operacion/precios/actualizar" className="secondary">
+            Actualizar precios
+          </Link>
+        )}
       </div>
       <div className="active-filter-list" aria-label="Filtros activos">
         {Object.entries(filters)

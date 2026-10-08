@@ -4,6 +4,7 @@ import { api } from "../lib/api.js";
 import { useStore } from "../lib/store.jsx";
 import { money, planNames } from "../lib/format.js";
 import { PageHead } from "../components/ui.jsx";
+import { Link } from "../lib/router.jsx";
 
 const PLANS = ["mayorista", "intermedio", "minorista"];
 const KEY = {
@@ -74,6 +75,9 @@ export default function PriceLists() {
       >
         {admin && (
           <div className="head-actions">
+            <Link to="/operacion/precios/actualizar" className="secondary">
+              Actualizar precios
+            </Link>
             <button
               type="button"
               className="secondary"
