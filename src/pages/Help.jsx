@@ -94,7 +94,7 @@ const ADMIN = [
       ],
       [
         "¿Cómo cargo muchos clientes juntos?",
-        "Con «Plantilla» descargás el Excel de ejemplo; completalo y subilo con «Importar Excel».",
+        "Con «Plantilla» descargás el Excel con cada cliente, producto y precio (el propio del cliente o, si no tiene, el de su lista).",
       ],
     ],
   },

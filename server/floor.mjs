@@ -14,6 +14,7 @@ import {
   productByName,
   registerProduct,
   newProductFrom,
+  productPrice,
 } from "../domain.mjs";
 import { fail } from "./errors.mjs";
 import { readFile } from "node:fs/promises";
@@ -1033,33 +1034,106 @@ export function createFloor({
       adminOnly(session);
       const { default: ExcelJS } = await import("exceljs");
       const wb = new ExcelJS.Workbook();
-      const ws = wb.addWorksheet("Clientes");
-      ws.addRow([
-        "Nombre",
-        "Razón social",
-        "CUIT",
-        "Zona",
-        "Dirección",
-        "Teléfono",
-        "Preventista",
-        "Turno",
-        "Lista",
-        "Observaciones",
-      ]);
-      ws.addRow([
-        "Kiosco Prueba",
-        "Prueba S.R.L.",
-        "20123456789",
-        "Palmira",
-        "Belgrano 1200",
-        "2634123456",
-        driverNames()[0] || "",
-        "mañana",
-        "mayorista",
-        "",
-      ]);
-      ws.getRow(1).font = { bold: true };
-      ws.columns.forEach((c) => (c.width = 20));
+      // Lista simple: cliente, producto y precio, con la estética del consolidado del día.
+      // El precio propio del cliente; si no tiene ninguno, los de la lista de su modalidad.
+      const RED = "FFA81A1A",
+        BLACK = "FF141416",
+        ZEBRA = "FFF2F2F2",
+        GRID = "FFBFBFBF";
+      const thin = { style: "thin", color: { argb: GRID } };
+      const font = (o = {}) => ({ name: "Arial", size: 10, ...o });
+      const fill = (argb) => ({
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb },
+      });
+      const white = { argb: "FFFFFFFF" };
+      wb.creator = "El Pollito Casero";
+      const ws = wb.addWorksheet("Clientes", {
+        views: [{ showGridLines: false, state: "frozen", ySplit: 4 }],
+        pageSetup: {
+          orientation: "portrait",
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+        },
+      });
+      [34, 24, 16].forEach((w, i) => (ws.getColumn(i + 1).width = w));
+      ws.mergeCells(1, 1, 1, 3);
+      ws.getRow(1).height = 60;
+      const logo = await brandLogo();
+      if (logo) {
+        const id = wb.addImage({ buffer: logo, extension: "png" });
+        ws.addImage(id, {
+          tl: { col: 0.15, row: 0.1 },
+          ext: { width: 232, height: 70 },
+          editAs: "oneCell",
+        });
+      }
+      ws.getCell("A1").value = logo ? "" : "EL POLLITO CASERO";
+      ws.getCell("A1").font = font({
+        size: 20,
+        bold: true,
+        color: { argb: RED },
+      });
+      ws.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
+      ws.mergeCells(2, 1, 2, 3);
+      const hoy = new Date().toLocaleDateString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      });
+      ws.getCell("A2").value = `Clientes y precios  ·  ${hoy}`;
+      ws.getCell("A2").font = font({ bold: true, color: white });
+      ws.getCell("A2").fill = fill(BLACK);
+      ws.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
+      ws.getRow(2).height = 21.75;
+      ws.getRow(3).height = 7.5;
+      const head = ws.getRow(4);
+      ["Cliente", "Producto", "Precio"].forEach((name, i) => {
+        const c = head.getCell(i + 1);
+        c.value = name;
+        c.font = font({ bold: true, color: white });
+        c.fill = fill(BLACK);
+        c.alignment = { horizontal: "center", vertical: "middle" };
+        c.border = { top: thin, bottom: thin };
+      });
+      head.height = 24;
+      const priced = products.filter((p) => p.id !== "otro");
+      const lists = store.settings.get("priceLists", null);
+      const customers = store.customers
+        .all()
+        .filter((c) => !c.archived)
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), "es"));
+      let group = 0;
+      for (const c of customers) {
+        const own = summarize(c).prices;
+        const mine = priced.filter((p) => own[p.id] > 0);
+        const lines = mine.length
+          ? mine.map((p) => [p.name, own[p.id]])
+          : priced
+              .map((p) => [
+                p.name,
+                productPrice(p, c.plan || "mayorista", lists),
+              ])
+              .filter(([, price]) => price > 0);
+        if (!lines.length) continue;
+        const shade = group++ % 2 ? fill(ZEBRA) : null;
+        lines.forEach(([product, price], i) => {
+          const row = ws.addRow([i ? "" : c.name, product, price]);
+          row.height = 18;
+          row.eachCell({ includeEmpty: true }, (cell, n) => {
+            cell.font = font(n === 1 ? { bold: true } : {});
+            cell.alignment = {
+              vertical: "middle",
+              horizontal: n === 3 ? "right" : "left",
+              indent: n === 3 ? 1 : 0,
+            };
+            if (shade) cell.fill = shade;
+            cell.border = i === lines.length - 1 ? { bottom: thin } : {};
+          });
+          row.getCell(3).numFmt = '"$" #,##0.##';
+        });
+      }
+      ws.pageSetup.printTitlesRow = "4:4";
       return {
         status: 200,
         raw: Buffer.from(await wb.xlsx.writeBuffer()),
