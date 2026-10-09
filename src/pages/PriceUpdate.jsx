@@ -23,6 +23,7 @@ const kindName = {
   aumento: "Aumento",
   disminucion: "Disminución",
   reversion: "Reversión",
+  tarifas: "Listas por cliente",
 };
 const parseAmount = (v) =>
   Number(
@@ -49,7 +50,11 @@ export const roundingText = (r) =>
 const sourceText = (i) =>
   i.source === "lista"
     ? `Lista ${planName[i.plan] || i.plan}`
-    : i.customerName || i.customer;
+    : i.source === "tarifa"
+      ? i.plan.startsWith("lista:")
+        ? `Lista ${i.plan.slice(6)}`
+        : `Trozado por ${i.plan.slice(8)}`
+      : i.customerName || i.customer;
 const newId = () =>
   crypto.randomUUID?.() ||
   `op-${Date.now()}-${Math.random().toString(36).slice(2)}`;

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { products, plans, productPrice, validateLists } from "../domain.mjs";
 import { fail } from "./errors.mjs";
+import { tarifaGet, tarifaSet, tarifaKeys, tarifaLabel } from "./tarifas.mjs";
 
 /**
  * Actualización masiva de precios (solo administración).
@@ -108,19 +109,47 @@ const hash = (v) =>
 
 export function createPriceUpdates({ store, events, actorOf }) {
   const db = store.db;
-  db.exec(`
+  const SCHEMA_OPS = `
 CREATE TABLE IF NOT EXISTS price_updates(
-  id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('aumento','disminucion','reversion')),
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL CHECK(kind IN ('aumento','disminucion','reversion','tarifas')),
   at TEXT NOT NULL, actor_id TEXT, actor_name TEXT NOT NULL,
   delta_cents INTEGER NOT NULL, ref_before INTEGER NOT NULL, ref_after INTEGER NOT NULL,
   factor TEXT NOT NULL, percent TEXT NOT NULL, rounding TEXT NOT NULL, scope TEXT NOT NULL,
   token TEXT NOT NULL, reverts TEXT REFERENCES price_updates(id), reverted_by TEXT, changes INTEGER NOT NULL);
-CREATE INDEX IF NOT EXISTS price_updates_at ON price_updates(at DESC);
 CREATE TABLE IF NOT EXISTS price_update_items(
   update_id TEXT NOT NULL REFERENCES price_updates(id) ON DELETE CASCADE,
-  source TEXT NOT NULL CHECK(source IN ('lista','cliente')), plan TEXT, customer TEXT, customer_name TEXT,
-  product_id TEXT NOT NULL, before_cents INTEGER NOT NULL, calc_cents INTEGER NOT NULL, after_cents INTEGER NOT NULL);
-CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id);`);
+  source TEXT NOT NULL CHECK(source IN ('lista','cliente','tarifa')), plan TEXT, customer TEXT, customer_name TEXT,
+  product_id TEXT NOT NULL, before_cents INTEGER NOT NULL, calc_cents INTEGER NOT NULL, after_cents INTEGER NOT NULL);`;
+  const INDEXES = `
+CREATE INDEX IF NOT EXISTS price_updates_at ON price_updates(at DESC);
+CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id);`;
+  const existing = db
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'price_updates'",
+    )
+    .get();
+  if (existing && !existing.sql.includes("'tarifas'")) {
+    // Migración (10/2026): las tablas del 08/10 no admitían el tipo "tarifas" ni la fuente "tarifa".
+    // SQLite no cambia un CHECK: se rearman con las mismas columnas y se copian las filas.
+    db.exec("PRAGMA foreign_keys = OFF");
+    try {
+      db.exec("BEGIN IMMEDIATE");
+      db.exec(
+        "ALTER TABLE price_update_items RENAME TO price_update_items_v1; ALTER TABLE price_updates RENAME TO price_updates_v1; DROP INDEX IF EXISTS price_updates_at; DROP INDEX IF EXISTS price_update_items_op;",
+      );
+      db.exec(SCHEMA_OPS);
+      db.exec(
+        "INSERT INTO price_updates SELECT * FROM price_updates_v1; INSERT INTO price_update_items SELECT * FROM price_update_items_v1; DROP TABLE price_update_items_v1; DROP TABLE price_updates_v1;",
+      );
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    } finally {
+      db.exec("PRAGMA foreign_keys = ON");
+    }
+  }
+  db.exec(SCHEMA_OPS + INDEXES);
   const q = {
     ownAll: db.prepare(
       `SELECT cp.customer, cp.product_id AS productId, cp.price, c.name, c.plan
@@ -132,6 +161,12 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
     ),
     setOwn: db.prepare(
       "UPDATE customer_prices SET price = ?, updated = ?, by_actor = ? WHERE customer = ? AND product_id = ? AND price = ?",
+    ),
+    addOwn: db.prepare(
+      "INSERT INTO customer_prices(customer, product_id, price, updated, by_actor) VALUES(?,?,?,?,?) ON CONFLICT(customer, product_id) DO NOTHING",
+    ),
+    dropOwn: db.prepare(
+      "DELETE FROM customer_prices WHERE customer = ? AND product_id = ? AND price = ?",
     ),
     planCounts: db.prepare(
       "SELECT plan, COUNT(*) AS n FROM customers GROUP BY plan",
@@ -165,6 +200,7 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
     return r && Number.isInteger(r.cents) && r.cents > 0 ? r : null;
   };
   const storedLists = () => store.settings.get("priceLists", null) || {};
+  const storedTarifas = () => store.settings.get("tarifas", null);
 
   /** Arma la operación completa contra los datos de este instante (vista previa y aplicación usan lo mismo). */
   function buildPlan(params) {
@@ -241,6 +277,21 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
           notes.push(
             `${p.name}: sin precio en la lista ${planLabel[plan].toLowerCase()} (solo cambian sus precios propios).`,
           );
+      }
+    // 1b) Listas por cliente (Mayorista, Preferencial…) y trozado por mayor/por menor: una vez cada una.
+    const tarifas = storedTarifas();
+    if (tarifas)
+      for (const [key, productId] of tarifaKeys(tarifas)) {
+        if (!scopeIds.has(productId)) continue;
+        const v = tarifaGet(tarifas, key, productId);
+        if (Number.isFinite(v) && v > 0)
+          push({
+            source: "tarifa",
+            plan: key,
+            productId,
+            product: productName(productId),
+            before: toCents(v),
+          });
       }
     // 2) Precios propios: cada fila existente, una vez. Las que no existen no se crean.
     for (const r of q.ownAll.all()) {
@@ -336,7 +387,7 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
     items: plan.items.map(view),
     errors: plan.errors.map(view),
     summary: {
-      lists: plan.items.filter((i) => i.source === "lista").length,
+      lists: plan.items.filter((i) => i.source !== "cliente").length,
       own: plan.items.filter((i) => i.source === "cliente").length,
       customers: new Set(
         plan.items.filter((i) => i.customer).map((i) => i.customer),
@@ -385,8 +436,21 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
   function writePrices(rows, actor, at) {
     const lists = structuredClone(storedLists());
     let listChanged = false;
+    const tarifas = structuredClone(storedTarifas());
+    let tarifaChanged = false;
     for (const r of rows) {
-      if (r.source === "lista") {
+      if (r.source === "tarifa") {
+        if (
+          !tarifas ||
+          toCents(tarifaGet(tarifas, r.plan, r.productId)) !== r.from
+        )
+          fail(
+            409,
+            `${tarifaLabel(tarifas, r.plan)} de ${productName(r.productId)} cambió mientras tanto. Recalculá la vista previa.`,
+          );
+        tarifaSet(tarifas, r.plan, r.productId, pesos(r.to));
+        tarifaChanged = true;
+      } else if (r.source === "lista") {
         // Se fija el valor de lista efectivo (business.json o editado) para ese producto y modalidad.
         const p = products.find((x) => x.id === r.productId);
         if (toCents(productPrice(p, r.plan, lists)) !== r.from)
@@ -397,14 +461,19 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
         (lists[r.productId] ||= {})[r.plan] = pesos(r.to);
         listChanged = true;
       } else {
-        const done = q.setOwn.run(
-          pesos(r.to),
-          at,
-          actor,
-          r.customer,
-          r.productId,
-          pesos(r.from),
-        );
+        // Antes 0 = la fila no existía (se crea); después 0 = se borra (reversión de una creación).
+        const done = !r.from
+          ? q.addOwn.run(r.customer, r.productId, pesos(r.to), at, actor)
+          : !r.to
+            ? q.dropOwn.run(r.customer, r.productId, pesos(r.from))
+            : q.setOwn.run(
+                pesos(r.to),
+                at,
+                actor,
+                r.customer,
+                r.productId,
+                pesos(r.from),
+              );
         if (done.changes !== 1)
           fail(
             409,
@@ -413,6 +482,7 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
       }
     }
     if (listChanged) store.settings.set("priceLists", validateLists(lists));
+    if (tarifaChanged) store.settings.set("tarifas", tarifas);
   }
 
   function saveOp(session, op, rows) {
@@ -511,7 +581,7 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
           factor: plan.factor,
           redondeo: plan.rounding,
           alcance: {
-            listas: rows.filter((r) => r.source === "lista").length,
+            listas: rows.filter((r) => r.source !== "cliente").length,
             preciosPropios: rows.filter((r) => r.source === "cliente").length,
           },
         },
@@ -554,7 +624,17 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
     const lists = storedLists();
     for (const i of items) {
       const product = productName(i.product_id);
-      if (i.source === "lista") {
+      if (i.source === "tarifa") {
+        const t = storedTarifas();
+        const v = t ? tarifaGet(t, i.plan, i.product_id) : null;
+        const current = Number.isFinite(v) ? toCents(v) : null;
+        if (current !== i.after_cents)
+          conflicts.push({
+            what: `${tarifaLabel(t, i.plan)} · ${product}`,
+            expected: pesos(i.after_cents),
+            current: current === null ? null : pesos(current),
+          });
+      } else if (i.source === "lista") {
         const p = products.find((x) => x.id === i.product_id);
         const current = p ? toCents(productPrice(p, i.plan, lists)) : null;
         if (current !== i.after_cents)
@@ -565,7 +645,8 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
           });
       } else {
         const r = q.own.get(i.customer, i.product_id);
-        const current = r ? toCents(r.price) : null;
+        // Una fila que la operación borró (después 0) no debe existir para poder restaurarla.
+        const current = r ? toCents(r.price) : i.after_cents === 0 ? 0 : null;
         if (current !== i.after_cents)
           conflicts.push({
             what: `${i.customer_name || i.customer} · ${product}`,
@@ -765,7 +846,7 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
   };
 
   /** Enrutador del módulo: null si la ruta no es suya. */
-  return async function handle({ method, path, body, session }) {
+  async function handle({ method, path, body, session }) {
     if (!path.startsWith("/api/precios/")) return null;
     const json = (status, b) => ({ status, body: b });
     if (path === "/api/precios/actualizacion" && method === "GET") {
@@ -821,5 +902,8 @@ CREATE INDEX IF NOT EXISTS price_update_items_op ON price_update_items(update_id
       }
     }
     return null;
-  };
+  }
+  // Las listas por cliente (server/tarifas.mjs) registran su operación en este mismo historial.
+  handle.internal = { q, saveOp, writePrices, opView, reference, notifyAll };
+  return handle;
 }

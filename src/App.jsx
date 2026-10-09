@@ -25,6 +25,7 @@ import {
   Package,
   Printer,
   History,
+  Tags,
 } from "lucide-react";
 import { useStore } from "./lib/store.jsx";
 import { Link, useRoute, useDocumentMeta } from "./lib/router.jsx";
@@ -56,6 +57,7 @@ const PrintHub = lazy(() => import("./pages/PrintHub.jsx"));
 const DaySheet = lazy(() => import("./pages/DaySheet.jsx"));
 const PriceLists = lazy(() => import("./pages/PriceLists.jsx"));
 const PriceUpdate = lazy(() => import("./pages/PriceUpdate.jsx"));
+const Tarifas = lazy(() => import("./pages/Tarifas.jsx"));
 const Loading = () => (
   <div className="loading" aria-busy="true">
     Cargando…
@@ -96,6 +98,7 @@ const ADMIN_ROUTES = {
   "/operacion/dia": DaySheet,
   "/operacion/precios": PriceLists,
   "/operacion/precios/actualizar": PriceUpdate,
+  "/operacion/tarifas": Tarifas,
   "/operacion/pesada": Weighing,
   "/operacion/carga": TruckLoading,
   "/operacion/imprimir": PrintHub,
@@ -474,6 +477,7 @@ function seccionesDe(role) {
         [
           ["/operacion/imprimir", "Imprimir", Printer, "Imprimir"],
           ["/operacion/entregas", "Revisar entregas", Truck, "Entregas"],
+          ["/operacion/tarifas", "Listas de precios", Tags, "Listas"],
           ["/operacion/movimientos", "Movimientos", History, "Movimientos"],
           ["/operacion/equipo", "Equipo", ShieldCheck, "Equipo"],
         ],

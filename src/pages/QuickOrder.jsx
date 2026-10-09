@@ -214,12 +214,12 @@ export default function QuickOrder() {
       return Number.isFinite(v) ? v : NaN;
     }
     const own = picked?.prices?.[p.id];
-    // MVP: el precio es el propio del cliente (editable); sin precio propio queda "sin precio" y se
-    // tipea en la fila. Las listas mayorista/intermedio/minorista se retoman más adelante:
-    // return productPrice(p, picked?.plan || "mayorista");
-    return Number.isFinite(Number(own)) && own !== null && own !== ""
-      ? Number(own)
-      : NaN;
+    // El precio propio del cliente; si no tiene, el de su lista (Mayorista, Preferencial…, y el
+    // trozado por mayor o por menor). Siempre se puede corregir en la fila; sin ninguno, se tipea.
+    if (Number.isFinite(Number(own)) && own !== null && own !== "")
+      return Number(own);
+    const lista = picked?.lista?.precios?.[p.id];
+    return Number.isFinite(Number(lista)) && lista > 0 ? Number(lista) : NaN;
   };
   const rows = products.map((p) => {
     const l = lines[p.id] || {};
@@ -281,6 +281,7 @@ export default function QuickOrder() {
       c.summary?.balance,
       c.summary?.boxes,
       c.prices,
+      c.lista?.precios,
       c.credit,
       c.noPricing,
       c.noBalance,
@@ -320,7 +321,8 @@ export default function QuickOrder() {
         setPicked(fresh);
         // Una actualización de precios mientras se armaba el pedido: se avisa, no se cambia en silencio.
         setReviewError(
-          JSON.stringify(fresh.prices) !== JSON.stringify(picked.prices)
+          JSON.stringify([fresh.prices, fresh.lista?.precios]) !==
+            JSON.stringify([picked.prices, picked.lista?.precios])
             ? "Cambiaron los precios de este cliente (por ejemplo, una actualización de precios). Volvé a editar y revisá el resumen con los precios nuevos antes de confirmar."
             : "Cambió el saldo o la ficha del cliente. Volvé a editar y revisá el resumen actualizado antes de confirmar.",
         );
@@ -913,7 +915,9 @@ export default function QuickOrder() {
                           ? "edited"
                           : picked?.prices?.[p.id]
                             ? "own"
-                            : "")
+                            : picked?.lista?.precios?.[p.id]
+                              ? "from-list"
+                              : "")
                       }
                     >
                       {noPricing ? (
@@ -944,7 +948,12 @@ export default function QuickOrder() {
                         <button
                           type="button"
                           className="qo-price-btn"
-                          title="Cambiar el precio por kilo para este cliente"
+                          title={
+                            !picked.prices?.[p.id] &&
+                            picked.lista?.precios?.[p.id]
+                              ? "Precio de la lista del cliente. Tocá para cambiarlo."
+                              : "Cambiar el precio por kilo para este cliente"
+                          }
                           aria-label={`Cambiar precio de ${p.name}`}
                           onClick={() => setEditingPrice(p.id)}
                         >

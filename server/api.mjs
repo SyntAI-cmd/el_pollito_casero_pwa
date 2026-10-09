@@ -31,6 +31,7 @@ import { createFleet } from "./fleet.mjs";
 import { createDocuments } from "./documents.mjs";
 import { createReceipts } from "./receipts.mjs";
 import { createPriceUpdates } from "./precios.mjs";
+import { createTarifas } from "./tarifas.mjs";
 import { planDesentrega, aplicarDesentrega } from "./desentregar.mjs";
 import { appMode, defaultTare, shifts, fiscal, demo } from "../domain.mjs";
 import { str, num, oneOf, bool, latLng, rateLimiter } from "./validate.mjs";
@@ -964,6 +965,12 @@ export function createApi({
   const fleet = createFleet({ store, events, isStaff, actorOf, driverNames });
   const documents = createDocuments({ store, dataDir, isStaff });
   const priceUpdates = createPriceUpdates({ store, events, actorOf });
+  const tarifas = createTarifas({
+    store,
+    events,
+    actorOf,
+    priceOps: priceUpdates.internal,
+  });
   const receipts = createReceipts({
     store,
     events,
@@ -1053,6 +1060,8 @@ export function createApi({
     }
     const fromPrices = await priceUpdates({ method, path, body, session });
     if (fromPrices) return fromPrices;
+    const fromTarifas = await tarifas({ method, path, body, session });
+    if (fromTarifas) return fromTarifas;
     const fromFloor = await floor({ method, path, body, query, session, ip });
     if (fromFloor) return fromFloor;
     const fromFleet = await fleet({ method, path, body, query, session, ip });
@@ -1890,16 +1899,17 @@ export function createApi({
         phones
           ? phones.map((p) => store.customers.get(p)).filter(Boolean)
           : store.customers.all()
-      )
-        .filter((c) => !c.archived || query.get("todos") === "1")
-        .map((c) => ({
-          ...withSummary(c),
-          prices: prices[c.phone] || {},
-          ...(session.role === "repartidor" ? { mine: !!mine(c) } : {}),
-        }));
-      if (session.role === "repartidor")
-        for (const c of list) delete c.payments;
-      return json(200, list);
+      ).filter((c) => !c.archived || query.get("todos") === "1");
+      // Lista de cada cliente: el precio que corresponde a lo que todavía no tiene con precio propio.
+      const sugeridos = tarifas.sugeridos(list);
+      const out = list.map((c) => ({
+        ...withSummary(c),
+        prices: prices[c.phone] || {},
+        lista: sugeridos[c.phone] || null,
+        ...(session.role === "repartidor" ? { mine: !!mine(c) } : {}),
+      }));
+      if (session.role === "repartidor") for (const c of out) delete c.payments;
+      return json(200, out);
     }
     const customerMatch = path.match(
       /^\/api\/customers\/([^/]+)(?:\/(payments|boxes))?$/,

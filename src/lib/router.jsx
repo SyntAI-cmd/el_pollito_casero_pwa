@@ -102,6 +102,10 @@ const meta = {
     "Listas de precios",
     "Mayorista, intermedio y minorista.",
   ],
+  "/operacion/tarifas": [
+    "Listas de precios",
+    "Lista de cada cliente, precio del pollo y del trozado.",
+  ],
   "/operacion/precios/actualizar": [
     "Actualizar precios",
     "Variación del kilo de pollo aplicada a listas y precios de clientes.",

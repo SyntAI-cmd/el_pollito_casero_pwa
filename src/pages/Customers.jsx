@@ -228,8 +228,8 @@ export default function Customers() {
         </button>
         {session?.role === "admin" && <ImportCustomers />}
         {session?.role === "admin" && (
-          <Link to="/operacion/precios/actualizar" className="secondary">
-            Actualizar precios
+          <Link to="/operacion/tarifas" className="secondary">
+            Listas de precios
           </Link>
         )}
       </div>
