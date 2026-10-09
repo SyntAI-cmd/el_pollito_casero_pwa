@@ -180,8 +180,7 @@ export const ELIMINAR = [
   "Leo Lucero",
   "Jose 3P",
   "Miguel Mirador",
+  "Dario Aguero",
 ];
 /** Pedidos de eliminar que chocan con las hojas de la semana: se proponen sin tildar. */
-export const ELIMINAR_DUDOSOS = {
-  "Dario Aguero": "Llevó pollo el 08/10.",
-};
+export const ELIMINAR_DUDOSOS = {};

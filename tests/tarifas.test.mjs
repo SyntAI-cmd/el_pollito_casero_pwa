@@ -130,8 +130,8 @@ test("propuesta, aplicación, precio sugerido al cargar y reversión", async () 
   assert.equal(fila(tab, suelto, "entero").despues, 5000);
   assert.ok(tab.fichas.eliminar.some((e) => e.phone === hugo && !e.dudoso));
   assert.ok(
-    tab.fichas.eliminar.some((e) => e.phone === mauro && e.dudoso),
-    "Dario compró: se avisa",
+    tab.fichas.eliminar.some((e) => e.phone === mauro && !e.dudoso),
+    "Dario se elimina aunque compró (lo pidió administración)",
   );
   assert.deepEqual(
     tab.fichas.sinPrecio.map((x) => x.phone).sort(),
