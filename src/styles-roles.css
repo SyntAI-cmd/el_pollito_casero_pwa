@@ -2583,31 +2583,135 @@ dialog label.check input {
 .tf-aplicar {
   border-color: var(--red);
 }
-.tf-def table {
-  max-width: 560px;
+.tarifas > *,
+.tarifas .panel > * {
+  min-width: 0;
 }
-.tf-oferta {
-  color: var(--red);
+.tf-grid {
+  max-width: 600px;
+}
+.tf-grid-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px 104px;
+  gap: 12px;
+  align-items: center;
+  padding: 11px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.tf-grid-row:last-child {
+  border-bottom: 0;
+}
+.tf-grid-head {
+  padding-top: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted, #6b6b6b);
+}
+.tf-grid .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.tf-grid-row:not(.tf-grid-head) .num {
   font-weight: 600;
 }
-.tf-edit {
-  display: grid;
-  gap: 14px;
-  max-width: 640px;
-}
-.tf-edit-row {
+.tf-grid-name {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
+  min-width: 0;
 }
-.tf-edit-row > span {
-  min-width: 150px;
+.tf-apagado {
+  color: var(--muted, #6b6b6b);
+  font-weight: 400 !important;
+}
+.tf-nota {
+  max-width: 600px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.tf-edit {
+  display: grid;
+  gap: 16px;
+  max-width: 640px;
+}
+.tf-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-width: 0;
+}
+.tf-fieldset legend {
+  padding: 0 4px;
   font-weight: 600;
 }
-.tf-edit-row input[type="text"] {
-  width: 120px;
-  min-height: 38px;
+.tf-fieldset label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.tf-fieldset input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+}
+.tf-mini {
+  font-size: 12px;
+  color: var(--muted, #6b6b6b);
+}
+.tf-edit-lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 150px);
+  gap: 10px;
+}
+.tf-edit-corte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 110px auto;
+  gap: 10px;
+  align-items: end;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.tf-edit-corte:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.tf-edit-nombre {
+  align-self: center;
+}
+.tf-fieldset .tf-edit-oferta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+}
+.tf-edit-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .tf-grid-row {
+    grid-template-columns: minmax(0, 1fr) 84px 84px;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .tf-edit-corte {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 6px 8px;
+  }
+  .tf-edit-nombre {
+    grid-column: 1 / -1;
+  }
+  .tf-edit-acciones > * {
+    flex: 1;
+  }
 }
 .tf-filtros {
   display: grid;
@@ -2639,14 +2743,28 @@ dialog label.check input {
   gap: 6px;
 }
 .tf-cliente-ctrl {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 170px));
+  gap: 8px;
+  justify-content: end;
+}
+.tf-cliente-ctrl label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 .tf-cliente-ctrl select {
-  min-height: 36px;
-  max-width: 100%;
+  width: 100%;
+  min-height: 38px;
+}
+.tf-resumen {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted, #6b6b6b);
+}
+.tf-resumen strong {
+  color: inherit;
 }
 .tf-precios {
   grid-column: 1 / -1;
@@ -2699,11 +2817,14 @@ dialog label.check input {
     grid-template-columns: 1fr;
   }
   .tf-cliente-ctrl {
-    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    justify-content: stretch;
   }
-  .tf-cliente-ctrl label,
   .tf-cliente-ctrl select {
-    width: 100%;
+    min-height: 40px;
+    font-size: 14px;
+    padding-left: 8px;
+    padding-right: 4px;
   }
 }
 

@@ -167,6 +167,16 @@ export default function Tarifas() {
     });
     setEditando(true);
   };
+  const setLista = (id, campo, v) =>
+    setDraft((d) => ({
+      ...d,
+      listas: { ...d.listas, [id]: { ...d.listas[id], [campo]: v } },
+    }));
+  const setTroz = (pid, campo, v) =>
+    setDraft((d) => ({
+      ...d,
+      trozado: { ...d.trozado, [pid]: { ...d.trozado[pid], [campo]: v } },
+    }));
   const guardarListas = (e) => {
     e.preventDefault();
     guard(async () => {
@@ -365,131 +375,105 @@ export default function Tarifas() {
         </div>
         {!editando ? (
           <div className="tf-def">
-            <table className="customers pu-table">
-              <thead>
-                <tr>
-                  <th>Trozado</th>
-                  <th className="num">Por mayor</th>
-                  <th className="num">Por menor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {t.config.productos.map((p) => {
-                  const e = t.config.trozado[p.id];
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        {p.name}
-                        {e.oferta && (
-                          <small className="tf-oferta">
-                            {" "}
-                            · oferta: por mayor para todos
-                          </small>
-                        )}
-                      </td>
-                      <td className="num">{money(e.mayor)}</td>
-                      <td className="num">{money(e.menor)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            <p className="muted small">
-              Regla del trozado: va <strong>por mayor</strong> el cliente que
-              llevó <strong>{t.config.umbralKg} kg o más</strong> de trozado
-              (todos los cortes juntos, sin el pollo entero) en los últimos{" "}
-              {t.config.dias} días ({fechaCorta(t.periodo.desde)} al{" "}
-              {fechaCorta(t.periodo.hasta)}). Si no, por menor. A cada cliente
+            <div
+              className="tf-grid"
+              role="table"
+              aria-label="Precios del trozado"
+            >
+              <div className="tf-grid-row tf-grid-head" role="row">
+                <span role="columnheader">Corte</span>
+                <span role="columnheader" className="num">
+                  Por mayor
+                </span>
+                <span role="columnheader" className="num">
+                  Por menor
+                </span>
+              </div>
+              {t.config.productos.map((p) => {
+                const e = t.config.trozado[p.id];
+                return (
+                  <div className="tf-grid-row" role="row" key={p.id}>
+                    <span role="cell" className="tf-grid-name">
+                      {p.name}
+                      {e.oferta && <span className="tf-badge">Oferta</span>}
+                    </span>
+                    <span role="cell" className="num">
+                      {money(e.mayor)}
+                    </span>
+                    <span
+                      role="cell"
+                      className={"num" + (e.oferta ? " tf-apagado" : "")}
+                    >
+                      {money(e.menor)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="muted small tf-nota">
+              <strong>Oferta</strong>: todos los clientes pagan el precio por
+              mayor. <strong>Regla del trozado</strong>: va por mayor el cliente
+              que llevó {t.config.umbralKg} kg o más de trozado (todos los
+              cortes juntos, sin el pollo entero) en los últimos {t.config.dias}{" "}
+              días ({fechaCorta(t.periodo.desde)} al{" "}
+              {fechaCorta(t.periodo.hasta)}); si no, por menor. A cada cliente
               se le puede fijar a mano.
               {!t.config.guardada &&
-                " Estos son los valores de la planilla: quedan guardados al aplicar."}
+                " Son los valores de la planilla: quedan guardados al aplicar."}
             </p>
           </div>
         ) : (
           <form className="tf-edit" onSubmit={guardarListas}>
-            <fieldset className="pu-rounding">
-              <legend>Pollo entero</legend>
+            <fieldset className="tf-fieldset">
+              <legend>Pollo entero por lista</legend>
               {t.config.listas.map((l) => (
-                <div key={l.id} className="tf-edit-row">
-                  <input
-                    type="text"
-                    aria-label={`Nombre de la lista ${l.nombre}`}
-                    value={draft.listas[l.id].nombre}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        listas: {
-                          ...draft.listas,
-                          [l.id]: {
-                            ...draft.listas[l.id],
-                            nombre: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    aria-label={`Precio de ${l.nombre}`}
-                    value={draft.listas[l.id].pollo}
-                    onChange={(e) =>
-                      setDraft({
-                        ...draft,
-                        listas: {
-                          ...draft.listas,
-                          [l.id]: {
-                            ...draft.listas[l.id],
-                            pollo: e.target.value,
-                          },
-                        },
-                      })
-                    }
-                  />
+                <div key={l.id} className="tf-edit-lista">
+                  <label>
+                    <span className="tf-mini">Nombre</span>
+                    <input
+                      type="text"
+                      value={draft.listas[l.id].nombre}
+                      onChange={(e) => setLista(l.id, "nombre", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span className="tf-mini">$ por kg</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={draft.listas[l.id].pollo}
+                      onChange={(e) => setLista(l.id, "pollo", e.target.value)}
+                    />
+                  </label>
                 </div>
               ))}
             </fieldset>
-            <fieldset className="pu-rounding">
-              <legend>Trozado (por mayor · por menor · oferta)</legend>
+            <fieldset className="tf-fieldset">
+              <legend>Trozado</legend>
               {t.config.productos.map((p) => (
-                <div key={p.id} className="tf-edit-row">
-                  <span>{p.name}</span>
-                  {["mayor", "menor"].map((k) => (
-                    <input
-                      key={k}
-                      type="text"
-                      inputMode="decimal"
-                      aria-label={`${p.name} por ${k}`}
-                      value={draft.trozado[p.id][k]}
-                      onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          trozado: {
-                            ...draft.trozado,
-                            [p.id]: {
-                              ...draft.trozado[p.id],
-                              [k]: e.target.value,
-                            },
-                          },
-                        })
-                      }
-                    />
+                <div key={p.id} className="tf-edit-corte">
+                  <strong className="tf-edit-nombre">{p.name}</strong>
+                  {[
+                    ["mayor", "Por mayor"],
+                    ["menor", "Por menor"],
+                  ].map(([k, label]) => (
+                    <label key={k}>
+                      <span className="tf-mini">{label}</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        aria-label={`${p.name} ${label.toLowerCase()}`}
+                        value={draft.trozado[p.id][k]}
+                        onChange={(e) => setTroz(p.id, k, e.target.value)}
+                      />
+                    </label>
                   ))}
-                  <label className="pu-check">
+                  <label className="pu-check tf-edit-oferta">
                     <input
                       type="checkbox"
                       checked={draft.trozado[p.id].oferta}
                       onChange={(e) =>
-                        setDraft({
-                          ...draft,
-                          trozado: {
-                            ...draft.trozado,
-                            [p.id]: {
-                              ...draft.trozado[p.id],
-                              oferta: e.target.checked,
-                            },
-                          },
-                        })
+                        setTroz(p.id, "oferta", e.target.checked)
                       }
                     />
                     Oferta
@@ -497,32 +481,37 @@ export default function Tarifas() {
                 </div>
               ))}
             </fieldset>
-            <div className="tf-edit-row">
-              <label>
-                Por mayor desde (kg)
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={draft.umbralKg}
-                  onChange={(e) =>
-                    setDraft({ ...draft, umbralKg: e.target.value })
-                  }
-                />
-              </label>
-              <label>
-                En los últimos (días)
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={draft.dias}
-                  onChange={(e) => setDraft({ ...draft, dias: e.target.value })}
-                />
-              </label>
-            </div>
-            <div>
+            <fieldset className="tf-fieldset">
+              <legend>Regla del trozado</legend>
+              <div className="tf-edit-lista">
+                <label>
+                  <span className="tf-mini">Por mayor desde (kg)</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={draft.umbralKg}
+                    onChange={(e) =>
+                      setDraft({ ...draft, umbralKg: e.target.value })
+                    }
+                  />
+                </label>
+                <label>
+                  <span className="tf-mini">En los últimos (días)</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={draft.dias}
+                    onChange={(e) =>
+                      setDraft({ ...draft, dias: e.target.value })
+                    }
+                  />
+                </label>
+              </div>
+            </fieldset>
+            <div className="tf-edit-acciones">
               <button className="primary" disabled={busy}>
                 Guardar listas
-              </button>{" "}
+              </button>
               <button
                 type="button"
                 className="secondary"
@@ -592,6 +581,9 @@ export default function Tarifas() {
               </div>
               <div className="tf-cliente-ctrl">
                 <label>
+                  <span className="tf-mini" aria-hidden="true">
+                    Lista
+                  </span>
                   <span className="sr-only">Lista de {c.name}</span>
                   <select
                     value={c.tarifa || ""}
@@ -603,12 +595,14 @@ export default function Tarifas() {
                     {listas.map((l) => (
                       <option key={l.id || "sin"} value={l.id}>
                         {l.nombre}
-                        {l.pollo ? ` · ${money(l.pollo)}` : ""}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label>
+                  <span className="tf-mini" aria-hidden="true">
+                    Trozado
+                  </span>
                   <span className="sr-only">Trozado de {c.name}</span>
                   <select
                     value={c.trozado}
@@ -617,15 +611,23 @@ export default function Tarifas() {
                       cambiarCliente(c, { trozado: e.target.value })
                     }
                   >
-                    <option value="auto">
-                      Trozado por {c.nivel} (auto,{" "}
-                      {String(c.kg).replace(".", ",")} kg)
-                    </option>
-                    <option value="mayor">Trozado por mayor (fijo)</option>
-                    <option value="menor">Trozado por menor (fijo)</option>
+                    <option value="auto">Automático</option>
+                    <option value="mayor">Fijo por mayor</option>
+                    <option value="menor">Fijo por menor</option>
                   </select>
                 </label>
               </div>
+              <p className="tf-resumen">
+                {c.tarifa && c.tarifa !== "especial"
+                  ? `Pollo ${money(t.config.listas.find((l) => l.id === c.tarifa)?.pollo)}`
+                  : c.tarifa === "especial"
+                    ? "Pollo con precio propio"
+                    : "Sin lista"}
+                {" · "}Trozado por <strong>{c.nivel}</strong>
+                {c.trozado === "auto"
+                  ? ` (${String(c.kg).replace(".", ",")} kg en ${t.config.dias} días)`
+                  : " (fijo)"}
+              </p>
               <div className="tf-precios">
                 {c.filas.length ? (
                   c.filas.map((f) => <PrecioChip key={f.productId} f={f} />)
