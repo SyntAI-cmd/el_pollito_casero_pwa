@@ -80,7 +80,7 @@ test("propuesta, aplicación, precio sugerido al cargar y reversión", async () 
   const pirovano = await t.cliente("Alfredo Pirovano", { entero: 3500 });
   const valentina = await t.cliente("Valentina", { suprema: 10000 });
   const hugo = await t.cliente("Hugo Gonzales", { entero: 3900 });
-  const mauro = await t.cliente("Mauro Godoy Cruz", { entero: 3600 });
+  const mauro = await t.cliente("Dario Aguero", { entero: 3900 });
   const suelto = await t.cliente("Cliente sin lista", { entero: 5000 });
   // Esta semana: Ariel llevó 25 kg de trozado; Gallego, 8 kg; Valentina, 30 kg de suprema (pero va fija por menor).
   await t.pedido(ariel, [
@@ -131,7 +131,7 @@ test("propuesta, aplicación, precio sugerido al cargar y reversión", async () 
   assert.ok(tab.fichas.eliminar.some((e) => e.phone === hugo && !e.dudoso));
   assert.ok(
     tab.fichas.eliminar.some((e) => e.phone === mauro && e.dudoso),
-    "Mauro compró: se avisa",
+    "Dario compró: se avisa",
   );
   assert.deepEqual(
     tab.fichas.sinPrecio.map((x) => x.phone).sort(),

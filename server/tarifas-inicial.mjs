@@ -51,6 +51,7 @@ export const ASIGNACION_INICIAL = {
     "Oscar Godoy Cruz",
     "Oscar Tacalhuano",
     "Lautaro Sarmiento",
+    "Mauro Godoy Cruz",
   ],
   preferencial: [
     "Alberto California",
@@ -108,6 +109,7 @@ export const ASIGNACION_INICIAL = {
     "Ramiro",
     "Néstor",
     "Valentina",
+    "Viviana ¨Nova Market¨",
   ],
 };
 
@@ -147,7 +149,14 @@ export const POLLO_BENEDETTI = 3750;
 export const SIN_PRECIO_ESPECIALES = ["Santiago Barzola", "Cecilia Fuentes"];
 
 /** Nivel de trozado fijado a mano (no se calcula con el historial). */
-export const TROZADO_FIJO = { Valentina: "menor" };
+export const TROZADO_FIJO = {
+  Valentina: "menor",
+  // Las Vanesas son un mismo cliente con sucursales: todas van por mayor.
+  "Vanesa - ¨Godoy Cruz¨": "mayor",
+  "Vanesa - ¨Guaymallen¨": "mayor",
+  "Vanesa - ¨Lujan¨": "mayor",
+  "Vanesa - ¨Lujan 2 ¨": "mayor",
+};
 
 /** Fichas a eliminar (no compran). Las que tienen historial quedan archivadas, no se pierden. */
 export const ELIMINAR = [
@@ -168,9 +177,11 @@ export const ELIMINAR = [
   "Mauricio Cardenas",
   "Benedetti",
   "Arian - Facturar A Cuit De Joel Junin",
+  "Leo Lucero",
+  "Jose 3P",
+  "Miguel Mirador",
 ];
 /** Pedidos de eliminar que chocan con las hojas de la semana: se proponen sin tildar. */
 export const ELIMINAR_DUDOSOS = {
-  "Mauro Godoy Cruz": "Llevó 10 cajas el 07/10.",
   "Dario Aguero": "Llevó pollo el 08/10.",
 };
