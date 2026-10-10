@@ -1236,7 +1236,7 @@ function Boxes({ order, kind }) {
               aria="Cajas salientes"
               value={outgoingText}
               onChange={setOutgoingText}
-              max={100}
+              max={1000}
             />
             <CajaRow
               sign="−"

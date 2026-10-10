@@ -670,7 +670,7 @@ export function createApi({
           );
         const boxes = num(b.boxes ?? 0, {
           min: 0,
-          max: 100,
+          max: 1000,
           integer: true,
           name: "envases",
         });
